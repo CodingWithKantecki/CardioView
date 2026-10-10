@@ -120,19 +120,34 @@ export class Heart {
     this.controls.update();
   }
 
-  async load(url = 'assets/heart/scene.gltf', configUrl = 'assets/heart.json') {
+  // The purchased set first (assets/heart-pro/, kept out of git, so it may be absent), then the
+  // CC model that ships with the repo.
+  async load() {
+    if (await this.loadSet('assets/heart-pro.json', true)) return true;
+    return this.loadSet('assets/heart.json', false);
+  }
+
+  // A set is a config (chamber geometry, camera) plus a model, and optionally an opened model of
+  // the same anatomy in the same space (`inside`), which the cutaway shows instead of clipping.
+  async loadSet(configUrl, optional) {
+    let config = null;
     try {
       const r = await fetch(configUrl, { cache: 'no-cache' });
-      this.config = r.ok ? await r.json() : null;
-    } catch { this.config = null; }
-    let gltf;
+      if (r.ok) config = await r.json();
+    } catch { config = null; }
+    if (!config && optional) return false;
+    const url = config?.model || 'assets/heart/scene.gltf';
+    let gltf, insideGltf = null;
     try {
       gltf = await new GLTFLoader().loadAsync(url);
+      if (config?.inside) insideGltf = await new GLTFLoader().loadAsync(config.inside);
     } catch (e) {
+      if (optional) { console.info(`no ${url}: using the bundled heart`); return false; }
       console.warn('heart model not loaded:', e?.message || e);
       if (this.missingEl) this.missingEl.hidden = false;
       return false;
     }
+    this.config = config;
     const root = gltf.scene;
     root.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(root);
@@ -144,6 +159,15 @@ export class Heart {
     const inner = new THREE.Group();
     inner.add(root);
     root.position.sub(center);
+    if (insideGltf) {   // same raw space as the exterior: the same shift and scale align them
+      const ir = insideGltf.scene;
+      ir.updateMatrixWorld(true);
+      ir.position.sub(center);
+      ir.visible = false;
+      inner.add(ir);
+      this.insideRoot = ir;
+      this.exteriorRoot = root;
+    }
     inner.scale.setScalar(s);
     holder.add(inner);
     if (this.config?.rotation) holder.rotation.set(...this.config.rotation.map((d) => (d * Math.PI) / 180));
@@ -172,7 +196,7 @@ export class Heart {
     this.controls.update();
     this.fit();
 
-    root.traverse((obj) => {
+    holder.traverse((obj) => {
       if (!obj.isMesh) return;
       const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
       for (const mat of mats) this.patch(mat, obj);
@@ -320,8 +344,15 @@ export class Heart {
     }
   }
 
+  // With an opened model in the set the cutaway shows it in the exterior's place; otherwise a
+  // clipping plane cuts the exterior.
   setCutaway(on) {
     this.state.cutaway = on;
+    if (this.insideRoot) {
+      this.insideRoot.visible = on;
+      this.exteriorRoot.visible = !on;
+      return;
+    }
     for (const m of this.materials) {
       m.clippingPlanes = on ? [this.clipPlane] : [];
       m.needsUpdate = true;
