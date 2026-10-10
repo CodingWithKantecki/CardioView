@@ -15,36 +15,32 @@
 </header>
 
 <main class="sheet" id="sheet" hidden>
-  <section class="block effort" id="effort">
-    <h2>Effort and recovery</h2>
-    <p class="text" id="effort-text"></p>
-    <canvas class="chart" id="effort-chart"></canvas>
+  <section class="band">
+    <div class="box rate" id="rate">
+      <h2>Heart rate over time</h2>
+      <canvas class="chart" id="rate-chart"></canvas>
+      <p class="text small" id="rate-text"></p>
+    </div>
+    <div class="box numbers">
+      <h2>Numbers</h2>
+      <dl class="stats" id="stats"></dl>
+    </div>
+    <div class="box beat" id="beat">
+      <h2>Average heartbeat</h2>
+      <canvas class="chart" id="beat-chart"></canvas>
+      <p class="text small" id="beat-text"></p>
+    </div>
+    <aside class="box take" id="take" hidden>
+      <img id="qr" alt="QR code that opens this report">
+      <p id="qr-text">Scan to keep this on your phone</p>
+      <p class="dim small" id="until"></p>
+    </aside>
   </section>
-  <section class="block breathing" id="breathing">
-    <h2>Breathing</h2>
-    <p class="text" id="breathing-text"></p>
-    <canvas class="chart" id="breathing-chart"></canvas>
+  <section class="strips-box">
+    <h2>ECG <span class="sub" id="strips-sub"></span></h2>
+    <div class="paper" id="strips"></div>
+    <p class="text dim" id="strips-note" hidden>The ECG itself stays on the server that recorded it. Open this report there to see the strips.</p>
   </section>
-  <section class="block hrv" id="hrv">
-    <h2>Heart rate variability</h2>
-    <p class="figure" id="hrv-figure"></p>
-    <p class="text" id="hrv-text"></p>
-  </section>
-  <section class="block beat" id="beat">
-    <h2>Your average heartbeat</h2>
-    <canvas class="chart" id="beat-chart"></canvas>
-    <p class="text" id="beat-text"></p>
-  </section>
-  <section class="block timing" id="timing">
-    <h2>Beat timing</h2>
-    <canvas class="chart" id="timing-chart"></canvas>
-    <p class="text" id="timing-text"></p>
-  </section>
-  <aside class="take" id="take" hidden>
-    <img id="qr" alt="QR code that opens this summary">
-    <p id="qr-text">Scan to keep this on your phone</p>
-    <p class="dim" id="until"></p>
-  </aside>
   <footer class="foot">
     <p>A visualization, not a medical device. It does not diagnose anything.</p>
     <button type="button" id="delete" hidden>Delete my session</button>

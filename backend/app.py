@@ -577,6 +577,23 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, http: h
             return JSONResponse({"reason": "This session is no longer available."}, status_code=404)
         return {"ok": True}
 
+    @app.get("/api/s/{sid}/ecg")
+    async def summary_ecg(sid: str):
+        """The session's whole ECG for the report's rhythm strips: raw microvolts at 130 Hz from
+        the stored recording (the demo's from the synthetic session). The cloud copy has no ECG."""
+        if sid == "demo":
+            t, uv = await asyncio.to_thread(lambda: (lambda ses: (ses.t, ses.uv))(synth_session(seed=1)))
+        else:
+            if not store.valid_id(sid) or await find_summary(sid) is None:
+                return JSONResponse({"reason": "This session is no longer available."}, status_code=404)
+            try:
+                t, uv = await asyncio.to_thread(store.read_recording, sid)
+            except OSError:
+                return JSONResponse({"reason": "This session is no longer available."}, status_code=404)
+        if len(uv) == 0:
+            return JSONResponse({"reason": "No ECG was kept for this session."}, status_code=404)
+        return {"fs": FS, "t0": round(float(t[0]), 4), "uv": [int(v) for v in uv]}
+
     @app.get("/api/s/{sid}/qr.svg")
     async def summary_qr(sid: str):
         if await find_summary(sid) is None:

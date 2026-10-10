@@ -123,7 +123,7 @@ function syncSourceCells() {
     let note;
     if (!strapSupported && !params.has('fake')) note = 'Connecting a strap needs Chrome or Edge on a computer or an Android phone';
     else if (strap.state === 'streaming') note = `${strap.name} connected`;
-    else if (strap.state === 'choosing') note = 'Pick your strap in the list. Listed twice? Pick the one with the signal icon';
+    else if (strap.state === 'choosing') note = 'Give the list a second, then pick the strap with the signal icon';
     else if (strap.state === 'connecting') note = 'Connecting to the strap';
     else note = strap.reason || 'Wet the pads, wear the strap snug, then connect it';
     if (strapPanel.note.textContent !== note) strapPanel.note.textContent = note;
@@ -364,6 +364,11 @@ for (const b of sourceCells) {
     else if (want === 'live') lastChoice = { type: 'source', name: 'live' };
   });
 }
+// the logo toggles full screen (Thomas, 2026-10-10 evening): a click fills the display, another brings the browser's tabs back
+$('brand').addEventListener('click', () => {
+  if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+  else document.documentElement.requestFullscreen?.().catch(() => {});
+});
 panel.start.addEventListener('click', () => session.start(strapReady()));
 strapPanel.connect.addEventListener('click', () => { if (strap.state === 'off') strap.connect(); });
 strapPanel.disconnect.addEventListener('click', () => strap.disconnect());

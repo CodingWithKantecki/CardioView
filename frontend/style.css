@@ -52,7 +52,7 @@ body {
 
 /* header: Statura's navy bar */
 .top { flex: 0 0 76px; display: flex; align-items: center; justify-content: space-between; gap: clamp(16px, 2vw, 32px); padding: 0 var(--gutter); background: var(--header); color: var(--fg-0); border-bottom: var(--rule-w) solid var(--line-2); }
-.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; letter-spacing: -0.015em; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; letter-spacing: -0.015em; cursor: pointer; user-select: none; }   /* click: full screen on or off */
 .brand-mark { height: 36px; width: auto; display: block; }   /* the heart mark from the logo (docs/logo.png), cut out with a transparent background */
 /* the timeline: one tray holding the transport cells and, as its last cell, the strip of the last
    30 s with a playhead; drag the strip to scrub */
