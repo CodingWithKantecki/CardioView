@@ -2,7 +2,7 @@
 
 See your own heart beat, live in 3D. A Polar H10 chest strap streams ECG over Bluetooth, Python finds every beat, and a browser shows a heart model squeezing chamber by chamber in time with it, next to the live trace, the heart rate and the chamber timing.
 
-Status: simulated ECG and CSV replay run end to end (trace, heart rate, chamber lanes). Live strap source and the heart model are next.
+Status: simulated ECG, CSV replay and the live Polar H10 all run end to end (trace, heart rate, chamber lanes). `data/h10_ecg_thomas.csv` is a real 84 s recording. The heart model is next.
 
 ## Setup
 
