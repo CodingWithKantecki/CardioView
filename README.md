@@ -63,7 +63,7 @@ Headless screenshot of the running viewer (needs Node and Google Chrome): `cd to
 - Three.js 0.186.0, MIT license, vendored in `frontend/vendor/three/`.
 - IBM Plex fonts 5.3.0 via Fontsource, SIL Open Font License 1.1, vendored in `frontend/vendor/fonts/`.
 - NeuroKit2 for ECG cleaning, peak detection and delineation, MIT license.
-- bleak and bleakheart for the Polar H10 link, MIT license.
+- bleak (MIT license) and bleakheart (Mozilla Public License 2.0) for the Polar H10 link.
 - Heart model: to be added with its author, link and license once it is in the repo.
 
 This is a visualization, not a medical device. It shows no diagnosis.
