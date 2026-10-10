@@ -52,7 +52,7 @@ ECG is personal data. Only commit your own recording, never a visitor's.
 
 ## The heart model
 
-`frontend/assets/heart.json` holds the four chamber centers and radii in the normalized model space (model centered at the origin, 1.8 units tall) plus the camera. Open the viewer with `?debug=1` to see the bounding box, axes and a marker per chamber while adjusting them; `?act=1` holds every chamber squeezed and `?act=0` relaxed.
+`frontend/assets/heart.json` holds, per chamber, the contraction center and radius plus a surface anchor and outward normal for the label, all in the normalized model space (model centered at the origin, 1.8 units tall), plus the camera. Labels follow their anchors as the heart rotates and dim when the anchor faces away. Open the viewer with `?debug=1` to see the bounding box, axes and a marker per chamber while adjusting them; `?act=1` holds every chamber squeezed and `?act=0` relaxed.
 
 ## Tests and checks
 

@@ -10,7 +10,11 @@ const clock = new StreamClock();
 const trace = new Trace($('trace'));
 const lanes = new Chambers($('lanes'));
 const labels = {};
-for (const el of document.querySelectorAll('.label')) labels[el.dataset.chamber] = el;
+const sparks = {};
+for (const el of document.querySelectorAll('.label')) {
+  labels[el.dataset.chamber] = el;
+  sparks[el.dataset.chamber] = el.querySelector('.spark');
+}
 const heart = new Heart($('heart-view'), { labels, leaders: $('leaders'), missing: $('heart-missing') });
 heart.load();
 
@@ -68,6 +72,7 @@ function frame() {
   const t = clock.displayTime();
   trace.draw(t);
   lanes.draw(t);
+  for (const c in sparks) if (!labels[c].hidden) lanes.drawSpark(sparks[c], c, t);
   if (t !== null) {
     heart.setActivation(FORCED_ACT === null ? lanes.activation(t) : FORCED_ACT);
     showBeat(lanes.latestBefore(t));

@@ -23,10 +23,10 @@
     <div id="heart-view"></div>
     <div id="heart-missing" class="missing" hidden>Heart model not installed, see README</div>
     <svg id="leaders" class="leaders" aria-hidden="true"></svg>
-    <div class="label side-left" data-chamber="ra" hidden><b>RA</b><span>right atrium</span></div>
-    <div class="label side-right" data-chamber="la" hidden><b>LA</b><span>left atrium</span></div>
-    <div class="label side-left" data-chamber="rv" hidden><b>RV</b><span>right ventricle</span></div>
-    <div class="label side-right" data-chamber="lv" hidden><b>LV</b><span>left ventricle</span></div>
+    <div class="label side-left" data-chamber="ra" hidden><b>RA</b><span>right atrium</span><canvas class="spark" data-spark="ra"></canvas></div>
+    <div class="label side-right" data-chamber="la" hidden><b>LA</b><span>left atrium</span><canvas class="spark" data-spark="la"></canvas></div>
+    <div class="label side-left" data-chamber="rv" hidden><b>RV</b><span>right ventricle</span><canvas class="spark" data-spark="rv"></canvas></div>
+    <div class="label side-right" data-chamber="lv" hidden><b>LV</b><span>left ventricle</span><canvas class="spark" data-spark="lv"></canvas></div>
     <div class="controls">
       <button type="button" data-action="rotate" aria-pressed="false">Rotate</button>
       <button type="button" data-action="wireframe" aria-pressed="false">Wireframe</button>

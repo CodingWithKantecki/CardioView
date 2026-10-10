@@ -80,7 +80,10 @@ export class Heart {
     this.uStrength = { value: CHAMBERS.map((c) => STRENGTH[c]) };
     this.uGlow = { value: CHAMBERS.map((c) => new THREE.Color(GLOW[c])) };
     this.centersWorld = CHAMBERS.map(() => new THREE.Vector3());
+    this.anchorsWorld = CHAMBERS.map(() => new THREE.Vector3());
+    this.normalsWorld = CHAMBERS.map(() => new THREE.Vector3(0, 0, 1));
     this.radiiWorld = [0.45, 0.45, 0.6, 0.6];
+    this.sideOf = {};
     this.clipPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0.1);
 
     this.resize();
@@ -132,8 +135,17 @@ export class Heart {
     if (this.config?.camera) {
       if (this.config.camera.position) this.camera.position.fromArray(this.config.camera.position);
       if (this.config.camera.target) this.controls.target.fromArray(this.config.camera.target);
-      this.controls.update();
     }
+    const params = new URLSearchParams(location.search);
+    const yaw = Number(params.get('yaw') || 0);
+    const pitch = Number(params.get('pitch') || 0);
+    if (yaw || pitch) {   // debug: orbit the camera for screenshot checks
+      const off = this.camera.position.clone().sub(this.controls.target);
+      off.applyAxisAngle(new THREE.Vector3(1, 0, 0), (pitch * Math.PI) / 180);
+      off.applyAxisAngle(new THREE.Vector3(0, 1, 0), (yaw * Math.PI) / 180);
+      this.camera.position.copy(this.controls.target).add(off);
+    }
+    this.controls.update();
 
     root.traverse((obj) => {
       if (!obj.isMesh) return;
@@ -148,6 +160,13 @@ export class Heart {
         const m = new THREE.Mesh(new THREE.SphereGeometry(0.05, 16, 12),
           new THREE.MeshBasicMaterial({ color: GLOW[c], depthTest: false }));
         m.renderOrder = 10;
+        this.scene.add(m);
+        return m;
+      });
+      this.anchorMarkers = CHAMBERS.map(() => {
+        const m = new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 8),
+          new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, depthTest: false }));
+        m.renderOrder = 11;
         this.scene.add(m);
         return m;
       });
@@ -190,6 +209,9 @@ export class Heart {
       const ch = cfg[c] || {};
       if (ch.center) this.centersWorld[i].fromArray(ch.center);
       if (ch.radius != null) this.radiiWorld[i] = ch.radius;
+      this.anchorsWorld[i].fromArray(ch.anchor || ch.center || [0, 0, 0]);
+      if (ch.normal) this.normalsWorld[i].fromArray(ch.normal).normalize();
+      else this.normalsWorld[i].copy(this.anchorsWorld[i]).normalize();
     });
     const scaleVec = new THREE.Vector3();
     for (const mat of this.materials) {
@@ -204,6 +226,7 @@ export class Heart {
       });
     }
     this.markers.forEach((m, i) => m.position.copy(this.centersWorld[i]));
+    (this.anchorMarkers || []).forEach((m, i) => m.position.copy(this.anchorsWorld[i]));
   }
 
   setActivation({ ra = 0, la = 0, rv = 0, lv = 0 }) {
@@ -243,19 +266,54 @@ export class Heart {
     const w = this.container.clientWidth;
     const h = this.container.clientHeight;
     const p = new THREE.Vector3();
-    let svg = '';
-    CHAMBERS.forEach((c, i) => {
+    const toCam = new THREE.Vector3();
+    p.set(0, 0, 0).project(this.camera);
+    const cx = (p.x * 0.5 + 0.5) * w;
+    const items = CHAMBERS.map((c, i) => {
       const el = this.labels[c];
-      if (!el) return;
-      p.copy(this.centersWorld[i]).project(this.camera);
+      p.copy(this.anchorsWorld[i]).project(this.camera);
       const ax = (p.x * 0.5 + 0.5) * w;
       const ay = (-p.y * 0.5 + 0.5) * h;
-      const left = el.classList.contains('side-left');
+      toCam.copy(this.camera.position).sub(this.anchorsWorld[i]);
+      const facing = this.normalsWorld[i].dot(toCam) > 0;
+      // hysteresis: only switch sides once the anchor is clearly past the middle
+      const margin = w * 0.04;
+      const prev = this.sideOf[c];
+      const side = !prev ? (ax < cx ? 'left' : 'right')
+        : ax < cx - margin ? 'left' : ax > cx + margin ? 'right' : prev;
+      this.sideOf[c] = side;
+      return { c, i, el, ax, ay, facing, side, y: ay };
+    }).filter((it) => it.el);
+    for (const side of ['left', 'right']) {
+      const group = items.filter((it) => it.side === side).sort((a, b) => a.ay - b.ay);
+      for (let k = 1; k < group.length; k++) {
+        const gap = group[k - 1].el.offsetHeight + 16;
+        if (group[k].y < group[k - 1].y + gap) group[k].y = group[k - 1].y + gap;
+      }
+      const last = group[group.length - 1];
+      if (last) {
+        const over = last.y + last.el.offsetHeight / 2 - (h - 70);
+        if (over > 0) for (const it of group) it.y -= over;
+      }
+    }
+    let svg = '';
+    for (const it of items) {
+      const { el } = it;
+      const left = it.side === 'left';
+      el.classList.toggle('side-left', left);
+      el.classList.toggle('side-right', !left);
+      el.classList.toggle('dim', !it.facing);
+      const title = el.querySelector('b');
+      const titleMid = title ? title.offsetTop + title.offsetHeight / 2 : 20;
       const lx = left ? w * 0.19 : w * 0.81;
       el.style.left = left ? `${Math.round(lx - el.offsetWidth)}px` : `${Math.round(lx)}px`;
-      el.style.top = `${Math.round(ay - el.offsetHeight / 2)}px`;
-      svg += `<line x1="${lx.toFixed(1)}" y1="${ay.toFixed(1)}" x2="${ax.toFixed(1)}" y2="${ay.toFixed(1)}"></line>`;
-    });
+      el.style.top = `${Math.round(it.y - titleMid)}px`;
+      const ly = it.y;
+      const knee = left ? lx + 36 : lx - 36;
+      const cls = it.facing ? '' : ' class="dim"';
+      svg += `<polyline${cls} fill="none" points="${lx.toFixed(1)},${ly.toFixed(1)} ${knee.toFixed(1)},${ly.toFixed(1)} ${it.ax.toFixed(1)},${it.ay.toFixed(1)}"></polyline>`;
+      svg += `<circle${cls} cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="4"></circle>`;
+    }
     if (this.leaders) this.leaders.innerHTML = svg;
   }
 

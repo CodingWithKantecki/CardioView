@@ -4,9 +4,10 @@ import { fitCanvas, drawNowLine, WINDOW_S, NOW_FRAC, GUTTER } from './trace.js';
 export const ATRIA_S = 0.12;
 const RISE_S = 0.1;
 const RELEASE_S = 0.2;
-const ORDER = ['ra', 'la', 'rv', 'lv'];
+export const ORDER = ['ra', 'la', 'rv', 'lv'];
 const COLOR = { ra: '#5B9BFF', la: '#FF5C83', rv: '#5B9BFF', lv: '#FF5C83' };
 const KEEP = 40;
+const SPARK_S = 3;
 
 export function intervals(beat) {
   const ra = beat.r + beat.ra_on;
@@ -49,19 +50,60 @@ export class Chambers {
     return null;
   }
 
-  activation(t) {
-    const out = { ra: 0, la: 0, rv: 0, lv: 0 };
+  // activation of one chamber at time t, 0 to 1
+  activationOf(c, t) {
+    let out = 0;
     for (let i = this.beats.length - 1; i >= 0; i--) {
       const b = this.beats[i];
       if (b.r > t + 0.5) continue;
       if (b.r < t - 2) break;
-      const iv = intervals(b);
-      for (const c of ORDER) {
-        const a = envelope(t, iv[c][0], iv[c][1]);
-        if (a > out[c]) out[c] = a;
-      }
+      const [on, off] = intervals(b)[c];
+      const a = envelope(t, on, off);
+      if (a > out) out = a;
     }
     return out;
+  }
+
+  activation(t) {
+    return { ra: this.activationOf('ra', t), la: this.activationOf('la', t), rv: this.activationOf('rv', t), lv: this.activationOf('lv', t) };
+  }
+
+  // small wave of one chamber's activation over the last SPARK_S seconds, newest at the right edge
+  drawSpark(canvas, c, tDisplay) {
+    const { w, h, dpr } = fitCanvas(canvas);
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, w, h);
+    const base = h - 1.5 * dpr;
+    const top = 2 * dpr;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(140,151,171,0.35)';
+    ctx.lineWidth = 1 * dpr;
+    ctx.beginPath(); ctx.moveTo(0, base); ctx.lineTo(w, base); ctx.stroke();
+    if (tDisplay !== null) {
+      ctx.beginPath();
+      ctx.moveTo(0, base);
+      for (let x = 0; x < w; x++) {
+        const t = tDisplay - ((w - 1 - x) / (w - 1)) * SPARK_S;
+        const a = this.activationOf(c, t);
+        ctx.lineTo(x, base - a * (base - top));
+      }
+      ctx.lineTo(w - 1, base);
+      ctx.closePath();
+      ctx.fillStyle = COLOR[c] + '40';
+      ctx.fill();
+      ctx.beginPath();
+      for (let x = 0; x < w; x++) {
+        const t = tDisplay - ((w - 1 - x) / (w - 1)) * SPARK_S;
+        const a = this.activationOf(c, t);
+        const y = base - a * (base - top);
+        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = COLOR[c];
+      ctx.lineWidth = 1.5 * dpr;
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   draw(tDisplay) {
