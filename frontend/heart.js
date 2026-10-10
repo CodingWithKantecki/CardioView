@@ -9,6 +9,7 @@ export const CHAMBERS = ['ra', 'la', 'rv', 'lv'];
 const GLOW = { ra: 0x5B9BFF, la: 0xFF5C83, rv: 0x5B9BFF, lv: 0xFF5C83 };
 const STRENGTH = { ra: 0.08, la: 0.08, rv: 0.12, lv: 0.12 };
 const DEBUG = new URLSearchParams(location.search).has('debug');
+const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;   // no auto-rotate
 
 const VERTEX_HEAD = `
 uniform vec3 uCenters[4];
@@ -173,6 +174,7 @@ export class Heart {
     }
     this.controls.update();
     this.fit();
+    this.home = { position: this.camera.position.clone(), target: this.controls.target.clone() };
 
     root.traverse((obj) => {
       if (!obj.isMesh) return;
@@ -303,7 +305,25 @@ export class Heart {
     v[0] = ra; v[1] = la; v[2] = rv; v[3] = lv;
   }
 
-  setRotate(on) { this.state.rotate = on; this.controls.autoRotate = on; }
+  setRotate(on) {
+    if (REDUCED_MOTION) on = false;
+    this.state.rotate = on;
+    this.controls.autoRotate = on;
+  }
+
+  // Back to the view the model loaded with, refitted for the current viewport, auto-rotate off.
+  resetView() {
+    if (!this.home) return;
+    const damping = this.controls.enableDamping;
+    this.controls.enableDamping = false;
+    this.controls.update();                  // without damping, update drops any leftover drag inertia
+    this.camera.position.copy(this.home.position);
+    this.controls.target.copy(this.home.target);
+    this.controls.update();
+    this.controls.enableDamping = damping;
+    this.fit();
+    this.setRotate(false);
+  }
 
   setWireframe(on) {
     this.state.wireframe = on;
