@@ -246,16 +246,16 @@ body.lost .bpm { opacity: 0.35; }
 /* the Gemini heart cell in the tray: the sparkle, the name in the gradient, a gradient frame that
    sweeps (faster on hover); pressed, it fills with the gradient (Thomas, 2026-10-10 evening: cooler) */
 .rhythm-tray button.gemini-cell { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.gemini-cell .gemini-text { max-width: 8ch; }   /* "Gemini" over "heart" beside the sparkle when the cell is narrow */
 .rhythm-tray button.gemini-cell::before { content: ""; position: absolute; inset: 0; padding: 2px; pointer-events: none; background: linear-gradient(120deg, var(--gemini-a), var(--gemini-b), var(--gemini-c), var(--gemini-b), var(--gemini-a)); background-size: 300% 100%; animation: gemini-sweep 7s linear infinite; -webkit-mask: linear-gradient(#FFF 0 0) content-box, linear-gradient(#FFF 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
 .rhythm-tray button.gemini-cell:hover::before { animation-duration: 2s; }
-.gemini-cell .gemini-mark { width: clamp(13px, 1.7vh, 17px); height: clamp(13px, 1.7vh, 17px); }
+.gemini-cell .gemini-mark { width: clamp(15px, 1.1vw, 22px); height: clamp(15px, 1.1vw, 22px); }
 .gemini-cell .gemini-mark svg path { fill: var(--gemini-a); }
 .gemini-cell .gemini-text { background: var(--gemini); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .rhythm-tray button.gemini-cell[aria-pressed="true"] { background: var(--gemini); }
 .rhythm-tray button.gemini-cell[aria-pressed="true"]::before { display: none; }
 .rhythm-tray button.gemini-cell[aria-pressed="true"] .gemini-text { background: none; color: #FFFFFF; }
 .rhythm-tray button.gemini-cell[aria-pressed="true"] .gemini-mark svg path { fill: #FFFFFF; }
-.rhythm-tray button.gemini-cell[aria-pressed="true"] .info { background: #FFFFFF; color: var(--gemini-b); }
 /* five sparkles behind the panel, each on its own beat */
 .gemini-stars { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
 .gemini-stars svg { position: absolute; width: 10px; height: 10px; opacity: 0; animation: gemini-twinkle 2.8s ease-in-out infinite; }
@@ -276,27 +276,7 @@ body.lost .bpm { opacity: 0.35; }
   .gemini, .describe, .describe-note, .gemini.busy .gemini-head .gemini-mark, .rhythm-tray button.gemini-cell::before { animation: none; }
   .gemini-stars svg { animation: none; opacity: 0.5; transform: none; }
 }
-.rhythm-tray button { position: relative; padding: 0 4px; text-align: center; white-space: normal; line-height: 1.2; font-size: clamp(11px, 0.7vw, 14px); letter-spacing: 0.04em; }
-/* a rhythm cell's "!" badge: hover it for what that rhythm is, in a box under the cell. Hover only: Chrome
-   marks a clicked cell :focus-visible once the R, W, C or T key is pressed, which would pin its box open.
-   Sized by the viewport height, as the cells are, so it keeps above a one-line name down to about 720 px. */
-.rhythm-tray .info {
-  --badge: clamp(12px, 1.5vh, 18px);
-  position: absolute; top: calc(var(--badge) / 8); right: calc(var(--badge) / 8); width: var(--badge); height: var(--badge);
-  display: grid; place-items: center; background: var(--rule-solid); color: var(--ink);
-  font-family: var(--mono); font-size: clamp(10px, 1.1vh, 12px); font-weight: 700; letter-spacing: 0; line-height: 1; cursor: help;
-}
-.rhythm-tray .info:hover { background: var(--accent); color: var(--on-accent); }
-.rhythm-tray button[aria-pressed="true"] .info { background: var(--on-accent); color: var(--accent); }
-.rhythm-tray button[aria-pressed="true"] .info:hover { background: var(--card); color: var(--ink); }
-.rhythm-tray .tip {
-  display: none; position: absolute; top: calc(100% + var(--cell-w)); right: 0; z-index: 10; width: clamp(220px, 15vw, 300px);
-  padding: 10px 12px 12px; background: var(--card); border: 2px solid var(--accent); pointer-events: none;
-  font-family: var(--sans); font-size: 14px; font-weight: 400; line-height: 1.4; letter-spacing: 0; text-align: left; text-transform: none; color: var(--ink-2);
-}
-.rhythm-tray .tip b { display: block; margin-bottom: 6px; font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); }
-.rhythm-tray .info:hover + .tip { display: block; }
-.tip-ecg { display: block; width: 100%; height: 60px; margin: 2px 0 10px; background: var(--paper); }   /* 4 s of that rhythm, drawn by tips.js */
+.rhythm-tray button { position: relative; padding: 0 6px; text-align: center; white-space: normal; line-height: 1.15; font-size: clamp(13px, 0.95vw, 19px); letter-spacing: 0.06em; }   /* bigger (Thomas, 2026-10-10 evening); the badges and tips went the same evening */
 .instrument canvas { flex: 1 1 auto; min-height: 0; width: 100%; display: block; margin-top: 10px; }
 .nowline { position: absolute; width: 0; border-left: 2px dashed var(--accent); pointer-events: none; z-index: 2; }
 

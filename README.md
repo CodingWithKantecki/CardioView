@@ -40,7 +40,7 @@ python -m backend --source data/h10_ecg_thomas.csv   # or a recording
 python -m backend --source sim                  # or NeuroKit's simulated ECG
 ```
 
-Options: `--bpm 72` sets the simulated rate, `--invert` flips a strap worn upside down, `--host` and `--port` change where it listens (default 0.0.0.0:8000). Whatever you start with, the Strap / Demo / Exercise toggle at the top right of the viewer switches between the live strap and demo data without a restart; `--source data/<file>.csv` or `--source sim` picks the demo source (default: the simulated normal rhythm). In Demo, the tray beside the heart rate plays synthesized rhythms (Normal, Heart attack, and Gemini heart for anything you can describe) for showing the screen without a strap; they are simulations and are never offered beside strap data. Hover the ? in a cell to read what that rhythm is.
+Options: `--bpm 72` sets the simulated rate, `--invert` flips a strap worn upside down, `--host` and `--port` change where it listens (default 0.0.0.0:8000). Whatever you start with, the Strap / Demo / Exercise toggle at the top right of the viewer switches between the live strap and demo data without a restart; `--source data/<file>.csv` or `--source sim` picks the demo source (default: the simulated normal rhythm). In Demo, the tray beside the heart rate plays synthesized rhythms (Normal, Heart attack, and Gemini heart for anything you can describe) for showing the screen without a strap; they are simulations and are never offered beside strap data.
 
 ### Chat (optional, the only part that needs internet)
 

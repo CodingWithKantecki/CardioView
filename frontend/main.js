@@ -6,7 +6,6 @@ import { Heart } from './heart.js';
 import { Glitch } from './glitch.js';
 import { Timeline } from './timeline.js';
 import { Dock } from './dock.js';
-import { drawRhythmTips } from './tips.js';
 import { Strap, FakeStrap, supported as strapSupported } from './strap.js';
 import { initChat } from './chat.js';
 import { SessionOverlay } from './session.js';
@@ -45,7 +44,6 @@ for (const el of document.querySelectorAll('.label')) {
 const heart = new Heart($('heart-view'), { labels, leaders: $('leaders'), missing: $('heart-missing') });
 if (new URLSearchParams(location.search).has('debug')) { window.heart = heart; window.clock = clock; window.trace = trace; }   // for headless checks
 heart.load();
-drawRhythmTips();
 const glitch = new Glitch($('glitch'), heart.renderer.domElement);
 const session = new SessionOverlay(
   { box: $('session'), prompt: $('session-prompt'), sub: $('session-sub'), ring: $('session-ring') },
