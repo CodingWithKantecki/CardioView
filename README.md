@@ -54,7 +54,7 @@ ECG is personal data. Only commit your own recording, never a visitor's.
 
 ## The heart model
 
-The repo ships the free Sketchfab model credited below. A better set is optional: the CGTrader pack "Human Heart with Cross section" by devden, a whole heart plus the same heart opened along the four-chamber plane. Its license does not allow redistribution, so it is not in the repo: put its GLB files in `frontend/assets/heart-pro/` as `exterior-2.glb` (or `exterior-1.glb`, the other texture variation, and point `frontend/assets/heart-pro.json` at it) and `inside.glb`, and the viewer picks them up, with the C key swapping in the opened heart. Without that folder it falls back to the bundled model.
+The viewer uses the CGTrader pack "Human Heart with Cross section" by devden (purchased under its royalty-free license by Thomas Kantecki; the files are in `frontend/assets/heart-pro/` so the whole team runs the same heart): a whole heart (`exterior-2.glb`; `exterior-1.glb` is the other texture variation, switchable in `frontend/assets/heart-pro.json`) plus the same heart opened along the four-chamber plane (`inside.glb`), which the Open control in the dock swaps in. If that folder is missing the viewer falls back to the free Sketchfab model credited below.
 
 `frontend/assets/heart.json` (and `heart-pro.json` for the purchased set) holds, per chamber, the contraction center and radius plus a surface anchor and outward normal for the label, all in the normalized model space (model centered at the origin, 1.8 units tall), plus the camera. Labels keep fixed slots beside the heart, swap sides once when you look at it from behind, point at their anchors and dim when the anchor faces away. The small wave under each label is modeled from the beat timing (it is not a pressure measurement), which is why the heart card says WAVES: MODELED. Open the viewer with `?debug=1` to see the bounding box, axes and a marker per chamber while adjusting them; `?act=1` holds every chamber squeezed and `?act=0` relaxed.
 
@@ -75,6 +75,7 @@ Headless screenshot of the running viewer (needs Node and Google Chrome): `cd to
 - JetBrains Mono 5.2.6 via Fontsource (weights 400, 600, 700), SIL Open Font License 1.1, vendored in `frontend/vendor/fonts/` with its license file.
 - NeuroKit2 for ECG cleaning, peak detection and delineation, MIT license.
 - bleak (MIT license) and bleakheart (Mozilla Public License 2.0) for the Polar H10 link.
-- Heart model: this work is based on "Realistic Human Heart" (https://sketchfab.com/3d-models/realistic-human-heart-3f8072336ce94d18b3d0d055a1ece089) by neshallads (https://sketchfab.com/neshallads) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/). Files in `frontend/assets/heart/` with the license text. The chambers are animated by a vertex shader; the model itself is unchanged.
+- Heart model: "Human Heart with Cross section" by devden on CGTrader, royalty-free license, purchased by Thomas Kantecki.
+- Fallback heart model: this work is based on "Realistic Human Heart" (https://sketchfab.com/3d-models/realistic-human-heart-3f8072336ce94d18b3d0d055a1ece089) by neshallads (https://sketchfab.com/neshallads) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/). Files in `frontend/assets/heart/` with the license text. The chambers are animated by a vertex shader; the model itself is unchanged.
 
 This is a visualization, not a medical device. It shows no diagnosis.
