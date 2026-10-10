@@ -34,22 +34,18 @@
   <aside class="column" id="column">
     <section class="instrument rate">
       <h2>Heart rate</h2>
-      <div class="rate-row">
-        <div>
-          <div class="readout"><span class="bpm" id="bpm">--</span><span class="unit">bpm</span></div>
-          <p class="rr" id="rr">-- s between beats</p>
-        </div>
-        <div class="rhythms" id="rhythms" hidden>
-          <span class="rhythms-title">Simulated rhythm</span>
-          <div class="rhythm-grid">
-            <button type="button" data-rhythm="recording" aria-pressed="false">Recording</button>
-            <button type="button" data-rhythm="sinus" aria-pressed="false">Sinus rhythm</button>
-            <button type="button" data-rhythm="tachy" aria-pressed="false">Tachycardia</button>
-            <button type="button" data-rhythm="brady" aria-pressed="false">Bradycardia</button>
-            <button type="button" data-rhythm="afib" aria-pressed="false">Atrial fibrillation</button>
-            <button type="button" data-rhythm="pvc" aria-pressed="false">Extra beats</button>
-            <button type="button" data-rhythm="vt" aria-pressed="false">Ventricular tachycardia</button>
-          </div>
+      <div class="readout"><span class="bpm" id="bpm">--</span><span class="unit">bpm</span></div>
+      <p class="rr" id="rr">-- s between beats</p>
+      <div class="rhythms" id="rhythms" hidden>
+        <span class="rhythms-title">Simulated rhythm</span>
+        <div class="toggle rhythm-tray">
+          <button type="button" data-rhythm="recording" aria-pressed="false">Recording</button>
+          <button type="button" data-rhythm="sinus" aria-pressed="false">Sinus</button>
+          <button type="button" data-rhythm="tachy" aria-pressed="false">Tachycardia</button>
+          <button type="button" data-rhythm="brady" aria-pressed="false">Bradycardia</button>
+          <button type="button" data-rhythm="afib" aria-pressed="false">A-fib</button>
+          <button type="button" data-rhythm="pvc" aria-pressed="false">Extra beats</button>
+          <button type="button" data-rhythm="vt" aria-pressed="false">V-tach</button>
         </div>
       </div>
     </section>

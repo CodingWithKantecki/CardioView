@@ -3,6 +3,7 @@ import { Trace, GUTTER, NOW_FRAC } from './trace.js';
 import { Chambers } from './chambers.js';
 import { Heart } from './heart.js';
 import { Glitch } from './glitch.js';
+import { invalidate as invalidateTheme } from './theme.js';
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -16,6 +17,15 @@ const params = new URLSearchParams(location.search);
 const actParam = params.get('act');
 const FORCED_ACT = actParam === null ? null : { ra: +actParam, la: +actParam, rv: +actParam, lv: +actParam };
 const FORCED_LOST = params.get('signal') === 'lost';
+// theme: ?theme=dark, or the T key, remembered per browser
+const savedTheme = (() => { try { return localStorage.getItem('cardioview-theme'); } catch { return null; } })();
+if (params.get('theme') || savedTheme) document.documentElement.dataset.theme = params.get('theme') || savedTheme;
+function toggleTheme() {
+  const next = document.documentElement.dataset.theme === 'dark' ? '' : 'dark';
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem('cardioview-theme', next); } catch {}
+  invalidateTheme();
+}
 const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;   // lost state without the glitch pass
 
 const RHYTHM_LABELS = {
@@ -206,7 +216,8 @@ opacity.addEventListener('input', () => heart.setOpacity(Number(opacity.value) /
 window.addEventListener('keydown', (e) => {
   if (e.target instanceof HTMLInputElement) return;
   const k = e.key.toLowerCase();
-  if (k === 'r') heart.setRotate(!heart.state.rotate);
+  if (k === 't') toggleTheme();
+  else if (k === 'r') heart.setRotate(!heart.state.rotate);
   else if (k === 'w') userWireframe = !userWireframe;
   else if (k === 'c') heart.setCutaway(!heart.state.cutaway);
 });
