@@ -11,7 +11,7 @@ A booth visitor wears the strap, agrees to a saved session, follows a two minute
 ## Decisions
 
 - Guided session of about two minutes: get ready, rest 30 s, breathe 40 s, squats 20 s, recover 30 s.
-- Five summary sections: effort and recovery, breathing, heart rate variability, average heartbeat, beat timing.
+- Five summary sections: effort and recovery, breathing, heart rate variability, average heartbeat (waves labelled, no durations until validated), beat timing.
 - The big screen shows the summary with a QR code; the QR opens the same page on the visitor's phone.
 - Opt-in per visitor. The full recording stays on the laptop during the event, a visitor can delete theirs, and one command wipes everything after the event.
 - Anonymous: a random ID, no names.
@@ -163,8 +163,8 @@ Each section is values or "couldn't measure" with a plain reason ("not enough st
    - Chart: heart rate over the whole session with the steps marked.
    - Text: "Resting 68 bpm. Peak 141 bpm during squats. Dropped 31 bpm in the 30 s after."
 2. Breathing
-   - Breathing rate at rest, estimated from the ECG with NeuroKit2's ECG-derived respiration over the rest step. Needs at least 3 breaths and a rate between 6 and 30 a minute.
-   - The same estimate over the breathe step, shown next to the pace of 6 a minute as a check.
+   - Breathing rate at rest, estimated from the ECG: the heart speeds up on each in-breath, so the strongest rhythm between 6 and 30 a minute in the rest step's heart rate series is the breathing rate. Needs 15 s without gaps and a spectral peak at least 3 times the band's median that is not on the band's edge (an edge peak is slow drift, not breathing). Prototyping recovered 15 a minute within 0.2 on synthetic sessions and refused Thomas's recording, where the peak sat on the edge.
+   - The same estimate over the breathe step (band 3 to 15 a minute), shown next to the pace of 6 a minute as a check.
    - Swing: for each full 10 s breath in the breathe step, the highest minus the lowest heart rate; the median over breaths. Needs 3 full breaths with usable beats.
    - Text: "At rest you breathed about 14 times a minute (estimated from the ECG). Breathing slowly, your heart rate rose and fell by about 11 bpm with each breath."
 3. Heart rate variability
@@ -172,8 +172,9 @@ Each section is values or "couldn't measure" with a plain reason ("not enough st
    - Text: "RMSSD 42 ms and SDNN 51 ms, over 30 s at rest. Both describe how much the time between beats changes."
 4. Average heartbeat
    - The median of usable beats from rest and breathe, from 0.25 s before to 0.5 s after the R peak. Needs 30 beats whose correlation with the median beat is at least 0.8.
-   - Durations from `nk.ecg_delineate` (DWT) over the same beats, the median of each landmark: P to QRS (P onset to QRS onset), QRS (onset to offset), QT (QRS onset to T offset). Rounded to 10 ms and marked approximate at 130 Hz. Each needs its landmark on at least 20 beats. No QTc.
-   - Text: "Averaged from 78 beats. P to QRS about 150 ms, QRS about 90 ms, QT about 380 ms (approximate at 130 Hz)."
+   - The P wave, QRS and T wave are labelled at their peaks: the R peak, and the medians of the P and T peaks from `nk.ecg_delineate` (DWT) over the same beats.
+   - No durations in ms. Prototyping showed the QRS onset at 130 Hz moves by 20 to 75 ms between methods and beat shapes, enough to make a normal beat read as abnormal; P onset, QRS offset and T offset stayed within about 5 ms. Interval measurement is validated in the rhythm feasibility test first and comes back only if it passes.
+   - Text: "Your heartbeat, averaged from 78 beats. P wave: the atria contract. QRS: the ventricles contract. T wave: the ventricles relax."
 5. Beat timing
    - Each beat's RR against the next one, for rest and for breathe in two shades. No numbers, no verdict.
    - Text: "Each dot is one beat: the gap before it against the gap after it. Steady timing makes a tight cluster; slow breathing stretches it along the diagonal."
@@ -218,7 +219,7 @@ Lines: get ready ("Hold still while we get a clean signal."), rest ("Sit still a
 ## Testing
 
 - `backend/synth.py` builds a session from a designed RR series: rest near 70 bpm with natural variation, breathe with a 0.1 Hz swing of plus or minus 6 bpm, squats ramping to about 140, recover decaying. It places a NeuroKit2-simulated beat at each R peak at 130 Hz, so the expected values follow from the design.
-- `test_analysis.py`: each section within tolerance of the designed values (rest within 2 bpm, peak within 3, drop within 4, swing within 3, RMSSD within 15 percent of the designed series, durations within 30 ms of the same beat template delineated at 1000 Hz); "couldn't measure" for noise, short steps and clipping; Thomas's recording analysed as a rest step without errors.
+- `test_analysis.py`: each section within tolerance of the designed values (rest within 2 bpm, peak within 3, drop within 4, swing within 3, RMSSD within 15 percent of the designed series, breathing within 1.5 a minute, the P, R and T labels in order with R at 0); "couldn't measure" for noise, short steps and clipping; Thomas's recording analysed as a rest step without errors.
 - `test_session.py`: step order and lengths by sample count, pause and early end on a gap, cancel deletes the folder, start refused without signal, consent written, unfinished folders removed at startup.
 - `test_app_sessions.py`: the routes, the session message in the backlog, the QR SVG.
 - `test_cloud.py`: sync with a fake database adapter, disabled without the variable, phone deletes remove the local folder.
