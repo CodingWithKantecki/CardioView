@@ -39,6 +39,7 @@ export class Trace {
     this.scale = 200;
     this.mode = '2d';
     this.beats = [];      // shared with the chamber lanes, newest last
+    this.amp3d = 0;
     this.resetFilter();
   }
 
@@ -74,39 +75,46 @@ export class Trace {
     return lo;
   }
 
-  // Beat waterfall: the newest beat in front, older ones receding up and back. Depth slides
-  // continuously with the current beat so the stack never jumps, and lines are rounded.
+  // Beat waterfall: the newest beat in front, older ones receding up and back. Rows slide back
+  // continuously, timed by the next beat's real time, so nothing jumps; the scale eases both
+  // ways; the vertical budget keeps the up and down swings inside the panel.
   draw3d(tDisplay) {
     const { w, h, dpr } = fitCanvas(this.canvas);
     const ctx = this.ctx;
     ctx.clearRect(0, 0, w, h);
     if (tDisplay === null || this.ts.length === 0) return;
-    const rows = this.beats.filter((b) => b.r - PRE_S <= tDisplay && b.r - PRE_S >= this.ts[0]).slice(-ROWS_3D);
+    const all = this.beats.filter((b) => b.r - PRE_S >= this.ts[0]);
+    const shown = all.filter((b) => b.r - PRE_S <= tDisplay);
+    const rows = shown.slice(-ROWS_3D);
     if (rows.length === 0) return;
     const gutter = GUTTER * dpr;
     const n = rows.length;
     const newest = rows[n - 1];
-    const rr = newest.rr || (n > 1 ? newest.r - rows[n - 2].r : 0.8);
-    const phase = Math.min(1, Math.max(0, (tDisplay - (newest.r - PRE_S)) / rr));
+    const next = all[all.indexOf(newest) + 1];                 // usually known already: beats arrive before they are displayed
+    const span0 = next ? next.r - newest.r : (newest.rr || 0.8);
+    const phase = Math.min(1, Math.max(0, (tDisplay - (newest.r - PRE_S)) / span0));
     const stepX = (w - gutter) * 0.018;
-    const stepY = h * 0.082;
+    const stepY = h * 0.08;
     const span = PRE_S + POST_S;
     const width0 = (w - gutter) * 0.78;
-    const base0 = h * 0.9;
-    let peak = 0;
+    const base0 = h * 0.8;
+
+    let up = 0, down = 0;
     for (const b of rows) {
       const i0 = this.indexAt(b.r - PRE_S), i1 = this.indexAt(Math.min(b.r + POST_S, tDisplay));
-      for (let i = i0; i < i1; i++) { const v = Math.abs(this.ys[i]); if (v > peak) peak = v; }
+      for (let i = i0; i < i1; i++) { const v = this.ys[i]; if (v > up) up = v; if (-v > down) down = -v; }
     }
-    const target = Math.max(200, peak);
-    this.scale = target > this.scale ? target : this.scale + (target - this.scale) * 0.02;
-    const amp0 = (h * 0.24) / this.scale;
+    const targetAmp = Math.min((h * 0.22) / Math.max(200, up), (h * 0.15) / Math.max(120, down));
+    this.amp3d = this.amp3d ? this.amp3d + (targetAmp - this.amp3d) * 0.08 : targetAmp;
+    const amp0 = this.amp3d;
 
     for (let k = 0; k < n; k++) {          // oldest first, so the front draws last
       const b = rows[k];
       const depth = (n - 1 - k) + phase;   // 0 = a beat that just started
       const sc = Math.pow(0.96, depth);
-      const alpha = Math.max(0.08, 1 - depth * 0.11);
+      const age = tDisplay - (b.r - PRE_S);                                   // seconds since this row began
+      const alpha = Math.max(0, 1 - depth / (ROWS_3D + 0.5)) * Math.min(1, age / 0.2);   // fade in, fade out at the back
+      if (alpha <= 0) continue;
       const x0 = gutter + depth * stepX;
       const base = base0 - depth * stepY;
       const pxPerS = (width0 * sc) / span;
@@ -123,11 +131,11 @@ export class Trace {
       roundedPath(ctx, pts);
       ctx.lineTo(pts[pts.length - 1][0], base);
       ctx.closePath();
-      ctx.fillStyle = 'rgba(7,10,18,0.96)';
+      ctx.fillStyle = `rgba(7,10,18,${(0.96 * Math.min(1, age / 0.2)).toFixed(3)})`;
       ctx.fill();
       if (depth < 1) {
-        const g = ctx.createLinearGradient(0, base - amp * this.scale * 0.6, 0, base);
-        g.addColorStop(0, `rgba(67,224,160,${(0.22 * (1 - depth)).toFixed(3)})`);
+        const g = ctx.createLinearGradient(0, base - h * 0.2, 0, base);
+        g.addColorStop(0, `rgba(67,224,160,${(0.22 * (1 - depth) * Math.min(1, age / 0.2)).toFixed(3)})`);
         g.addColorStop(1, 'rgba(67,224,160,0)');
         ctx.fillStyle = g;
         ctx.fill();
