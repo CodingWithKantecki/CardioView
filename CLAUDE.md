@@ -160,7 +160,7 @@ Spec: `docs/superpowers/specs/2026-10-10-visitor-sessions-design.md`. Opt-in per
 
 ## Tests
 
-`pytest` covers: bpm within 2 of a simulated rate, every beat emitted once, every beat emitted within 0.9 s of stream time after its R peak, a stream time jump restamps beats, sources paced like the strap, `sources/h10.py` against the fake client (decode, battery, invert, reconnect), and every `data/h10_ecg_*.csv` replayed without gaps over 2 s.
+`pytest` covers: bpm within 2 of a simulated rate, every beat emitted once, every beat emitted within 0.9 s of stream time after its R peak, a stream time jump restamps beats, sources paced like the strap, `sources/h10.py` against the fake client (decode, battery, invert, reconnect), and every `data/h10_ecg_*.csv` replayed without gaps over 2 s. Sessions: the analysis against synthetic sessions with known answers and bad input, the step machine by samples (pause, drop, cancel, consent), the routes end to end (including that source and rhythm switches wait and that a failing session hook never stops the pump), the Neon sync and the public app with fake databases, and the sessions command.
 
 ## Conventions
 

@@ -58,6 +58,37 @@ The repo ships the free Sketchfab model credited below. A better set is optional
 
 `frontend/assets/heart.json` (and `heart-pro.json` for the purchased set) holds, per chamber, the contraction center and radius plus a surface anchor and outward normal for the label, all in the normalized model space (model centered at the origin, 1.8 units tall), plus the camera. Labels keep fixed slots beside the heart, swap sides once when you look at it from behind, point at their anchors and dim when the anchor faces away. The small wave under each label is modeled from the beat timing (it is not a pressure measurement), which is why the heart card says WAVES: MODELED. Open the viewer with `?debug=1` to see the bounding box, axes and a marker per chamber while adjusting them; `?act=1` holds every chamber squeezed and `?act=0` relaxed.
 
+## Saved sessions
+
+A visitor can save a two minute session and take a summary of it home.
+
+1. Strap them in and explain: their ECG is recorded for about two minutes, without their name, kept on this laptop until the end of the event, and they can delete it from their phone.
+2. If they agree, press S, then S again. The stage walks them through it: hold still, rest, slow breathing with the ring, squats, recovery.
+3. The big screen then shows their summary with a QR code. Esc goes back to the live view, and so does three minutes without a key.
+
+Esc twice during a session stops it and deletes it. V turns the voice on or off. While a session runs, the Strap / Demo and rhythm buttons wait: stop the session first.
+
+The summary shows effort and recovery, breathing, heart rate variability, their average heartbeat and their beat timing. A section says what it could not measure when the signal was not good enough. A session run on demo data says so at the top. It is a visualization, not a diagnosis.
+
+Sessions live in `sessions/` on this machine and never go into git. After the event:
+
+```
+python tools/sessions.py wipe
+```
+
+`--keep-until 2026-10-11T18:00` on the server sets when sessions expire (default: 24 hours after it starts). `python tools/sessions.py list` shows what is saved.
+
+### The public link (optional)
+
+Without this, the QR opens the summary over the booth's Wi-Fi only. To make it open anywhere:
+
+1. Create a free project at neon.com and copy its connection string (Connect, with connection pooling on).
+2. `python tools/sessions.py cloud-init "<that connection string>"`, then put the two lines it prints where it says. Nothing uses the owner password after this, so you can reset it in Neon.
+3. `npm i -g vercel` and `vercel login`, then in `cloud/`: `vercel project add cardioview`, `vercel link --yes --project cardioview` and `vercel env add NEON_PUBLIC_URL production --sensitive` (paste the public line). `cloud/vercel.json` already sets the FastAPI preset.
+4. `python tools/sessions.py deploy`, and put `CARDIOVIEW_PUBLIC_URL=<the URL it prints>` in `.env`. Restart the server.
+
+Only the anonymous summary goes to Neon. The raw ECG stays on this machine.
+
 ## Tests and checks
 
 ```
@@ -75,6 +106,8 @@ Headless screenshot of the running viewer (needs Node and Google Chrome): `cd to
 - JetBrains Mono 5.2.6 via Fontsource (weights 400, 600, 700), SIL Open Font License 1.1, vendored in `frontend/vendor/fonts/` with its license file.
 - NeuroKit2 for ECG cleaning, peak detection and delineation, MIT license.
 - bleak (MIT license) and bleakheart (Mozilla Public License 2.0) for the Polar H10 link.
+- Voice: the session prompts were generated with Kokoro 82M (https://huggingface.co/hexgrad/Kokoro-82M), Apache 2.0.
+- segno (BSD) for QR codes, psycopg (LGPL 3) for Neon.
 - Heart model: this work is based on "Realistic Human Heart" (https://sketchfab.com/3d-models/realistic-human-heart-3f8072336ce94d18b3d0d055a1ece089) by neshallads (https://sketchfab.com/neshallads) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/). Files in `frontend/assets/heart/` with the license text. The chambers are animated by a vertex shader; the model itself is unchanged.
 
 This is a visualization, not a medical device. It shows no diagnosis.

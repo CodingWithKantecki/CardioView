@@ -47,10 +47,11 @@ Rules:
 - Step clocks count received samples, not wall time, so a step pauses while the strap is away. With no samples for 15 s the session ends early and the summary covers the steps that finished.
 - Clean means no sample at the clip level (absolute value 19000 uV or more) and at least 3 beats from the live detector with RR between 0.3 and 2.0 s in the last 5 s. If get ready reaches 30 s without that, the session goes on and the quality rules below decide what can be measured.
 - One session at a time. Start is refused when no samples arrived in the last 2 s; the stage shows "No signal yet".
+- While a session is running or being measured, Strap / Demo and rhythm switches wait: the server ignores them and the stage says to press Esc twice first, so a session never mixes two sources.
 - The breathe step paces 6 breaths a minute: 5 s in, 5 s out, starting with in. Under prefers-reduced-motion the ring stays still and the prompt alternates "Breathe in" and "Breathe out" with a seconds count.
 - The live view keeps running under the overlay, so the visitor watches their heart change. The extras row under the chamber lanes stays empty.
 
-Overlay layout: the prompt sits at the top center of the stage in Plex Sans 600, with one dim line under it for the step number and seconds left. The guide ring is a hairline circle centered on the heart that grows over 5 s and shrinks over 5 s.
+Overlay layout: the prompt sits at the top center of the stage in the viewer's bold sans (as the alert), with one status line under it in the viewer's status style for the step number and seconds left. The guide ring is a thin circle in the rule color, centered on the heart, that grows over 5 s and shrinks over 5 s.
 
 ## Architecture
 
@@ -87,7 +88,7 @@ Small edits:
 - `frontend/main.js`: hand `session` messages and keys to `session.js`.
 - `frontend/index.html`: one overlay container and one stylesheet link.
 - `requirements.txt`: `segno==1.6.6` (QR codes), `psycopg[binary]==3.3.6` (Neon).
-- `.gitignore`: `sessions/`, `.env`, `cloud/public/`, `cloud/.vercel/`.
+- `.gitignore`: `sessions/`, `.env`, `.venv-voice/`, `cloud/static/`, `cloud/.vercel/`.
 - `README.md` and `CLAUDE.md`: sessions, keys, the cloud setup, the wipe command, the new message.
 
 ## Messages and routes
@@ -185,9 +186,9 @@ The page footer: "A visualization, not a medical device. It does not diagnose an
 
 One page (`summary.html`, `summary.js`, `summary.css`) for three hosts: the big screen (`/s/<id>?screen=1`), a phone on the LAN (`/s/<id>`), and Vercel (`/s/<id>`). It fetches `/api/s/<id>` from its own origin and draws its charts on canvas with no chart library.
 
-It follows the viewer's language: ink background, hairlines, Plex Sans in sentence case, no panels, pills or chips. ECG green appears only on the measured average beat. Blue and red keep their right and left heart meaning, so the other charts use the text and dim colors.
+It follows the viewer's language: the same theme colors, type and rules as `style.css` (copied, because the page also stands alone on Vercel), including the booth's T theme. The trace color appears only on the measured average beat. The right and left heart colors keep their meaning, so the other charts use the text and dim colors.
 
-- Big screen, 1920 by 1080: a header with the wordmark and "Your session, 2 min, 14:03"; the effort chart across the top; breathing, variability, average beat and beat timing in four columns below; on the right the QR code with "Scan to keep this on your phone" and "Available until Sun 14:03". Esc goes back to live, and so does 3 minutes without a key.
+- Big screen, 1920 by 1080: a header with the wordmark and "Your session, 2 min, 14:03" (a session run on demo data says "Session on recorded data" or "Session on simulated data" instead); the effort chart across the top; breathing, variability, average beat and beat timing in four columns below; on the right the QR code with "Scan to keep this on your phone" and "Available until Sun 14:03". Esc goes back to live, and so does 3 minutes without a key.
 - Phone, portrait: the same sections stacked, no QR, and "Delete my session" at the bottom (tap once, then "Tap again to delete", then "Deleted").
 - A deleted or expired link shows "This session is no longer available."
 
@@ -204,7 +205,7 @@ Lines: get ready ("Hold still while we get a clean signal."), rest ("Sit still a
 - `backend/cloud.py` is enabled only when `NEON_DATABASE_URL` is set, read from the environment or a local `.env` that is never committed. After analysis it upserts the id, keep-until and summary with a 4 s timeout.
 - If the upsert fails, the QR uses the LAN link. A background loop retries every 30 s until keep-until, and when it succeeds the big screen gets a new `done` message and the QR switches to the public link. The same loop applies deletes made from phones.
 - The QR link is `CARDIOVIEW_PUBLIC_URL/s/<id>` once the upsert succeeded, otherwise `http://<LAN address>:<port>/s/<id>`. The LAN address is the outbound interface's; `--public-host` overrides it.
-- `cloud/` holds a Vercel project: a Python FastAPI function for `GET` and `DELETE /api/s/{id}` using the `cardioview_public` role, and the summary page with the fonts it needs. `tools/sessions.py deploy` copies those files from `frontend/` into `cloud/public/` (ignored by git, so `frontend/` stays the one source) and runs `vercel deploy --prod`.
+- `cloud/` holds a Vercel project: a Python FastAPI app (`cloud/app.py`, which also serves the page and fonts; `cloud/vercel.json` pins the FastAPI preset) for `GET` and `DELETE /api/s/{id}` using the `cardioview_public` role, and the summary page with the fonts it needs. `tools/sessions.py deploy` copies those files from `frontend/` into `cloud/static/` (ignored by git, so `frontend/` stays the one source) and runs `vercel deploy --prod`.
 - With no environment variables and no internet, the booth behaves exactly as today plus local sessions.
 
 ## Error handling
