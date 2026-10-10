@@ -183,7 +183,7 @@ function applyLost(lost) {
   if (want !== appliedWireframe) { heart.setWireframe(want); appliedWireframe = want; }
 }
 
-function frame() {
+function drawFrame() {
   const t = clock.displayTime();
   const lost = lostState();
   trace.draw(t);
@@ -199,6 +199,11 @@ function frame() {
   applyLost(lost);
   heart.render();
   if (lost && !REDUCED_MOTION) glitch.draw(performance.now());
+}
+
+// one error must never stop the screen: draw what we can and keep the loop alive
+function frame() {
+  try { drawFrame(); } catch (e) { console.error('frame failed', e); }
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

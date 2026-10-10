@@ -1,3 +1,5 @@
+import { isLight } from './theme.js';
+
 // Lost-signal look for the stage: the WebGL frame copied through a red pass with bands torn
 // sideways, TV static over everything, and the occasional flash. Drawn only while lost.
 const RED = 'grayscale(1) sepia(1) saturate(6) hue-rotate(-64deg) contrast(1.35) brightness(0.66)';
