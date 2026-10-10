@@ -36,7 +36,7 @@
   --numeral: clamp(56px, 9.5vh, 112px);   /* the heart-rate numeral; the column beside it is sized for three digits */
 
   /* canvas and scene colors (six-digit hex only; the scripts derive their alphas) */
-  --c-stage: #0A1115; --c-paper: #0F1A1F; --c-room: #121E25; --c-ink: #E8F1F2; --c-trace: #37E07E; --c-grid: #8FB8B8; --c-rule: #E8F1F2;
+  --c-stage: #0A1115; --c-paper: #0F1A1F; --c-ink: #E8F1F2; --c-trace: #37E07E; --c-grid: #8FB8B8; --c-rule: #E8F1F2;
   --c-dim: #7F969B; --c-alert: #FF5252; --c-now: #2BD4BD;
   /* one color per chamber, plainly different (Thomas, 2026-10-10: blues and corals were too alike): blue, green, red, yellow */
   --c-ra: #4D8BFF; --c-rv: #7FE24B; --c-la: #FF4F4F; --c-lv: #FFC93C;
@@ -47,7 +47,7 @@ html[data-theme="light"] {
   --line: rgba(20, 35, 62, 0.12); --line-2: rgba(20, 35, 62, 0.28); --line-strong: rgba(20, 35, 62, 0.5);
   --tray: rgba(20, 35, 62, 0.08);
   --accent: var(--gold); --on-accent: var(--navy); --alert: var(--danger);
-  --c-stage: #F5F1E8; --c-paper: #FFFFFF; --c-room: #E9E3D7; --c-ink: #14233E; --c-trace: #14233E; --c-grid: #14233E; --c-rule: #14233E;
+  --c-stage: #F5F1E8; --c-paper: #FFFFFF; --c-ink: #14233E; --c-trace: #14233E; --c-grid: #14233E; --c-rule: #14233E;
   --c-dim: #6B7A94; --c-alert: #A8423D; --c-now: #C9954A;
   --c-ra: #2457C5; --c-rv: #3C8A1E; --c-la: #B8322F; --c-lv: #B5860B;
 }
