@@ -15,6 +15,10 @@ export function fitCanvas(canvas) {
   return { w, h, dpr };
 }
 
+const PRE_S = 0.3;      // 3D: seconds shown before each R peak
+const POST_S = 0.6;     // 3D: seconds shown after each R peak
+const ROWS_3D = 10;     // 3D: beats stacked
+
 export class Trace {
   constructor(canvas) {
     this.canvas = canvas;
@@ -22,8 +26,12 @@ export class Trace {
     this.ts = [];
     this.ys = [];
     this.scale = 200;
+    this.mode = '2d';
+    this.beats = [];      // shared with the chamber lanes, newest last
     this.resetFilter();
   }
+
+  setMode(mode) { this.mode = mode === '3d' ? '3d' : '2d'; }
 
   resetFilter() {
     const rc = 1 / (2 * Math.PI * 0.5);     // 0.5 Hz one-pole high-pass
@@ -48,7 +56,78 @@ export class Trace {
     if (drop > 0) { this.ts.splice(0, drop); this.ys.splice(0, drop); }
   }
 
+  // first sample index with time >= t
+  indexAt(t) {
+    let lo = 0, hi = this.ts.length;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (this.ts[mid] < t) lo = mid + 1; else hi = mid; }
+    return lo;
+  }
+
+  // Beat waterfall: the newest beat in front, older ones receding up and back, front ridges hiding the back.
+  draw3d(tDisplay) {
+    const { w, h, dpr } = fitCanvas(this.canvas);
+    const ctx = this.ctx;
+    ctx.clearRect(0, 0, w, h);
+    if (tDisplay === null || this.ts.length === 0) return;
+    const rows = this.beats.filter((b) => b.r <= tDisplay && b.r - PRE_S >= this.ts[0]).slice(-ROWS_3D);
+    if (rows.length === 0) return;
+    const gutter = GUTTER * dpr;
+    const n = rows.length;
+    const stepX = (w - gutter) * 0.028;
+    const stepY = h * 0.062;
+    const span = PRE_S + POST_S;
+    const width0 = (w - gutter) * 0.66;
+    const base0 = h * 0.86;
+    let peak = 0;
+    for (const b of rows) {
+      const i0 = this.indexAt(b.r - PRE_S), i1 = this.indexAt(Math.min(b.r + POST_S, tDisplay));
+      for (let i = i0; i < i1; i++) { const v = Math.abs(this.ys[i]); if (v > peak) peak = v; }
+    }
+    const target = Math.max(200, peak);
+    this.scale = target > this.scale ? target : this.scale + (target - this.scale) * 0.02;
+    const amp0 = (h * 0.42) / this.scale;
+
+    for (let k = 0; k < n; k++) {          // oldest first, so the front draws last
+      const b = rows[k];
+      const depth = n - 1 - k;             // 0 = newest
+      const sc = Math.pow(0.965, depth);
+      const alpha = Math.max(0.14, 1 - depth * 0.095);
+      const x0 = gutter + depth * stepX;
+      const base = base0 - depth * stepY;
+      const pxPerS = (width0 * sc) / span;
+      const amp = amp0 * sc;
+      const tEnd = Math.min(b.r + POST_S, tDisplay);
+      const i0 = this.indexAt(b.r - PRE_S), i1 = this.indexAt(tEnd);
+      if (i1 - i0 < 2) continue;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(x0, base);
+      for (let i = i0; i < i1; i++) ctx.lineTo(x0 + (this.ts[i] - (b.r - PRE_S)) * pxPerS, base - this.ys[i] * amp);
+      ctx.lineTo(x0 + (this.ts[i1 - 1] - (b.r - PRE_S)) * pxPerS, base);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(7,10,18,0.94)';
+      ctx.fill();
+      ctx.strokeStyle = `rgba(232,236,243,${(0.10 * alpha).toFixed(3)})`;
+      ctx.lineWidth = 1 * dpr;
+      ctx.beginPath(); ctx.moveTo(x0, base); ctx.lineTo(x0 + width0 * sc, base); ctx.stroke();
+      ctx.strokeStyle = `rgba(67,224,160,${alpha.toFixed(3)})`;
+      ctx.lineWidth = (depth === 0 ? 2.2 : 1.6) * dpr;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      if (depth === 0) { ctx.shadowColor = 'rgba(67,224,160,0.35)'; ctx.shadowBlur = 5 * dpr; }
+      ctx.beginPath();
+      for (let i = i0; i < i1; i++) {
+        const x = x0 + (this.ts[i] - (b.r - PRE_S)) * pxPerS;
+        const y = base - this.ys[i] * amp;
+        if (i === i0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
   draw(tDisplay) {
+    if (this.mode === '3d') { this.draw3d(tDisplay); return; }
     const { w, h, dpr } = fitCanvas(this.canvas);
     const ctx = this.ctx;
     ctx.clearRect(0, 0, w, h);

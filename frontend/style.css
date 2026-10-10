@@ -98,6 +98,11 @@ body {
 .instrument.chambers { border-bottom: 0; }
 .instrument h2 { margin: 0; font-size: 15px; font-weight: 400; color: var(--dim); display: flex; gap: 12px; align-items: baseline; }
 .instrument h2 small { font-size: 13px; color: var(--dimmer); }
+.toggle { margin-left: auto; display: inline-flex; gap: 14px; }
+.toggle button { background: none; border: 0; padding: 0 0 2px; margin: 0; font: inherit; font-size: 13px; color: var(--dimmer); cursor: pointer; border-bottom: 1.5px solid transparent; }
+.toggle button:hover { color: var(--text); }
+.toggle button[aria-pressed="true"] { color: var(--text); border-bottom-color: var(--text); }
+.toggle button:focus-visible { outline: 1px solid var(--dim); outline-offset: 4px; border-radius: 2px; }
 .readout { display: flex; align-items: baseline; gap: 12px; margin-top: 4px; }
 .bpm { font-family: var(--condensed); font-weight: 700; font-size: clamp(88px, 13.5vh, 150px); line-height: 0.9; letter-spacing: -0.02em; }
 .unit { font-size: 22px; color: var(--dim); }

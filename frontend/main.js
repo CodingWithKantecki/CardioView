@@ -16,6 +16,7 @@ const FORCED_ACT = actParam === null ? null : { ra: +actParam, la: +actParam, rv
 const clock = new StreamClock();
 const trace = new Trace(els.trace);
 const lanes = new Chambers(els.lanes);
+trace.beats = lanes.beats;   // one shared list of recent beats
 const labels = {};
 const sparks = {};
 for (const el of document.querySelectorAll('.label')) {
@@ -72,10 +73,19 @@ function placeNowLine() {
   const tr = els.trace.getBoundingClientRect();
   const ln = els.lanes.getBoundingClientRect();
   const x = tr.left - col.left + GUTTER + (tr.width - GUTTER) * NOW_FRAC;
+  const top = trace.mode === '3d' ? ln.top - 14 : tr.top;   // the waterfall has no time axis
   els.nowline.style.left = `${x.toFixed(1)}px`;
-  els.nowline.style.top = `${(tr.top - col.top).toFixed(1)}px`;
-  els.nowline.style.height = `${(ln.bottom - tr.top).toFixed(1)}px`;
+  els.nowline.style.top = `${(top - col.top).toFixed(1)}px`;
+  els.nowline.style.height = `${(ln.bottom - top).toFixed(1)}px`;
 }
+
+function setEcgMode(mode) {
+  trace.setMode(mode);
+  for (const b of document.querySelectorAll('#ecg-mode button')) b.setAttribute('aria-pressed', String(b.dataset.mode === trace.mode));
+  placeNowLine();
+}
+for (const b of document.querySelectorAll('#ecg-mode button')) b.addEventListener('click', () => setEcgMode(b.dataset.mode));
+if (new URLSearchParams(location.search).get('ecg') === '3d') setEcgMode('3d');
 new ResizeObserver(placeNowLine).observe(els.column);
 window.addEventListener('resize', placeNowLine);
 placeNowLine();
