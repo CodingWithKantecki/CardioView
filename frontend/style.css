@@ -24,6 +24,7 @@
   --line-2: rgba(232, 241, 242, 0.28);
   --line-strong: rgba(232, 241, 242, 0.45);
   --tray: rgba(232, 241, 242, 0.08);
+  --rule-solid: #4A5A61;   /* the rule color with nothing showing through, for frames over the stage */
   --accent: var(--teal);
   --on-accent: var(--teal-deep);
   --alert: var(--red);
@@ -46,7 +47,7 @@ html[data-theme="light"] {
   --paper: var(--cream); --card: #FFFFFF; --header: var(--navy);
   --ink: var(--navy); --ink-2: #41506C; --muted: #6B7A94;
   --line: rgba(20, 35, 62, 0.12); --line-2: rgba(20, 35, 62, 0.28); --line-strong: rgba(20, 35, 62, 0.5);
-  --tray: rgba(20, 35, 62, 0.08);
+  --tray: rgba(20, 35, 62, 0.08); --rule-solid: #B7B1A4;
   --accent: var(--gold); --on-accent: var(--navy); --alert: var(--danger); --info: #2563EB;
   --c-stage: #F5F1E8; --c-paper: #FFFFFF; --c-ink: #14233E; --c-trace: #14233E; --c-grid: #14233E; --c-rule: #14233E;
   --c-dim: #6B7A94; --c-alert: #A8423D; --c-now: #C9954A;
@@ -133,7 +134,7 @@ body.lost .bpm { opacity: 0.35; }
 /* the dock: the heart's view controls at the bottom of the stage, cells that grow toward the
    pointer (dock.js), a mono label above the hovered one, toggles pressed in the accent */
 .dock { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 3; display: flex; align-items: flex-end; }
-.dock-item { position: relative; display: flex; align-items: flex-end; padding: var(--cell-w); background: var(--line-2); }   /* each cell frames itself, so a grown cell does not stretch the tray */
+.dock-item { position: relative; display: flex; align-items: flex-end; padding: var(--cell-w); background: var(--rule-solid); }   /* each cell frames itself, so a grown cell does not stretch the tray */
 .dock-item + .dock-item { margin-left: calc(-1 * var(--cell-w)); }
 .dock button { width: 48px; height: 48px; border: 0; margin: 0; padding: 0; background: var(--card); color: var(--ink-2); cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .dock button:hover { color: var(--ink); }
