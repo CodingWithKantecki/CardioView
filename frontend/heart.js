@@ -214,13 +214,13 @@ export class Heart {
     const floorY = wb.min.y - 0.35;
     const floor = new THREE.GridHelper(HALF * 2, DIV);
     floor.position.y = floorY;
-    floor.material.opacity = 0.40;   // Thomas, 2026-10-10: a touch more visible than 0.28
+    floor.material.opacity = 0.60;   // Thomas, 2026-10-10, twice: still too hard to see at 0.28 and 0.40
     g.add(floor);
     for (const [x, z, axis] of [[0, -HALF, 'x'], [0, HALF, 'x'], [-HALF, 0, 'z'], [HALF, 0, 'z']]) {
       const wall = new THREE.GridHelper(HALF * 2, DIV);
       if (axis === 'x') wall.rotation.x = Math.PI / 2; else wall.rotation.z = Math.PI / 2;
       wall.position.set(x, floorY + HALF, z);
-      wall.material.opacity = 0.22;
+      wall.material.opacity = 0.36;
       g.add(wall);
     }
     for (const h of g.children) {

@@ -156,7 +156,8 @@ function placeNowLine() {
     el.style.top = `${(r.top - col.top).toFixed(1)}px`;
     el.style.height = `${r.height.toFixed(1)}px`;
   }
-  els.nowEcg.hidden = trace.mode === '3d';   // the waterfall has no time axis
+  els.nowEcg.hidden = trace.mode === '3d';   // the waterfalls have no time axis
+  els.nowLanes.hidden = lanes.mode === '3d';
 }
 
 function setEcgMode(mode) {
@@ -166,6 +167,14 @@ function setEcgMode(mode) {
 }
 for (const b of document.querySelectorAll('#ecg-mode button')) b.addEventListener('click', () => setEcgMode(b.dataset.mode));
 if (new URLSearchParams(location.search).get('ecg') === '3d') setEcgMode('3d');
+
+function setLanesMode(mode) {
+  lanes.setMode(mode);
+  for (const b of document.querySelectorAll('#lanes-mode button')) b.setAttribute('aria-pressed', String(b.dataset.mode === lanes.mode));
+  placeNowLine();
+}
+for (const b of document.querySelectorAll('#lanes-mode button')) b.addEventListener('click', () => setLanesMode(b.dataset.mode));
+if (new URLSearchParams(location.search).get('lanes') === '3d') setLanesMode('3d');
 const relayout = new ResizeObserver(placeNowLine);
 relayout.observe(els.column);
 relayout.observe(els.trace);     // the trace moves when the rhythm tray appears or wraps

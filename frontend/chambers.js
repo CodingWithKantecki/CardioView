@@ -8,6 +8,9 @@ const RELEASE_S = 0.2;
 export const ORDER = ['ra', 'la', 'rv', 'lv'];
 const laneColor = (c) => (c === 'ra' || c === 'rv' ? colors().right : colors().left);
 const KEEP = 40;
+const PRE_S = 0.3;      // 3D: seconds shown before each R peak, as in the ECG waterfall
+const POST_S = 0.6;     // 3D: seconds shown after each R peak
+const ROWS_3D = 8;      // 3D: beats stacked
 const SPARK_S = 3;
 
 export function intervals(beat) {
@@ -46,7 +49,10 @@ export class Chambers {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.beats = [];
+    this.mode = '2d';
   }
+
+  setMode(mode) { this.mode = mode === '3d' ? '3d' : '2d'; }
 
   clear() { this.beats.length = 0; }
 
@@ -144,9 +150,105 @@ export class Chambers {
     ctx.restore();
   }
 
+  // Beat waterfall, the ECG's twin: each row is one beat's activation sequence, the four chambers
+  // as filled curves in their colors (the atria first, then the ventricles), newest in front,
+  // rows sliding back continuously timed by the next beat.
+  draw3d(tDisplay) {
+    const { w, h, dpr } = fitCanvas(this.canvas);
+    const ctx = this.ctx;
+    ctx.clearRect(0, 0, w, h);
+    const T = colors();
+    // legend: the chamber letters in their colors
+    ctx.save();
+    ctx.font = `700 ${13 * dpr}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+    ctx.textBaseline = 'top';
+    let lx = 12 * dpr;
+    for (const c of ORDER) {
+      ctx.fillStyle = alpha(laneColor(c), 0.9);
+      const label = c.toUpperCase();
+      ctx.fillText(label, lx, 6 * dpr);
+      lx += ctx.measureText(label).width + 12 * dpr;
+    }
+    ctx.restore();
+    if (tDisplay === null || this.beats.length === 0) return;
+    const all = this.beats;
+    const shown = all.filter((b) => b.r - PRE_S <= tDisplay);
+    const rows = shown.slice(-ROWS_3D);
+    if (rows.length === 0) return;
+    const n = rows.length;
+    const newest = rows[n - 1];
+    const next = all[all.indexOf(newest) + 1];
+    const span0 = next ? next.r - newest.r : (newest.rr || 0.8);
+    const phase = Math.min(1, Math.max(0, (tDisplay - (newest.r - PRE_S)) / span0));
+    const stepX = w * 0.018;
+    const stepY = h * 0.08;
+    const span = PRE_S + POST_S;
+    const width0 = w * 0.78;
+    const base0 = h * 0.82;
+    const amp0 = h * 0.30;
+    const step = Math.max(2, Math.round(2 * dpr));
+
+    for (let k = 0; k < n; k++) {          // oldest first, so the front draws last
+      const b = rows[k];
+      const depth = (n - 1 - k) + phase;
+      const sc = Math.pow(0.96, depth);
+      const age = tDisplay - (b.r - PRE_S);
+      const fadeIn = Math.min(1, age / 0.2);
+      const rowAlpha = Math.max(0, 1 - depth / (ROWS_3D + 0.5)) * fadeIn;
+      if (rowAlpha <= 0) continue;
+      const x0 = depth * stepX;
+      const base = base0 - depth * stepY;
+      const pxPerS = (width0 * sc) / span;
+      const amp = amp0 * sc;
+      const tStart = b.r - PRE_S;
+      const tEnd = Math.min(b.r + POST_S, tDisplay);
+      const xEnd = x0 + (tEnd - tStart) * pxPerS;
+      if (xEnd - x0 < 3) continue;
+      const iv = intervals(b);
+      const curve = (c) => {
+        const pts = [];
+        for (let x = x0; x <= xEnd; x += step) pts.push([x, base - envelope(tStart + (x - x0) / pxPerS, iv[c][0], iv[c][1]) * amp]);
+        pts.push([xEnd, base - envelope(tEnd, iv[c][0], iv[c][1]) * amp]);
+        return pts;
+      };
+      const curves = ORDER.map(curve);
+      ctx.save();
+      // the row's envelope knocks out what is behind it
+      ctx.beginPath();
+      ctx.moveTo(x0, base);
+      for (let i = 0; i < curves[0].length; i++) ctx.lineTo(curves[0][i][0], Math.min(...curves.map((pts) => pts[i][1])));
+      ctx.lineTo(xEnd, base);
+      ctx.closePath();
+      ctx.fillStyle = alpha(T.paper, 0.96 * fadeIn);
+      ctx.fill();
+      ctx.strokeStyle = alpha(T.rule, 0.14 * rowAlpha);
+      ctx.lineWidth = 1 * dpr;
+      ctx.beginPath(); ctx.moveTo(x0, base); ctx.lineTo(x0 + width0 * sc, base); ctx.stroke();
+      for (let ci = 0; ci < ORDER.length; ci++) {
+        const col = laneColor(ORDER[ci]);
+        const pts = curves[ci];
+        ctx.beginPath();
+        ctx.moveTo(x0, base);
+        for (const [x, y] of pts) ctx.lineTo(x, y);
+        ctx.lineTo(xEnd, base);
+        ctx.closePath();
+        ctx.fillStyle = alpha(col, (0.08 + 0.22 * Math.max(0, 1 - depth / ROWS_3D)) * rowAlpha);
+        ctx.fill();
+        ctx.beginPath();
+        for (let i = 0; i < pts.length; i++) { if (i === 0) ctx.moveTo(pts[i][0], pts[i][1]); else ctx.lineTo(pts[i][0], pts[i][1]); }
+        ctx.strokeStyle = alpha(col, rowAlpha);
+        ctx.lineWidth = (1.2 + 0.6 * Math.max(0, 1 - depth)) * dpr;
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+
   // Lanes: each chamber's activation curve over the 6 s window, brighter toward now, a faint
   // tick on every beat across all lanes, and a pen dot at the leading edge.
   draw(tDisplay) {
+    if (this.mode === '3d') { this.draw3d(tDisplay); return; }
     const { w, h, dpr } = fitCanvas(this.canvas);
     const ctx = this.ctx;
     ctx.clearRect(0, 0, w, h);
