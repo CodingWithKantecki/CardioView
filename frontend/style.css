@@ -198,7 +198,6 @@ body.lost .bpm { opacity: 0.35; }
 .readout { display: flex; align-items: baseline; gap: 10px; margin-top: 2px; }
 .bpm { font-family: var(--sans); font-weight: 700; font-size: var(--numeral); line-height: 0.95; letter-spacing: -0.04em; color: var(--ink); }
 .unit { font-size: 20px; color: var(--ink-2); }
-.rr { margin: 6px 0 0; white-space: nowrap; font-family: var(--mono); font-size: clamp(12px, 1.6vh, 14px); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
 /* heart rate band: a 2 by 2 grid, titles on the first row, the numeral and the rhythm tray on the
    second, so the tray is exactly the numeral's height and runs flush to the right edge */
 .instrument.rate { display: grid; grid-template-columns: calc(var(--numeral) * 1.65 + 56px) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); column-gap: 28px; row-gap: 10px; align-items: stretch; }

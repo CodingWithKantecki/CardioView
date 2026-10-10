@@ -13,7 +13,7 @@ import { SessionOverlay } from './session.js';
 
 const $ = (id) => document.getElementById(id);
 const els = {
-  device: $('conn'), bpm: $('bpm'), rr: $('rr'),
+  device: $('conn'), bpm: $('bpm'),
   trace: $('trace'), lanes: $('lanes'), column: $('column'), nowEcg: $('nowline-ecg'), nowLanes: $('nowline-lanes'),
   alert: $('alert'), alertTitle: $('alert-title'), alertHint: $('alert-hint'), strip: $('timeline-strip'),
 };
@@ -258,10 +258,9 @@ placeNowLine();
 function showBeat(b) {
   if (b === shownBeat) return;
   shownBeat = b;
-  if (!b) { els.bpm.textContent = '--'; els.rr.textContent = '-- s between beats'; return; }
-  // the first beat after a source switch carries no interval yet: keep the last numbers until one does
+  if (!b) { els.bpm.textContent = '--'; return; }
+  // the first beat after a source switch carries no rate yet: keep the last number until one does
   if (b.bpm != null) els.bpm.textContent = String(b.bpm);
-  if (b.rr != null) els.rr.textContent = `${b.rr.toFixed(2)} s between beats`;
 }
 
 function applyLost(lost) {
