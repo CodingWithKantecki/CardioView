@@ -103,6 +103,15 @@ Only the anonymous summary goes to Neon. The raw ECG stays on this machine.
 
 `render.yaml` deploys the app to Render as an always-on web service in demo mode (the recording and the rhythms; the strap stays with the booth laptop). In the Render dashboard: Blueprints, New Blueprint Instance, connect this repo, Apply. Every push to main redeploys. Add `GEMINI_API_KEY` in the service's Environment tab for the chat.
 
+The cloud copy has no Bluetooth, so its Strap tab is fed by a bridge on the booth laptop. Only one program can hold the strap, so at the booth the local server takes it from the bridge too:
+
+```
+BRIDGE_KEY=<key> python -m backend --source h10 --live remote          # the big screen, strap via the bridge
+python tools/bridge.py ws://localhost:8000 wss://cardioview.onrender.com --key <key>
+```
+
+The key is `BRIDGE_KEY` in the Render service's Environment tab (use the same value locally). `--source data/<file>.csv` on the bridge plays a recording as if it were the strap. While the bridge runs, both screens show the real strap and Exercise sessions work on either.
+
 ## Tests and checks
 
 ```

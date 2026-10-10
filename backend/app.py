@@ -26,6 +26,7 @@ from . import analysis, chat
 from .pipeline import REFRACTORY_S, BeatDetector, SignalMonitor
 from .session import SessionError, SessionManager, SessionStore, utcnow
 from .sources.base import FS, PACKET, PACKET_S, PacedSource, Packet, Source, Status
+from .sources.remote import RemoteHub
 from .synth import synth_session
 
 FRONTEND = Path(__file__).resolve().parent.parent / "frontend"
@@ -295,17 +296,21 @@ class Runner:
 
 def create_app(factories: dict[str, Callable[[], Source]], initial: str, http: httpx.AsyncClient | None = None, *,
                sessions_dir: Path | None = None, keep_until: datetime | None = None, public_host: str | None = None,
-               port: int = 8000, cloud=None, strap_only: bool = True) -> FastAPI:
+               port: int = 8000, cloud=None, strap_only: bool = True, remote: RemoteHub | None = None,
+               bridge_key: str | None = None, base_url: str | None = None) -> FastAPI:
     """`factories` maps a name (live, demo) to a function that builds that source. `http` is the
     client the chat uses to reach Gemini; tests pass one with a mock transport. `cloud` is an object
     with publish, unpublish and run(manager), or None to keep saved sessions on the laptop. With
-    `strap_only` a session starts only while the strap streams (Thomas: never on demo data)."""
+    `strap_only` a session starts only while the strap streams (Thomas: never on demo data).
+    `remote` is the hub a bridge feeds through /ws/strap (the cloud copy's strap), `bridge_key` what
+    the bridge must present, `base_url` the public address links are built on (https://host)."""
     hub = Hub("simulated")
     store = SessionStore(sessions_dir or SESSIONS)
     host = public_host or lan_address()
+    base = (base_url or f"http://{host}:{port}").rstrip("/")
     sessions = SessionManager(
         store, analyze=analysis.analyze, broadcast=hub.set_session,
-        link=lambda sid: f"http://{host}:{port}/s/{sid}",
+        link=lambda sid: f"{base}/s/{sid}",
         publish=cloud.publish if cloud else None, unpublish=cloud.unpublish if cloud else None,
         keep_until=keep_until,
     )
@@ -359,6 +364,39 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, http: h
         html = (FRONTEND / "index.html").read_text()
         html = html.replace("<head>\n", f'<head>\n<base href="/a/{version}/">\n', 1)
         return HTMLResponse(html)
+
+    @app.websocket("/ws/strap")
+    async def ws_strap(websocket: WebSocket) -> None:
+        """The bridge on the booth laptop streams the strap here: status and samples messages, the
+        same shapes the viewer gets. Needs the key; one bridge at a time, the newest wins."""
+        if remote is None or not bridge_key or websocket.query_params.get("key") != bridge_key:
+            await websocket.close(code=1008)
+            return
+        await websocket.accept()
+        remote.bridges += 1
+        log.info("strap bridge connected")
+        try:
+            while True:
+                try:
+                    msg = json.loads(await websocket.receive_text())
+                except ValueError:
+                    continue
+                if not isinstance(msg, dict):
+                    continue
+                if msg.get("type") == "samples" and isinstance(msg.get("uv"), list):
+                    try:
+                        remote.push_samples(float(msg.get("t", 0.0)), [int(v) for v in msg["uv"]])
+                    except (TypeError, ValueError):
+                        continue
+                elif msg.get("type") == "status":
+                    remote.push_status(str(msg.get("state", "connecting")), str(msg.get("device", ""))[:80])
+        except WebSocketDisconnect:
+            pass
+        finally:
+            remote.bridges -= 1
+            if remote.bridges <= 0:
+                remote.bridge_gone()
+            log.info("strap bridge gone")
 
     @app.websocket("/ws")
     async def ws(websocket: WebSocket) -> None:

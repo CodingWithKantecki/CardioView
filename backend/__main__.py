@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from .app import create_app
 from .cloud import Cloud
 from .env import load_dotenv
 from .sources.base import PREROLL_S, Source
+from .sources.remote import RemoteHub, RemoteSource
 from .sources.replay import ReplaySource
 from .sources.rhythm import RhythmSource
 from .sources.sim import SimSource
@@ -54,21 +56,28 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("--keep-until", help="when saved sessions expire, e.g. 2026-10-11T12:00 (default: 24 hours from now)")
     ap.add_argument("--public-host", help="the address phones use for the LAN link (default: this machine's)")
+    ap.add_argument("--live", default=os.environ.get("CARDIOVIEW_LIVE", "h10"), choices=["h10", "remote"],
+                    help="where the strap is: h10 on this computer (default), or remote, streamed in by tools/bridge.py (the cloud copy)")
     args = ap.parse_args(argv)
     load_dotenv()   # the chat key and the cloud settings, from .env in the repo root, never in git
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     cloud = Cloud.from_env()
+    remote = RemoteHub() if args.live == "remote" else None
+    live = (lambda: RemoteSource(remote, invert=args.invert)) if remote is not None else live_factory(args.invert)
     def rhythm(pattern: str = "sinus") -> RhythmSource:
         return RhythmSource(pattern, invert=args.invert, preroll_s=PREROLL_S)
 
     if args.source == "h10":
-        factories = {"live": live_factory(args.invert), "demo": demo_factory(args.demo, args.bpm, args.invert), "rhythm": rhythm}
+        factories = {"live": live, "demo": demo_factory(args.demo, args.bpm, args.invert), "rhythm": rhythm}
         initial = "live"
     else:
-        factories = {"live": live_factory(args.invert), "demo": demo_factory(args.source, args.bpm, args.invert), "rhythm": rhythm}
+        factories = {"live": live, "demo": demo_factory(args.source, args.bpm, args.invert), "rhythm": rhythm}
         initial = "demo"
     app = create_app(factories, initial, keep_until=parse_keep_until(args.keep_until),
-                     public_host=args.public_host, port=args.port, cloud=cloud)
+                     public_host=args.public_host, port=args.port, cloud=cloud, remote=remote,
+                     bridge_key=os.environ.get("BRIDGE_KEY") or None, base_url=os.environ.get("CARDIOVIEW_BASE_URL") or None)
+    if remote is not None:
+        print("Strap: remote, fed by tools/bridge.py" + ("" if os.environ.get("BRIDGE_KEY") else " (set BRIDGE_KEY or no bridge can connect)"), flush=True)
     print(f"CardioView: source {args.source}. Open http://localhost:{args.port}", flush=True)
     if cloud is not None:
         print(f"Saved sessions publish to {cloud.public_url}", flush=True)
