@@ -38,6 +38,7 @@ SHAPE_PRE_S = 0.10    # QRS window around each R peak compared with the previous
 SHAPE_POST_S = 0.15
 SHAPE_BAD = 0.6       # consecutive beats correlating below this do not look like the same heart
 SHAPE_GOOD = 0.7
+REASON_HOLD_S = 2.0   # while lost, a different reason must persist this long before it replaces the shown one
 
 
 @dataclass
@@ -190,6 +191,7 @@ class SignalMonitor:
         self._good_since: float | None = None
         self._prev_shape: np.ndarray | None = None
         self._shape_corr: deque[float] = deque(maxlen=4)
+        self._candidate: tuple[str, float] | None = None   # (reason, since) while lost
 
     def _window(self, t_from: float, t_to: float) -> np.ndarray | None:
         i0 = int(round((t_from - self._t0) * self.fs))
@@ -262,10 +264,17 @@ class SignalMonitor:
                 self._bad_since = now
             if self.signal.ok and now - self._bad_since >= LOST_AFTER_S:
                 self.signal = Signal(False, reason)
+                self._candidate = None
                 changed = self.signal
             elif not self.signal.ok and self.signal.reason != reason:
-                self.signal = Signal(False, reason)
-                changed = self.signal
+                if self._candidate is None or self._candidate[0] != reason:
+                    self._candidate = (reason, now)
+                elif now - self._candidate[1] >= REASON_HOLD_S:
+                    self.signal = Signal(False, reason)
+                    self._candidate = None
+                    changed = self.signal
+            else:
+                self._candidate = None
         else:
             self._bad_since = None
             if self._good_since is None:

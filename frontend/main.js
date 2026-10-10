@@ -33,6 +33,7 @@ let lastSampleT = null;
 let lastSampleWall = null;
 let shownBeat = null;
 let status = null;                       // last status message
+let streamingSince = null;               // wall time the strap started streaming
 let signal = { ok: true, reason: '' };   // last signal message
 let wsOpen = false;
 let userWireframe = false;
@@ -56,7 +57,11 @@ function lostState() {
       : ['Waiting for the strap', 'Wet the pads and wear it snug on the chest'];
   }
   if (lastSampleWall !== null && performance.now() - lastSampleWall > 3000) return ['No data from the strap', ''];
-  if (!signal.ok) return REASONS[signal.reason] || ['No signal', ''];
+  if (!signal.ok) {
+    const settling = status.source === 'live' && streamingSince !== null && performance.now() - streamingSince < 30000;
+    if (settling) return ['Settling in', 'The pads take up to half a minute to make contact'];
+    return REASONS[signal.reason] || ['No signal', ''];
+  }
   return null;
 }
 
@@ -74,6 +79,7 @@ function setStatus(msg) {
 
 function handle(msg) {
   if (msg.type === 'status') {
+    if (msg.state === 'streaming' && !(status && status.state === 'streaming')) streamingSince = performance.now();
     status = msg;
     setStatus(msg);
   } else if (msg.type === 'signal') {
