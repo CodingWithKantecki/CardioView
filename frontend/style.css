@@ -37,7 +37,9 @@
 
   /* canvas and scene colors (six-digit hex only; the scripts derive their alphas) */
   --c-stage: #0A1115; --c-paper: #0F1A1F; --c-ink: #E8F1F2; --c-trace: #37E07E; --c-grid: #8FB8B8; --c-rule: #E8F1F2;
-  --c-dim: #7F969B; --c-right: #4FC3F7; --c-left: #FF6B6B; --c-alert: #FF5252; --c-now: #2BD4BD;
+  --c-dim: #7F969B; --c-alert: #FF5252; --c-now: #2BD4BD;
+  /* one color per chamber (Thomas, 2026-10-10: two side colors were hard to tell apart): right side cool, left side warm */
+  --c-ra: #8C9BFF; --c-rv: #4FC3F7; --c-la: #FF7AB8; --c-lv: #FF8A4C;
 }
 html[data-theme="light"] {
   --paper: var(--cream); --card: #FFFFFF; --header: var(--navy);
@@ -46,7 +48,8 @@ html[data-theme="light"] {
   --tray: rgba(20, 35, 62, 0.08);
   --accent: var(--gold); --on-accent: var(--navy); --alert: var(--danger);
   --c-stage: #F5F1E8; --c-paper: #FFFFFF; --c-ink: #14233E; --c-trace: #14233E; --c-grid: #14233E; --c-rule: #14233E;
-  --c-dim: #6B7A94; --c-right: #41506C; --c-left: #A8423D; --c-alert: #A8423D; --c-now: #C9954A;
+  --c-dim: #6B7A94; --c-alert: #A8423D; --c-now: #C9954A;
+  --c-ra: #4A5FA8; --c-rv: #2B6F9E; --c-la: #B0407A; --c-lv: #B85A2A;
 }
 
 * { box-sizing: border-box; border-radius: 0; box-shadow: none; }

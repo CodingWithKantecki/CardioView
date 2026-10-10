@@ -6,7 +6,7 @@ export const ATRIA_S = 0.12;
 const RISE_S = 0.1;
 const RELEASE_S = 0.2;
 export const ORDER = ['ra', 'la', 'rv', 'lv'];
-const laneColor = (c) => (c === 'ra' || c === 'rv' ? colors().right : colors().left);
+const laneColor = (c) => colors()[c];   // one color per chamber, from the --c-ra/rv/la/lv tokens
 const KEEP = 40;
 const PRE_S = 0.3;      // 3D: seconds shown before each R peak, as in the ECG waterfall
 const POST_S = 0.6;     // 3D: seconds shown after each R peak
