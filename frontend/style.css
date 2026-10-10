@@ -200,19 +200,17 @@ body.lost .bpm { opacity: 0.35; }
 .column { position: relative; min-height: 0; background: var(--card); padding: 0; display: grid; grid-template-rows: auto minmax(0, 1.15fr) minmax(0, 1fr); }
 .instrument { min-height: 0; display: flex; flex-direction: column; padding: clamp(12px, 1.8vh, 20px) var(--gutter) clamp(10px, 1.6vh, 16px); border-bottom: var(--rule-w) solid var(--line-2); }
 .instrument.chambers { border-bottom: 0; }
-/* ECG and Chambers: the title and its 2D / 3D tray sit in their own band with a rule under it, and
+/* ECG and Chambers: the title sits in its own band with a rule under it, and
    the graph fills the rest of the box edge to edge (Thomas, 2026-10-10) */
 .instrument.ecg, .instrument.chambers { padding: 0; }
 .instrument.ecg h2, .instrument.chambers h2 { padding: clamp(3px, 0.5vh, 5px) var(--gutter); align-items: center; border-bottom: var(--rule-w) solid var(--line-2); }
 .instrument.ecg canvas, .instrument.chambers canvas { margin-top: 0; }
-.instrument h2 .toggle button { padding: 4px 12px; font-size: 13px; }   /* a short tray, so the band stays thin */
 /* instrument titles: Statura's mono kicker, but white, bold and at a size that reads across a room */
 .instrument h2 { margin: 0; display: flex; gap: 14px; align-items: baseline; font-family: var(--mono); font-size: clamp(15px, 1.9vh, 19px); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; line-height: 1.1; color: var(--ink); }
 .readout { display: flex; align-items: baseline; gap: 10px; margin-top: 2px; }
 .bpm { font-family: var(--sans); font-weight: 700; font-size: var(--numeral); line-height: 0.95; letter-spacing: -0.04em; color: var(--ink); }
 .unit { font-size: 20px; color: var(--ink-2); }
 .rr { margin: 6px 0 0; white-space: nowrap; font-family: var(--mono); font-size: clamp(12px, 1.6vh, 14px); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
-.instrument h2 .toggle { margin-left: auto; }
 /* heart rate band: a 2 by 2 grid, titles on the first row, the numeral and the rhythm tray on the
    second, so the tray is exactly the numeral's height and runs flush to the right edge */
 .instrument.rate { display: grid; grid-template-columns: calc(var(--numeral) * 1.65 + 56px) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); column-gap: 28px; row-gap: 10px; align-items: stretch; }
