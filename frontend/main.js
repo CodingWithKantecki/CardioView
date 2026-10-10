@@ -1,8 +1,10 @@
 import { StreamClock } from './clock.js';
-import { Trace, GUTTER, NOW_FRAC } from './trace.js';
+import { Trace, NOW_INSET, WINDOW_S } from './trace.js';
 import { Chambers } from './chambers.js';
 import { Heart } from './heart.js';
 import { Glitch } from './glitch.js';
+import { Timeline } from './timeline.js';
+import { Dock } from './dock.js';
 import { invalidate as invalidateTheme } from './theme.js';
 import { initChat } from './chat.js';
 
@@ -10,7 +12,7 @@ const $ = (id) => document.getElementById(id);
 const els = {
   device: $('conn'), bpm: $('bpm'), rr: $('rr'),
   trace: $('trace'), lanes: $('lanes'), column: $('column'), nowEcg: $('nowline-ecg'), nowLanes: $('nowline-lanes'),
-  alert: $('alert'), alertTitle: $('alert-title'), alertHint: $('alert-hint'),
+  alert: $('alert'), alertTitle: $('alert-title'), alertHint: $('alert-hint'), strip: $('timeline-strip'),
 };
 
 // Debug: ?act=1 holds every chamber at full squeeze, ?act=0 relaxes them; ?signal=lost forces the lost state.
@@ -31,7 +33,7 @@ function toggleTheme() {
 const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;   // lost state without the glitch pass
 
 const RHYTHM_LABELS = {
-  sinus: 'Sinus rhythm', tachy: 'Tachycardia', brady: 'Bradycardia',
+  sinus: 'Normal rhythm', tachy: 'Tachycardia', brady: 'Bradycardia',
   afib: 'Atrial fibrillation', pvc: 'Extra beats', vt: 'Ventricular tachycardia',
 };
 
@@ -39,6 +41,7 @@ const clock = new StreamClock();
 const trace = new Trace(els.trace);
 const lanes = new Chambers(els.lanes);
 trace.beats = lanes.beats;   // one shared list of recent beats
+const timeline = new Timeline(els.strip, trace, lanes, clock);
 const labels = {};
 const sparks = {};
 for (const el of document.querySelectorAll('.label')) {
@@ -46,6 +49,7 @@ for (const el of document.querySelectorAll('.label')) {
   sparks[el.dataset.chamber] = el.querySelector('.spark');
 }
 const heart = new Heart($('heart-view'), { labels, leaders: $('leaders'), missing: $('heart-missing') });
+if (new URLSearchParams(location.search).has('debug')) { window.heart = heart; window.clock = clock; window.trace = trace; }   // for headless checks
 heart.load();
 const glitch = new Glitch($('glitch'), heart.renderer.domElement);
 
@@ -74,16 +78,25 @@ function lostState() {
   return null;
 }
 
-// One quiet line in the header: the strap id while it streams, otherwise the mode or the link state.
+// The status line, in words: the strap id (as data, in mono) while it streams, otherwise whose recording
+// or which simulated rhythm, or the link state. The backend's device strings stay as they are; this only
+// renders them.
 function setStatus(msg) {
   const device = msg.device || '';
+  let text = device || msg.source, id = false;
   if (msg.source === 'live') {
-    if (msg.state === 'streaming') els.device.textContent = device;
-    else if (msg.state === 'reconnecting') els.device.textContent = 'Reconnecting to the strap';
-    else els.device.textContent = 'Connecting to Polar H10';
-  } else {
-    els.device.textContent = device || msg.source;
+    if (msg.state === 'streaming') { text = device; id = true; }
+    else if (msg.state === 'reconnecting') text = 'Reconnecting to the strap';
+    else text = 'Connecting to Polar H10';
+  } else if (device.startsWith('Simulated: ')) {
+    text = 'Simulated ' + device.slice(11).toLowerCase();
+  } else if (device.startsWith('Recording ')) {
+    // recordings are named h10_ecg_<name> by tools/h10_record.py
+    const who = device.slice(10).replace(/^h10_(ecg_)?/, '').replace(/_/g, ' ');
+    text = /^[a-z]+$/i.test(who) ? `${who[0].toUpperCase()}${who.slice(1)}'s recording` : `Recording ${who}`;
   }
+  els.device.textContent = text;
+  els.device.classList.toggle('id', id);
 }
 
 function handle(msg) {
@@ -103,7 +116,6 @@ function handle(msg) {
     // simulated rhythms exist in demo only, never beside strap data
     const rhythms = document.getElementById('rhythms');
     rhythms.hidden = msg.source === 'live';
-    document.getElementById('rhythm-kicker').hidden = rhythms.hidden;
     for (const b of rhythms.querySelectorAll('button')) {
       const name = b.dataset.rhythm;
       const on = name === 'recording' ? msg.source === 'recorded' : msg.device === 'Simulated: ' + RHYTHM_LABELS[name];
@@ -121,10 +133,6 @@ function handle(msg) {
     trace.push(msg.t, msg.uv, msg.fs);
   } else if (msg.type === 'beat') {
     lanes.push(msg);
-  } else if (msg.type === 'handover') {   // a new demo source takes over from this stream time
-    trace.truncate(msg.from);
-    lanes.truncate(msg.from);
-    if (lastSampleT !== null && lastSampleT > msg.from) lastSampleT = msg.from;
   }
 }
 
@@ -146,13 +154,14 @@ function placeNowLine() {
   const col = els.column.getBoundingClientRect();
   const tr = els.trace.getBoundingClientRect();
   const ln = els.lanes.getBoundingClientRect();
-  const x = tr.left - col.left + GUTTER + (tr.width - GUTTER) * NOW_FRAC;
+  const x = tr.left - col.left + tr.width - NOW_INSET;
   for (const [el, r] of [[els.nowEcg, tr], [els.nowLanes, ln]]) {   // one line per band, never across the rule
     el.style.left = `${x.toFixed(1)}px`;
     el.style.top = `${(r.top - col.top).toFixed(1)}px`;
     el.style.height = `${r.height.toFixed(1)}px`;
   }
-  els.nowEcg.hidden = trace.mode === '3d';   // the waterfall has no time axis
+  els.nowEcg.hidden = trace.mode === '3d';   // the waterfalls have no time axis
+  els.nowLanes.hidden = lanes.mode === '3d';
 }
 
 function setEcgMode(mode) {
@@ -162,6 +171,14 @@ function setEcgMode(mode) {
 }
 for (const b of document.querySelectorAll('#ecg-mode button')) b.addEventListener('click', () => setEcgMode(b.dataset.mode));
 if (new URLSearchParams(location.search).get('ecg') === '3d') setEcgMode('3d');
+
+function setLanesMode(mode) {
+  lanes.setMode(mode);
+  for (const b of document.querySelectorAll('#lanes-mode button')) b.setAttribute('aria-pressed', String(b.dataset.mode === lanes.mode));
+  placeNowLine();
+}
+for (const b of document.querySelectorAll('#lanes-mode button')) b.addEventListener('click', () => setLanesMode(b.dataset.mode));
+if (new URLSearchParams(location.search).get('lanes') === '3d') setLanesMode('3d');
 const relayout = new ResizeObserver(placeNowLine);
 relayout.observe(els.column);
 relayout.observe(els.trace);     // the trace moves when the rhythm tray appears or wraps
@@ -192,8 +209,13 @@ function applyLost(lost) {
   if (want !== appliedWireframe) { heart.setWireframe(want); appliedWireframe = want; }
 }
 
+let heldFrom = null;   // off live, the buffers hold everything from here instead of rolling
 function drawFrame() {
+  clock.oldest = trace.ts.length ? trace.ts[0] : null;
   const t = clock.displayTime();
+  heldFrom = clock.mode === 'live' ? null : Math.min(heldFrom ?? Infinity, clock.windowStart() - WINDOW_S);
+  trace.holdFrom = heldFrom;
+  lanes.holdFrom = heldFrom;
   const lost = lostState();
   trace.draw(t);
   lanes.draw(t);
@@ -208,7 +230,22 @@ function drawFrame() {
   applyLost(lost);
   heart.render();
   if (lost && !REDUCED_MOTION) glitch.draw(performance.now());
+  timeline.draw(t);
+  syncTransport();
+  dock.update();
+  dock.setPressed('rotate', heart.state.rotate);
+  dock.setPressed('wireframe', userWireframe);
+  dock.setPressed('open', heart.state.cutaway);
 }
+
+// the transport tray shows the clock's mode; a replay that catches up flips back to live by itself
+let shownMode = null;
+function syncTransport() {
+  if (clock.mode === shownMode) return;
+  shownMode = clock.mode;
+  for (const b of document.querySelectorAll('#transport button')) b.setAttribute('aria-pressed', String(b.dataset.mode === clock.mode));
+}
+for (const b of document.querySelectorAll('#transport button')) b.addEventListener('click', () => clock.setMode(b.dataset.mode));
 
 // one error must never stop the screen: draw what we can and keep the loop alive
 function frame() {
@@ -236,28 +273,32 @@ initChat();
 const opacity = $('opacity');
 opacity.addEventListener('input', () => heart.setOpacity(Number(opacity.value) / 100));
 
-// The view tray and the keys share these: R or Rotate spins, W or Wire, C or Cut, 0 or Reset.
-const viewButtons = {};
-for (const b of document.querySelectorAll('#view-tray button')) viewButtons[b.dataset.view] = b;
-if (REDUCED_MOTION) {   // auto-rotate is off under reduced motion; the pill says so
-  viewButtons.rotate.disabled = true;
-  viewButtons.rotate.title = 'Auto-rotate is off under reduced motion';
-}
-function syncView() {
-  viewButtons.rotate.setAttribute('aria-pressed', String(heart.state.rotate));
-  viewButtons.wire.setAttribute('aria-pressed', String(userWireframe));
-  viewButtons.cut.setAttribute('aria-pressed', String(heart.state.cutaway));
-}
+// The dock and the keys share these: R or Rotate spins, W or Wireframe, C or Open (the cutaway),
+// 0 or Reset view. The dock reads its pressed state from the heart every frame.
 const view = {
-  rotate: () => { heart.setRotate(!heart.state.rotate); syncView(); },
-  wire: () => { userWireframe = !userWireframe; syncView(); },
-  cut: () => { heart.setCutaway(!heart.state.cutaway); syncView(); },
-  reset: () => { heart.resetView(); syncView(); },
+  rotate: () => heart.setRotate(!heart.state.rotate),
+  wire: () => { userWireframe = !userWireframe; },
+  cut: () => heart.setCutaway(!heart.state.cutaway),
+  reset: () => heart.resetView(),
 };
-for (const [name, b] of Object.entries(viewButtons)) b.addEventListener('click', () => { view[name](); b.blur(); });
+const dock = new Dock($('dock'), {
+  rotate: view.rotate,
+  wireframe: view.wire,
+  open: view.cut,
+  opacity: () => opacity.focus(),
+  reset: view.reset,
+});
+if (REDUCED_MOTION) {   // auto-rotate is off under reduced motion; the dock's cell says so
+  const b = $('dock').querySelector('[data-action="rotate"]');
+  b.disabled = true;
+  b.dataset.label = 'Auto-rotate is off under reduced motion';
+}
 
+// Keys keep the other views reachable without chrome: R spins, W wireframe, C cutaway. Plain keys only:
+// Cmd+C to copy text or Cmd+R to reload must not touch the heart (Cmd+C used to cut it open).
 window.addEventListener('keydown', (e) => {
-  if (e.target instanceof HTMLInputElement) return;
+  if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
   const k = e.key.toLowerCase();
   if (k === 't') toggleTheme();
   else if (k === 'r') view.rotate();

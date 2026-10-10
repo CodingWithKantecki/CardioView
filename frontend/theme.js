@@ -1,6 +1,6 @@
 // Canvas colors come from CSS variables on :root, so a theme is a stylesheet swap.
 // Each --c-* value must be a six-digit hex; alpha() derives the translucent variants.
-const KEYS = ['stage', 'paper', 'ink', 'trace', 'grid', 'rule', 'dim', 'right', 'left', 'alert', 'now'];
+const KEYS = ['stage', 'paper', 'ink', 'trace', 'grid', 'rule', 'dim', 'ra', 'rv', 'la', 'lv', 'alert', 'now'];
 let cache = null;
 
 export function colors() {
@@ -14,6 +14,7 @@ export function colors() {
 export function invalidate() { cache = null; }
 
 export function alpha(hex, a) {
+  if (typeof hex !== 'string' || hex.length !== 7) hex = '#ff00ff';   // a missing token shows magenta instead of killing the frame loop
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 }

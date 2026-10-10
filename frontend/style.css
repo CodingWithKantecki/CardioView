@@ -1,9 +1,10 @@
-/* CardioView: Statura's Swiss structure (Helvetica for everything, JetBrains Mono for data and
-   labels, square corners, no shadows, ruled regions, segmented controls in a tray) on a medical dark
-   palette: clinical monitor surfaces, a monitor-green trace, cyan for the right heart, coral for the
+/* CardioView: Statura's Swiss structure (JetBrains Mono 700 in uppercase for titles, labels and controls
+   at readable sizes, Helvetica for the numeral, the chamber letters and sentences, square corners, no
+   shadows, 4 px rules between regions, segmented controls in a tray) on a medical dark palette: clinical monitor surfaces, a monitor-green trace, cyan for the right heart, coral for the
    left, teal as the accent. Press T for Statura's cream theme. */
 @font-face { font-family: "JetBrains Mono"; font-weight: 400; font-style: normal; font-display: swap; src: url(vendor/fonts/jetbrains-mono-latin-400-normal.woff2) format("woff2"); }
 @font-face { font-family: "JetBrains Mono"; font-weight: 600; font-style: normal; font-display: swap; src: url(vendor/fonts/jetbrains-mono-latin-600-normal.woff2) format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 700; font-style: normal; font-display: swap; src: url(vendor/fonts/jetbrains-mono-latin-700-normal.woff2) format("woff2"); }
 
 :root {
   /* medical dark: clinical monitor surfaces and signal colors, Statura's Swiss structure */
@@ -26,48 +27,62 @@
   --accent: var(--teal);
   --on-accent: var(--teal-deep);
   --alert: var(--red);
+  --info: #3B82F6;   /* the "!" badges in the rhythm tray */
 
   --sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
   --gutter: clamp(16px, 1.6vw, 28px);
+  --rule-w: 4px;     /* the rules between regions (Thomas: 2 px was still too thin) */
+  --cell-w: 3px;     /* the rules between cells of a segmented control */
+  --numeral: clamp(56px, 9.5vh, 112px);   /* the heart-rate numeral; the column beside it is sized for three digits */
 
   /* canvas and scene colors (six-digit hex only; the scripts derive their alphas) */
   --c-stage: #0A1115; --c-paper: #0F1A1F; --c-ink: #E8F1F2; --c-trace: #37E07E; --c-grid: #8FB8B8; --c-rule: #E8F1F2;
-  --c-dim: #7F969B; --c-right: #4FC3F7; --c-left: #FF6B6B; --c-alert: #FF5252; --c-now: #2BD4BD;
+  --c-dim: #7F969B; --c-alert: #FF5252; --c-now: #2BD4BD;
+  /* one color per chamber, plainly different (Thomas, 2026-10-10: blues and corals were too alike): blue, green, red, yellow */
+  --c-ra: #4D8BFF; --c-rv: #7FE24B; --c-la: #FF4F4F; --c-lv: #FFC93C;
 }
 html[data-theme="light"] {
   --paper: var(--cream); --card: #FFFFFF; --header: var(--navy);
   --ink: var(--navy); --ink-2: #41506C; --muted: #6B7A94;
   --line: rgba(20, 35, 62, 0.12); --line-2: rgba(20, 35, 62, 0.28); --line-strong: rgba(20, 35, 62, 0.5);
   --tray: rgba(20, 35, 62, 0.08);
-  --accent: var(--gold); --on-accent: var(--navy); --alert: var(--danger);
+  --accent: var(--gold); --on-accent: var(--navy); --alert: var(--danger); --info: #2563EB;
   --c-stage: #F5F1E8; --c-paper: #FFFFFF; --c-ink: #14233E; --c-trace: #14233E; --c-grid: #14233E; --c-rule: #14233E;
-  --c-dim: #6B7A94; --c-right: #41506C; --c-left: #A8423D; --c-alert: #A8423D; --c-now: #C9954A;
+  --c-dim: #6B7A94; --c-alert: #A8423D; --c-now: #C9954A;
+  --c-ra: #2457C5; --c-rv: #3C8A1E; --c-la: #B8322F; --c-lv: #B5860B;
 }
 
 * { box-sizing: border-box; border-radius: 0; box-shadow: none; }
 html, body { height: 100%; margin: 0; }
 body {
-  background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 14px; line-height: 1.35;
+  background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.35;
   -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums;
   display: flex; flex-direction: column; height: 100vh; overflow: hidden;
 }
 
-/* the mono kicker, as in Statura's .label */
-.kicker { font-family: var(--mono); font-size: 11.5px; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted); }
-
 /* header: Statura's navy bar */
-.top { flex: 0 0 60px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: stretch; padding: 0 var(--gutter); background: var(--header); color: var(--fg-0); border-bottom: 2px solid var(--line-2); }
-.brand { grid-column: 1; align-self: center; justify-self: start; font-weight: 700; font-size: 17px; letter-spacing: -0.01em; }
-.device { grid-column: 2; display: flex; align-items: center; padding: 0 36px; border-left: 2px solid var(--line-2); border-right: 2px solid var(--line-2); font-family: var(--mono); font-size: 14px; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; color: var(--fg-0); white-space: nowrap; }
-.device:empty { display: none; }
+.top { flex: 0 0 76px; display: flex; align-items: center; justify-content: space-between; gap: clamp(16px, 2vw, 32px); padding: 0 var(--gutter); background: var(--header); color: var(--fg-0); border-bottom: var(--rule-w) solid var(--line-2); }
+.brand { font-weight: 700; font-size: 20px; letter-spacing: -0.015em; }
+/* the timeline: one tray holding the transport cells and, as its last cell, the strip of the last
+   30 s with a playhead; drag the strip to scrub */
+.top .toggle.timeline { flex: 1 1 auto; min-width: 0; display: flex; }   /* the one tray that grows */
+.timeline canvas { flex: 1 1 auto; min-width: 0; height: 44px; display: block; cursor: ew-resize; touch-action: none; background: var(--header); }
+.timeline button { display: flex; align-items: center; justify-content: center; padding: 9px 13px; }
+.timeline svg { width: 12px; height: 12px; display: block; fill: currentColor; }
+/* the status line (strap id, whose recording, which simulated rhythm) lives in the heart rate box, above the tray */
+.status-line { grid-column: 2; grid-row: 1; align-self: baseline; text-align: center; font-family: var(--mono); font-size: clamp(13px, 1.7vh, 16px); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.status-line.id { font-weight: 600; text-transform: none; }   /* the strap id is data, shown as the strap names itself */
+.status-line:empty { display: none; }
 
-/* Statura tab language: mono uppercase pills in a tray, gold fill when active */
-.toggle { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 2px; background: var(--tray); }
-.top .toggle { grid-column: 3; justify-self: end; align-self: center; }
+/* segmented controls: equal cells separated by rules, the accent fills the active one */
+.toggle { display: inline-flex; flex-wrap: wrap; gap: var(--cell-w); padding: var(--cell-w); background: var(--line-2); }
+.toggle button { background: var(--card); }
+.top .toggle { flex: 0 0 auto; flex-wrap: nowrap; }   /* the header's trays never wrap or shrink */
+.top .toggle button { background: var(--header); }
 .toggle button {
-  background: none; border: 0; margin: 0; padding: 10px 16px; cursor: pointer;
-  font-family: var(--mono); font-size: 12.5px; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; color: var(--ink-2); white-space: nowrap;
+  border: 0; margin: 0; padding: 10px 18px; cursor: pointer;
+  font-family: var(--mono); font-size: 14px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); white-space: nowrap;
 }
 .top .toggle button { color: var(--fg-1); }
 .toggle button:hover { color: var(--ink); }
@@ -77,7 +92,7 @@ body {
 
 /* screen: a ruled grid, stage on paper, instruments on a lifted white column */
 .screen { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 3fr 2fr; }
-.stage { position: relative; overflow: hidden; border-right: 2px solid var(--line-strong); }
+.stage { position: relative; overflow: hidden; border-right: var(--rule-w) solid var(--line-strong); }
 #heart-view { position: absolute; inset: 0; z-index: 1; }
 #heart-view canvas { display: block; width: 100%; height: 100%; }
 .missing { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); z-index: 2; margin: 0; text-align: center; color: var(--muted); font-size: 14px; }
@@ -90,7 +105,7 @@ body {
 .leaders circle.dim { fill-opacity: 0.35; }
 .label { position: absolute; z-index: 3; pointer-events: none; display: flex; flex-direction: column; line-height: 1.05; transition: left 0.35s ease, top 0.35s ease, opacity 0.25s ease; }
 .label b { font-size: clamp(24px, 3.2vh, 34px); font-weight: 700; letter-spacing: -0.02em; }
-.label span { font-family: var(--mono); color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; margin-top: 4px; }
+.label span { font-family: var(--mono); color: var(--ink-2); font-size: clamp(12px, 1.6vh, 14px); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 4px; }
 .label.side-left { text-align: right; align-items: flex-end; }
 .label.side-right { text-align: left; align-items: flex-start; }
 .label .spark { display: block; width: clamp(110px, 8vw, 150px); height: clamp(20px, 2.6vh, 26px); margin-top: 8px; }
@@ -103,8 +118,8 @@ body {
   padding: 28px 56px; background: radial-gradient(closest-side, rgba(10, 17, 21, 0.95), rgba(10, 17, 21, 0.8) 60%, rgba(10, 17, 21, 0));
 }
 html[data-theme="light"] .alert { background: radial-gradient(closest-side, rgba(245, 241, 232, 0.95), rgba(245, 241, 232, 0.8) 60%, rgba(245, 241, 232, 0)); }
-.alert b { font-size: 28px; font-weight: 700; letter-spacing: -0.01em; color: var(--alert); }
-.alert span { color: var(--ink-2); font-size: 13px; }
+.alert b { font-size: 32px; font-weight: 700; letter-spacing: -0.015em; color: var(--alert); }
+.alert span { color: var(--ink-2); font-size: 15px; }
 .alert span:empty { display: none; }
 body.lost #heart-view { opacity: 0; }
 .glitch { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 4; pointer-events: none; display: none; }
@@ -115,21 +130,31 @@ body.lost .label, body.lost .leaders { opacity: 0.3; }
 body.lost #trace { opacity: 0.5; }
 body.lost .bpm { opacity: 0.35; }
 
-/* opacity slider: square gold thumb, hairline track */
-.opacity { position: absolute; left: var(--gutter); bottom: 20px; z-index: 3; display: flex; align-items: center; gap: 12px; }
-.opacity span { font-family: var(--mono); font-size: 11.5px; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted); }
-.opacity input { -webkit-appearance: none; appearance: none; width: 160px; height: 18px; margin: 0; background: transparent; cursor: pointer; }
-.opacity input::-webkit-slider-runnable-track { height: 2px; background: var(--line-2); }
-.opacity input::-moz-range-track { height: 2px; background: var(--line-2); }
-.opacity input::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; margin-top: -6px; background: var(--accent); border: 0; }
-.opacity input::-moz-range-thumb { width: 14px; height: 14px; background: var(--accent); border: 0; border-radius: 0; }
-.opacity input:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(43, 212, 189, 0.4); }
+/* the dock: the heart's view controls at the bottom of the stage, cells that grow toward the
+   pointer (dock.js), a mono label above the hovered one, toggles pressed in the accent */
+.dock { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 3; display: flex; align-items: flex-end; }
+.dock-item { position: relative; display: flex; align-items: flex-end; padding: var(--cell-w); background: var(--line-2); }   /* each cell frames itself, so a grown cell does not stretch the tray */
+.dock-item + .dock-item { margin-left: calc(-1 * var(--cell-w)); }
+.dock button { width: 48px; height: 48px; border: 0; margin: 0; padding: 0; background: var(--card); color: var(--ink-2); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.dock button:hover { color: var(--ink); }
+.dock button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+.dock button:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(43, 212, 189, 0.4); }
+.dock button svg { width: 46%; height: 46%; display: block; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: square; stroke-linejoin: miter; }
+.dock button::after { content: attr(data-label); position: absolute; left: 50%; bottom: calc(100% + 12px); transform: translateX(-50%); padding: 6px 10px; background: var(--card); border: 2px solid var(--line-2); font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; line-height: 1; color: var(--ink); white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.12s; }
+.dock-item:hover button::after, .dock button:focus-visible::after { opacity: 1; }
+.dock-item.has-pop button::after { display: none; }
+/* the opacity slider in a popover above its cell: square accent thumb, 2 px track */
+.opacity-pop { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); display: none; align-items: center; gap: 12px; padding: 12px 14px; background: var(--card); border: 2px solid var(--line-2); }
+.dock-item:hover .opacity-pop, .dock-item:focus-within .opacity-pop { display: flex; }
+.opacity-pop span { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2); }
+.opacity-pop input { -webkit-appearance: none; appearance: none; width: 160px; height: 18px; margin: 0; background: transparent; cursor: pointer; }
+.opacity-pop input::-webkit-slider-runnable-track { height: 2px; background: var(--line-2); }
+.opacity-pop input::-moz-range-track { height: 2px; background: var(--line-2); }
+.opacity-pop input::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; margin-top: -6px; background: var(--accent); border: 0; }
+.opacity-pop input::-moz-range-thumb { width: 14px; height: 14px; background: var(--accent); border: 0; border-radius: 0; }
+.opacity-pop input:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(43, 212, 189, 0.4); }
 
-/* view tray: Rotate, Wire, Cut, Reset at the bottom right of the stage, on the opacity slider's line.
-   The three toggles mirror the R, W and C keys; Reset is the 0 key. All off by default. */
-.view-tray { position: absolute; right: var(--gutter); bottom: 20px; z-index: 3; }
-.view-tray button[disabled] { opacity: 0.45; cursor: default; }
-.view-tray button[disabled]:hover { color: var(--ink-2); }
+.dock button[disabled] { opacity: 0.45; cursor: default; }   /* Rotate under reduced motion */
 
 /* chat: one Ask pill at the top right of the stage, a flat box dropping down from it on the column
    surface. That corner is the one part of the stage the heart and its labels never reach at 1920 by
@@ -173,36 +198,56 @@ body.lost .bpm { opacity: 0.35; }
 
 /* instrument column: white card with navy rules, three instruments sharing the height */
 .column { position: relative; min-height: 0; background: var(--card); padding: 0; display: grid; grid-template-rows: auto minmax(0, 1.15fr) minmax(0, 1fr); }
-.instrument { min-height: 0; display: flex; flex-direction: column; padding: clamp(12px, 1.8vh, 20px) var(--gutter) clamp(10px, 1.6vh, 16px); border-bottom: 2px solid var(--line-2); }
+.instrument { min-height: 0; display: flex; flex-direction: column; padding: clamp(12px, 1.8vh, 20px) var(--gutter) clamp(10px, 1.6vh, 16px); border-bottom: var(--rule-w) solid var(--line-2); }
 .instrument.chambers { border-bottom: 0; }
-.instrument h2 { margin: 0; display: flex; gap: 12px; align-items: baseline; font-family: var(--mono); font-size: 11.5px; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted); }
-.instrument h2 small { font-family: var(--sans); font-size: 12px; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--ink-2); }
+/* ECG and Chambers: the title and its 2D / 3D tray sit in their own band with a rule under it, and
+   the graph fills the rest of the box edge to edge (Thomas, 2026-10-10) */
+.instrument.ecg, .instrument.chambers { padding: 0; }
+.instrument.ecg h2, .instrument.chambers h2 { padding: clamp(3px, 0.5vh, 5px) var(--gutter); align-items: center; border-bottom: var(--rule-w) solid var(--line-2); }
+.instrument.ecg canvas, .instrument.chambers canvas { margin-top: 0; }
+.instrument h2 .toggle button { padding: 4px 12px; font-size: 13px; }   /* a short tray, so the band stays thin */
+/* instrument titles: Statura's mono kicker, but white, bold and at a size that reads across a room */
+.instrument h2 { margin: 0; display: flex; gap: 14px; align-items: baseline; font-family: var(--mono); font-size: clamp(15px, 1.9vh, 19px); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; line-height: 1.1; color: var(--ink); }
 .readout { display: flex; align-items: baseline; gap: 10px; margin-top: 2px; }
-.bpm { font-family: var(--sans); font-weight: 700; font-size: clamp(56px, 9.5vh, 112px); line-height: 0.95; letter-spacing: -0.04em; color: var(--ink); }
-.unit { font-size: 18px; color: var(--ink-2); }
-.rr { margin: 2px 0 0; white-space: nowrap; font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted); }
+.bpm { font-family: var(--sans); font-weight: 700; font-size: var(--numeral); line-height: 0.95; letter-spacing: -0.04em; color: var(--ink); }
+.unit { font-size: 20px; color: var(--ink-2); }
+.rr { margin: 6px 0 0; white-space: nowrap; font-family: var(--mono); font-size: clamp(12px, 1.6vh, 14px); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
 .instrument h2 .toggle { margin-left: auto; }
 /* heart rate band: a 2 by 2 grid, titles on the first row, the numeral and the rhythm tray on the
    second, so the tray is exactly the numeral's height and runs flush to the right edge */
-.instrument.rate { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); column-gap: 28px; row-gap: 10px; align-items: stretch; }
-.instrument.rate h2 { grid-column: 1; grid-row: 1; }
-.rhythm-kicker { grid-column: 2; grid-row: 1; align-self: baseline; }
+.instrument.rate { display: grid; grid-template-columns: calc(var(--numeral) * 1.65 + 56px) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); column-gap: 28px; row-gap: 10px; align-items: stretch; }
+.instrument.rate h2 { grid-column: 1; grid-row: 1; align-self: baseline; }
 .readout-block { grid-column: 1; grid-row: 2; }
-.rhythm-tray { grid-column: 2; grid-row: 2; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); gap: 2px; }
-.rhythm-tray button { padding: 0 4px; text-align: center; overflow: hidden; text-overflow: ellipsis; font-size: clamp(10px, 0.62vw, 12.5px); letter-spacing: 0.1em; }
-.rhythm-tray button[data-rhythm="recording"] { grid-column: span 2; }
-.instrument canvas { flex: 1 1 auto; min-height: 0; width: 100%; display: block; margin-top: 12px; }
+.rhythm-tray { grid-column: 2; grid-row: 2; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); gap: var(--cell-w); }
+.rhythm-tray button { position: relative; padding: 0 4px; text-align: center; white-space: normal; line-height: 1.2; font-size: clamp(11px, 0.7vw, 14px); letter-spacing: 0.04em; }
+/* a rhythm cell's "!" badge: hover it for what that rhythm is, in a box under the cell. Hover only: Chrome
+   marks a clicked cell :focus-visible once the R, W, C or T key is pressed, which would pin its box open.
+   Sized by the viewport height, as the cells are, so it keeps above a one-line name down to about 720 px. */
+.rhythm-tray .info {
+  --badge: clamp(12px, 1.5vh, 18px);
+  position: absolute; top: calc(var(--badge) / 8); right: calc(var(--badge) / 8); width: var(--badge); height: var(--badge);
+  display: grid; place-items: center; border-radius: 50%; background: var(--info); color: #FFFFFF;
+  font-family: var(--sans); font-size: clamp(11px, 1.1vh, 12px); font-weight: 700; letter-spacing: 0; line-height: 1; cursor: help;
+}
+.rhythm-tray .tip {
+  display: none; position: absolute; top: calc(100% + var(--cell-w)); right: 0; z-index: 10; width: clamp(220px, 15vw, 300px);
+  padding: 10px 12px 12px; background: var(--card); border: 2px solid var(--info); pointer-events: none;
+  font-family: var(--sans); font-size: 14px; font-weight: 400; line-height: 1.4; letter-spacing: 0; text-align: left; text-transform: none; color: var(--ink-2);
+}
+.rhythm-tray .tip b { display: block; margin-bottom: 6px; font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); }
+.rhythm-tray .info:hover + .tip { display: block; }
+.instrument canvas { flex: 1 1 auto; min-height: 0; width: 100%; display: block; margin-top: 10px; }
 .nowline { position: absolute; width: 0; border-left: 2px dashed var(--accent); pointer-events: none; z-index: 2; }
 
 @media (max-width: 760px) {
   :root { --gutter: 16px; }
+  .timeline canvas { display: none; }
   body { height: auto; min-height: 100vh; overflow: auto; }
   .screen { display: flex; flex-direction: column; }
-  .stage { height: 72vh; min-height: 480px; border-right: 0; border-bottom: 2px solid var(--line-strong); }
+  .stage { height: 72vh; min-height: 480px; border-right: 0; border-bottom: var(--rule-w) solid var(--line-strong); }
   .column { display: flex; flex-direction: column; padding-bottom: 24px; }
   .instrument.ecg, .instrument.chambers { height: 260px; flex: 0 0 auto; }
-  .bpm { font-size: 72px; }
-  .view-tray { bottom: 58px; }   /* one row above the opacity slider, which needs the whole width */
+  :root { --numeral: 72px; }
   .chat { position: fixed; top: auto; left: var(--gutter); right: var(--gutter); bottom: 16px; flex-direction: column-reverse; }
   .chat-box { width: 100%; height: min(50vh, 420px); transform-origin: 100% 100%; }
 }

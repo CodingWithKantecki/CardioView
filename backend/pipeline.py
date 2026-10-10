@@ -83,6 +83,14 @@ class BeatDetector:
         self._rr.clear()
         self._last_v_off = None
 
+    @property
+    def last_r(self) -> float | None:
+        return self._peaks[-1] if self._peaks else None
+
+    @property
+    def last_rr(self) -> float | None:
+        return self._rr[-1] if self._rr else None
+
     def feed(self, packet: Packet) -> list[Beat]:
         if self._t_end is None or abs(packet.t - self._t_end) > JUMP_S:
             self.reset()

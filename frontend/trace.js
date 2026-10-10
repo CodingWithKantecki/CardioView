@@ -1,12 +1,27 @@
 // ECG trace on a canvas. Samples are keyed by stream time; drawing follows t_display.
 import { colors, alpha } from './theme.js';
 const FS_DEFAULT = 130;
-const KEEP_S = 14;
+export const KEEP_S = 120;      // history kept while live: the timeline's 30 s window can pan back through it
+export const MAX_KEEP_S = 900;  // off live the history is held, but never more than this
 
-export const WINDOW_S = 6;
-export const NOW_FRAC = 0.92;
-export const GUTTER = 48;
-export const BASELINE_FRAC = 0.64;
+export const WINDOW_S = 6;       // seconds from the left edge to the now line
+export const NOW_INSET = 12;     // CSS px between the now line and the right edge: the graphs fill their box
+export const GUTTER = 0;         // no left gutter; the lane letters sit inside their lanes
+export const BASELINE_FRAC = 0.66;
+
+// the shared time axis of the trace and the lanes, so beats line up between them
+export function geometry(w, dpr) {
+  const gutter = GUTTER * dpr, xNow = w - NOW_INSET * dpr;
+  return { gutter, xNow, pxPerS: (xNow - gutter) / WINDOW_S };
+}
+
+// where a buffer may be trimmed to: KEEP_S behind the newest sample, or further back while the
+// timeline holds history from `holdFrom` (null when live), within MAX_KEEP_S
+export function keepCut(newest, holdFrom) {
+  let cut = newest - KEEP_S;
+  if (holdFrom !== null && holdFrom !== undefined) cut = Math.min(cut, holdFrom);
+  return Math.max(cut, newest - MAX_KEEP_S);
+}
 
 export function fitCanvas(canvas) {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -30,6 +45,7 @@ function roundedPath(ctx, pts) {
 const PRE_S = 0.3;      // 3D: seconds shown before each R peak
 const POST_S = 0.6;     // 3D: seconds shown after each R peak
 const ROWS_3D = 8;      // 3D: beats stacked
+const BEAT_GAP_S = 0.08; // 3D: a row stops this far short of the neighboring beats, so a fast rhythm never shows two R peaks in one row
 
 export class Trace {
   constructor(canvas) {
@@ -38,6 +54,7 @@ export class Trace {
     this.ts = [];
     this.ys = [];
     this.scale = 200;
+    this.holdFrom = null;   // set by the timeline while off live: keep samples from here
     this.mode = '2d';
     this.fs = FS_DEFAULT;
     this.beats = [];      // shared with the chamber lanes, newest last
@@ -55,18 +72,10 @@ export class Trace {
 
   clear() { this.ts.length = 0; this.ys.length = 0; this.resetFilter(); this.scale = 200; }
 
-  // drop everything from stream time t on; the filter continues from its last output
-  truncate(t) {
-    const i = this.indexAt(t);
-    this.ts.length = i;
-    this.ys.length = i;
-    this.prevX = null;
-  }
-
   // the sample rate, small, in the graph's top-left corner
   drawRate(ctx, gutter, dpr) {
     ctx.save();
-    ctx.font = `600 ${11 * dpr}px "JetBrains Mono", monospace`;
+    ctx.font = `600 ${12 * dpr}px "JetBrains Mono", monospace`;
     ctx.fillStyle = colors().dim;
     ctx.textBaseline = 'top';
     ctx.fillText(`${this.fs} HZ`, gutter + 4 * dpr, 4 * dpr);
@@ -86,7 +95,8 @@ export class Trace {
     }
     const newest = this.ts[this.ts.length - 1];
     let drop = 0;
-    while (drop < this.ts.length && this.ts[drop] < newest - KEEP_S) drop++;
+    const cut = keepCut(newest, this.holdFrom);
+    while (drop < this.ts.length && this.ts[drop] < cut) drop++;
     if (drop > 0) { this.ts.splice(0, drop); this.ys.splice(0, drop); }
   }
 
@@ -117,18 +127,19 @@ export class Trace {
     const next = all[all.indexOf(newest) + 1];                 // usually known already: beats arrive before they are displayed
     const span0 = next ? next.r - newest.r : (newest.rr || 0.8);
     const phase = Math.min(1, Math.max(0, (tDisplay - (newest.r - PRE_S)) / span0));
-    const stepX = (w - gutter) * 0.018;
+    const stepX = w * 0.012;
     const stepY = h * 0.08;
     const span = PRE_S + POST_S;
-    const width0 = (w - gutter) * 0.78;
-    const base0 = h * 0.8;
+    const width0 = w * 0.86;
+    const left0 = (w - width0) / 2;   // the front row sits centered in the box; rows behind drift right and shrink
+    const base0 = h * 0.87;
 
     let up = 0, down = 0;
     for (const b of rows) {
       const i0 = this.indexAt(b.r - PRE_S), i1 = this.indexAt(Math.min(b.r + POST_S, tDisplay));
       for (let i = i0; i < i1; i++) { const v = this.ys[i]; if (v > up) up = v; if (-v > down) down = -v; }
     }
-    const targetAmp = Math.min((h * 0.22) / Math.max(200, up), (h * 0.15) / Math.max(120, down));
+    const targetAmp = Math.min((h * 0.27) / Math.max(200, up), (h * 0.12) / Math.max(120, down));
     this.amp3d = this.amp3d ? this.amp3d + (targetAmp - this.amp3d) * 0.08 : targetAmp;
     const amp0 = this.amp3d;
 
@@ -139,12 +150,15 @@ export class Trace {
       const age = tDisplay - (b.r - PRE_S);                                   // seconds since this row began
       const rowAlpha = Math.max(0, 1 - depth / (ROWS_3D + 0.5)) * Math.min(1, age / 0.2);   // fade in, fade out at the back
       if (rowAlpha <= 0) continue;
-      const x0 = gutter + depth * stepX;
+      const x0 = left0 + depth * stepX;
       const base = base0 - depth * stepY;
       const pxPerS = (width0 * sc) / span;
       const amp = amp0 * sc;
-      const tEnd = Math.min(b.r + POST_S, tDisplay);
-      const i0 = this.indexAt(b.r - PRE_S), i1 = this.indexAt(tEnd);
+      const idx = all.indexOf(b);
+      const prev = all[idx - 1], nxt = all[idx + 1];
+      const tStart = Math.max(b.r - PRE_S, prev ? prev.r + BEAT_GAP_S : -Infinity);
+      const tEnd = Math.min(b.r + POST_S, nxt ? nxt.r - BEAT_GAP_S : Infinity, tDisplay);
+      const i0 = this.indexAt(tStart), i1 = this.indexAt(tEnd);
       if (i1 - i0 < 3) continue;
       const pts = [];
       for (let i = i0; i < i1; i++) pts.push([x0 + (this.ts[i] - (b.r - PRE_S)) * pxPerS, base - this.ys[i] * amp]);
@@ -184,11 +198,9 @@ export class Trace {
     const { w, h, dpr } = fitCanvas(this.canvas);
     const ctx = this.ctx;
     ctx.clearRect(0, 0, w, h);
-    const gutter = GUTTER * dpr;
+    const { gutter, xNow, pxPerS } = geometry(w, dpr);
     const drawable = w - gutter;
-    const xNow = gutter + drawable * NOW_FRAC;
-    const tLeft = tDisplay === null ? 0 : tDisplay - WINDOW_S * NOW_FRAC;
-    const pxPerS = drawable / WINDOW_S;
+    const tLeft = tDisplay === null ? 0 : tDisplay - WINDOW_S;
     const baseline = h * BASELINE_FRAC;
 
     // grid
@@ -221,7 +233,7 @@ export class Trace {
     }
     const target = Math.max(200, peak);
     this.scale = target > this.scale ? target : this.scale + (target - this.scale) * 0.02;
-    const amp = (h * 0.5) / this.scale;
+    const amp = (h * 0.56) / this.scale;   // the recent peak reaches a tenth from the top
 
     ctx.save();
     ctx.beginPath();

@@ -13,7 +13,14 @@
 <body>
 <header class="top">
   <div class="brand">CardioView</div>
-  <span class="device" id="conn"></span>
+  <div class="toggle timeline" id="transport">
+    <button type="button" data-mode="rewind" aria-label="Rewind" aria-pressed="false"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1L0 6l6 5zM12 1L6 6l6 5z"/></svg></button>
+    <button type="button" data-mode="play" aria-label="Play" aria-pressed="false"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 1v10l9-5z"/></svg></button>
+    <button type="button" data-mode="paused" aria-label="Pause" aria-pressed="false"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 1h3v10H2zM7 1h3v10H7z"/></svg></button>
+    <button type="button" data-mode="forward" aria-label="Fast forward" aria-pressed="false"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M0 1l6 5-6 5zM6 1l6 5-6 5z"/></svg></button>
+    <button type="button" data-mode="live" aria-pressed="true">Live</button>
+    <canvas id="timeline-strip" aria-label="The last 30 seconds of ECG, drag to scrub"></canvas>
+  </div>
   <span class="toggle source-toggle" id="source-mode"><button type="button" data-source="live" aria-pressed="false">Strap</button><button type="button" data-source="demo" aria-pressed="false">Demo</button></span>
 </header>
 
@@ -23,12 +30,11 @@
     <canvas id="glitch" class="glitch" aria-hidden="true"></canvas>
     <p id="heart-missing" class="missing" hidden>Heart model not installed, see the README</p>
     <svg id="leaders" class="leaders" aria-hidden="true"></svg>
-    <div class="label side-left" data-chamber="ra" hidden><b>RA</b><span>right atrium</span><canvas class="spark" data-spark="ra"></canvas></div>
-    <div class="label side-right" data-chamber="la" hidden><b>LA</b><span>left atrium</span><canvas class="spark" data-spark="la"></canvas></div>
-    <div class="label side-left" data-chamber="rv" hidden><b>RV</b><span>right ventricle</span><canvas class="spark" data-spark="rv"></canvas></div>
-    <div class="label side-right" data-chamber="lv" hidden><b>LV</b><span>left ventricle</span><canvas class="spark" data-spark="lv"></canvas></div>
+    <div class="label side-left" data-chamber="ra" hidden><b>RA</b><span>Right atrium</span><canvas class="spark" data-spark="ra"></canvas></div>
+    <div class="label side-right" data-chamber="la" hidden><b>LA</b><span>Left atrium</span><canvas class="spark" data-spark="la"></canvas></div>
+    <div class="label side-left" data-chamber="rv" hidden><b>RV</b><span>Right ventricle</span><canvas class="spark" data-spark="rv"></canvas></div>
+    <div class="label side-right" data-chamber="lv" hidden><b>LV</b><span>Left ventricle</span><canvas class="spark" data-spark="lv"></canvas></div>
     <div class="alert" id="alert" hidden><b id="alert-title"></b><span id="alert-hint"></span></div>
-    <label class="opacity"><span>Opacity</span><input id="opacity" type="range" min="15" max="100" value="100" aria-label="Heart opacity"></label>
     <div class="chat" id="chat">
       <span class="toggle chat-toggle"><button type="button" id="chat-open" aria-expanded="false" aria-controls="chat-box">Ask</button></span>
       <section class="chat-box" id="chat-box" hidden aria-label="Ask about the data">
@@ -38,30 +44,30 @@
         <p class="chat-note">Answers come from an AI and can be wrong</p>
       </section>
     </div>
-    <span class="toggle view-tray" id="view-tray" aria-label="Heart view">
-      <button type="button" data-view="rotate" aria-pressed="false" title="Auto-rotate (R)">Rotate</button>
-      <button type="button" data-view="wire" aria-pressed="false" title="Wireframe (W)">Wire</button>
-      <button type="button" data-view="cut" aria-pressed="false" title="Cutaway (C)">Cut</button>
-      <button type="button" data-view="reset" title="Reset view (0)">Reset</button>
-    </span>
+    <nav class="dock" id="dock" aria-label="Heart view controls">
+      <span class="dock-item"><button type="button" data-action="rotate" data-label="Rotate" aria-pressed="false" aria-label="Rotate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></svg></button></span>
+      <span class="dock-item"><button type="button" data-action="wireframe" data-label="Wireframe" aria-pressed="false" aria-label="Wireframe"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 3v18M4 7.5l8 4.5 8-4.5M4 16.5l8-4.5 8 4.5"/></svg></button></span>
+      <span class="dock-item"><button type="button" data-action="open" data-label="Open" aria-pressed="false" aria-label="Open the heart"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M12 7.4V20"/><path d="M9 11h3M12 14h3"/></svg></button></span>
+      <span class="dock-item has-pop"><button type="button" data-action="opacity" data-label="Opacity" aria-label="Opacity"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"/></svg></button><div class="opacity-pop"><span>Opacity</span><input id="opacity" type="range" min="15" max="100" value="100" aria-label="Heart opacity"></div></span>
+      <span class="dock-item"><button type="button" data-action="reset" data-label="Reset view" aria-label="Reset view"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg></button></span>
+    </nav>
   </section>
 
   <aside class="column" id="column">
     <section class="instrument rate">
       <h2>Heart rate</h2>
-      <span class="kicker rhythm-kicker" id="rhythm-kicker" hidden>Simulated rhythm</span>
+      <span class="status-line" id="conn"></span>
       <div class="readout-block">
         <div class="readout"><span class="bpm" id="bpm">--</span><span class="unit">bpm</span></div>
         <p class="rr" id="rr">-- s between beats</p>
       </div>
       <div class="toggle rhythm-tray" id="rhythms" hidden>
         <button type="button" data-rhythm="recording" aria-pressed="false">Recording</button>
-        <button type="button" data-rhythm="sinus" aria-pressed="false">Sinus</button>
-        <button type="button" data-rhythm="tachy" aria-pressed="false">Tachy</button>
-        <button type="button" data-rhythm="brady" aria-pressed="false">Brady</button>
-        <button type="button" data-rhythm="afib" aria-pressed="false">A-fib</button>
-        <button type="button" data-rhythm="pvc" aria-pressed="false">PVC</button>
-        <button type="button" data-rhythm="vt" aria-pressed="false">V-tach</button>
+        <button type="button" data-rhythm="sinus" aria-pressed="false" aria-describedby="tip-sinus">Normal<span class="info" aria-hidden="true">!</span><span class="tip" id="tip-sinus" aria-hidden="true"><b>Normal sinus rhythm</b>The sinus node, the heart's natural pacemaker, sets a steady 60 to 100 beats a minute. Each beat: a P wave (atria squeeze), a QRS spike (ventricles squeeze), a T wave (they relax).</span></button>
+        <button type="button" data-rhythm="brady" aria-pressed="false" aria-describedby="tip-brady">Bradycardia<span class="info" aria-hidden="true">!</span><span class="tip" id="tip-brady" aria-hidden="true"><b>Bradycardia</b>A slow heart rate, under 60 beats a minute. Normal in fit people and during sleep; it can also come from medicines or a problem in the heart's electrical system.</span></button>
+        <button type="button" data-rhythm="afib" aria-pressed="false" aria-describedby="tip-afib">Atrial fibrillation<span class="info" aria-hidden="true">!</span><span class="tip" id="tip-afib" aria-hidden="true"><b>Atrial fibrillation</b>The atria (upper chambers) quiver instead of squeezing, so the beat turns irregular. On the ECG: no P waves and uneven gaps between beats. It raises the risk of stroke.</span></button>
+        <button type="button" data-rhythm="pvc" aria-pressed="false" aria-describedby="tip-pvc">Extra beats<span class="info" aria-hidden="true">!</span><span class="tip" id="tip-pvc" aria-hidden="true"><b>Premature ventricular contractions</b>An extra beat that starts early in a ventricle (lower chamber), often felt as a skipped beat. On the ECG it is wide with no P wave, then a pause. Common and usually harmless.</span></button>
+        <button type="button" data-rhythm="vt" aria-pressed="false" aria-describedby="tip-vt">V-tach<span class="info" aria-hidden="true">!</span><span class="tip" id="tip-vt" aria-hidden="true"><b>Ventricular tachycardia</b>A fast rhythm, over 100 beats a minute, that starts in the ventricles instead of the sinus node. On the ECG: wide beats and no P waves. If it lasts, it is a medical emergency.</span></button>
       </div>
     </section>
     <section class="instrument ecg">
@@ -70,7 +76,8 @@
       <canvas id="trace"></canvas>
     </section>
     <section class="instrument chambers">
-      <h2>Chambers <small>timing derived from the ECG</small></h2>
+      <h2>Chambers
+        <span class="toggle" id="lanes-mode"><button type="button" data-mode="2d" aria-pressed="true">2D</button><button type="button" data-mode="3d" aria-pressed="false">3D</button></span></h2>
       <canvas id="lanes"></canvas>
     </section>
     <div class="nowline" id="nowline-ecg" aria-hidden="true"></div>

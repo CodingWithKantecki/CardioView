@@ -61,9 +61,28 @@ def test_afib_is_irregular_and_pvcs_come_early():
 
 def test_labels_and_amplitude():
     clk = FakeClock()
-    assert RhythmSource("sinus", sleep=clk.sleep, now=clk.now).status.device == "Simulated: Sinus rhythm"
+    assert RhythmSource("sinus", sleep=clk.sleep, now=clk.now).status.device == "Simulated: Normal rhythm"
     src = RhythmSource("vt", sleep=clk.sleep, now=clk.now)
     assert src.status.device == "Simulated: Ventricular tachycardia"
     assert set(LABELS) == {"sinus", "tachy", "brady", "afib", "pvc", "vt"}
     amp = max(abs(v) for v in list(__import__("itertools").islice(src._stream(), 5 * FS)))
     assert 500 <= amp <= 800, "R peaks should sit near the strap's 600 uV"
+
+
+def test_takeover_plays_out_the_old_beat_and_eases_into_the_new_rate():
+    from backend.pipeline import BeatDetector
+    from backend.sources.base import FS, Packet
+    from backend.sources.rhythm import NORMAL, RhythmSource
+
+    src = RhythmSource("brady")
+    t0 = 20.0
+    src.takeover(index=int(t0 * FS), last_uv=0, last_r=19.7, rr=0.80, template=NORMAL)
+    uv = [next(src._samples) for _ in range(int(12 * FS))]
+    assert uv[0] > 50, "the old beat's T wave is still playing out at the join"
+    pad = int(2 * FS)
+    beats = BeatDetector(delineate=False).prime(Packet(t0 - 2.0, [0] * pad + uv))
+    rs = [b.r for b in beats if b.r > t0 + 0.1]   # the step from the flat pad into the T wave is not a beat
+    assert rs and rs[0] == pytest.approx(19.7 + 0.95, abs=0.03), "the first beat lands one eased interval after the old last beat"
+    rr = [b - a for a, b in zip(rs, rs[1:])]
+    assert 1.03 < rr[0] < 1.17 and 1.17 < rr[1] < 1.33, "the interval glides toward bradycardia"
+    assert all(1.25 < x < 1.55 for x in rr[2:6]), "then it is bradycardia"

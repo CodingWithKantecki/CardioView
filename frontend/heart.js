@@ -6,7 +6,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { colors } from './theme.js';
 
 export const CHAMBERS = ['ra', 'la', 'rv', 'lv'];
-const GLOW = { ra: 0x5B9BFF, la: 0xFF5C83, rv: 0x5B9BFF, lv: 0xFF5C83 };
+const GLOW = { ra: 0x4D8BFF, rv: 0x7FE24B, la: 0xFF4F4F, lv: 0xFFC93C };   // the same four chamber colors as the lanes
 const STRENGTH = { ra: 0.08, la: 0.08, rv: 0.12, lv: 0.12 };
 const DEBUG = new URLSearchParams(location.search).has('debug');
 const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;   // no auto-rotate
@@ -32,11 +32,9 @@ const FRAGMENT_HEAD = `
 uniform vec3 uGlow[4];
 varying vec4 vChamber;
 `;
-const FRAGMENT_BODY = `
-vec3 cardioGlow = vec3(0.0);
-for (int i = 0; i < 4; i++) cardioGlow += uGlow[i] * vChamber[i];
-gl_FragColor.rgb += cardioGlow * 0.12;
-`;
+// no tint on the surface: Thomas did not like the per-chamber glow (2026-10-10); the weights still
+// reach the fragment shader in vChamber should a subtler cue ever be wanted
+const FRAGMENT_BODY = ``;
 
 export class Heart {
   constructor(container, { labels = {}, leaders = null, missing = null } = {}) {
@@ -123,19 +121,34 @@ export class Heart {
     this.controls.update();
   }
 
-  async load(url = 'assets/heart/scene.gltf', configUrl = 'assets/heart.json') {
+  // The purchased set first (assets/heart-pro/, kept out of git, so it may be absent), then the
+  // CC model that ships with the repo.
+  async load() {
+    if (await this.loadSet('assets/heart-pro.json', true)) return true;
+    return this.loadSet('assets/heart.json', false);
+  }
+
+  // A set is a config (chamber geometry, camera) plus a model, and optionally an opened model of
+  // the same anatomy in the same space (`inside`), which the cutaway shows instead of clipping.
+  async loadSet(configUrl, optional) {
+    let config = null;
     try {
       const r = await fetch(configUrl, { cache: 'no-cache' });
-      this.config = r.ok ? await r.json() : null;
-    } catch { this.config = null; }
-    let gltf;
+      if (r.ok) config = await r.json();
+    } catch { config = null; }
+    if (!config && optional) return false;
+    const url = config?.model || 'assets/heart/scene.gltf';
+    let gltf, insideGltf = null;
     try {
       gltf = await new GLTFLoader().loadAsync(url);
+      if (config?.inside) insideGltf = await new GLTFLoader().loadAsync(config.inside);
     } catch (e) {
+      if (optional) { console.info(`no ${url}: using the bundled heart`); return false; }
       console.warn('heart model not loaded:', e?.message || e);
       if (this.missingEl) this.missingEl.hidden = false;
       return false;
     }
+    this.config = config;
     const root = gltf.scene;
     root.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(root);
@@ -147,6 +160,15 @@ export class Heart {
     const inner = new THREE.Group();
     inner.add(root);
     root.position.sub(center);
+    if (insideGltf) {   // same raw space as the exterior: the same shift and scale align them
+      const ir = insideGltf.scene;
+      ir.updateMatrixWorld(true);
+      ir.position.sub(center);
+      ir.visible = false;
+      inner.add(ir);
+      this.insideRoot = ir;
+      this.exteriorRoot = root;
+    }
     inner.scale.setScalar(s);
     holder.add(inner);
     if (this.config?.rotation) holder.rotation.set(...this.config.rotation.map((d) => (d * Math.PI) / 180));
@@ -174,9 +196,8 @@ export class Heart {
     }
     this.controls.update();
     this.fit();
-    this.home = { position: this.camera.position.clone(), target: this.controls.target.clone() };
 
-    root.traverse((obj) => {
+    holder.traverse((obj) => {
       if (!obj.isMesh) return;
       const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
       for (const mat of mats) this.patch(mat, obj);
@@ -216,13 +237,13 @@ export class Heart {
     const floorY = wb.min.y - 0.35;
     const floor = new THREE.GridHelper(HALF * 2, DIV);
     floor.position.y = floorY;
-    floor.material.opacity = 0.28;
+    floor.material.opacity = 0.45;   // Thomas, 2026-10-10: 0.28 and 0.40 were too faint, 0.60 too visible
     g.add(floor);
     for (const [x, z, axis] of [[0, -HALF, 'x'], [0, HALF, 'x'], [-HALF, 0, 'z'], [HALF, 0, 'z']]) {
       const wall = new THREE.GridHelper(HALF * 2, DIV);
       if (axis === 'x') wall.rotation.x = Math.PI / 2; else wall.rotation.z = Math.PI / 2;
       wall.position.set(x, floorY + HALF, z);
-      wall.material.opacity = 0.14;
+      wall.material.opacity = 0.26;
       g.add(wall);
     }
     for (const h of g.children) {
@@ -311,14 +332,15 @@ export class Heart {
     this.controls.autoRotate = on;
   }
 
-  // Back to the view the model loaded with, refitted for the current viewport, auto-rotate off.
+  // Back to the set's camera, refitted to the stage, auto-rotate off. Damping is paused for the
+  // jump so leftover drag inertia does not carry the camera away again.
   resetView() {
-    if (!this.home) return;
+    const cam = this.config?.camera || {};
     const damping = this.controls.enableDamping;
     this.controls.enableDamping = false;
-    this.controls.update();                  // without damping, update drops any leftover drag inertia
-    this.camera.position.copy(this.home.position);
-    this.controls.target.copy(this.home.target);
+    this.controls.update();
+    this.camera.position.fromArray(cam.position || [0, 0.15, 4.9]);
+    this.controls.target.fromArray(cam.target || [0, 0.05, 0]);
     this.controls.update();
     this.controls.enableDamping = damping;
     this.fit();
@@ -342,8 +364,15 @@ export class Heart {
     }
   }
 
+  // With an opened model in the set the cutaway shows it in the exterior's place; otherwise a
+  // clipping plane cuts the exterior.
   setCutaway(on) {
     this.state.cutaway = on;
+    if (this.insideRoot) {
+      this.insideRoot.visible = on;
+      this.exteriorRoot.visible = !on;
+      return;
+    }
     for (const m of this.materials) {
       m.clippingPlanes = on ? [this.clipPlane] : [];
       m.needsUpdate = true;

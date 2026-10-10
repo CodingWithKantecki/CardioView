@@ -82,3 +82,39 @@ def test_anchor_continues_another_clock():
     pk = take(src, 1)
     assert pk[0].t == pytest.approx(5.0)
     assert clk.sleeps[0] == pytest.approx(0.3 + PACKET_S)
+
+
+def test_takeover_meets_the_old_value_then_fades():
+    from backend.sources.sim import simulate
+
+    clk = FakeClock()
+    src = SimSource(bpm=72, sleep=clk.sleep, now=clk.now)
+    src.takeover(index=5 * PACKET, last_uv=-300)
+    pkts = take(src, 3)
+    raw = list(simulate(72))
+    assert pkts[0].t == pytest.approx(5 * PACKET / FS), "stream time runs on from the join"
+    assert pkts[0].uv[0] == -300, "the first sample is the old stream's last value"
+    assert abs(pkts[0].uv[-1] - raw[PACKET - 1]) <= 1, "half a second later the step is down to a microvolt"
+    assert pkts[2].uv == raw[2 * PACKET:3 * PACKET]
+
+
+def test_replay_takeover_starts_where_the_next_peak_fits(tmp_path):
+    from backend.sources.replay import peaks_of
+    from backend.sources.rhythm import RhythmSource
+
+    gen = RhythmSource("sinus")._samples
+    values = [next(gen) for _ in range(int(20 * FS))]
+    path = tmp_path / "h10_ecg_test.csv"
+    path.write_text("time_s,ecg_uv\n" + "".join(f"{i / FS:.4f},{v}\n" for i, v in enumerate(values)))
+    peaks = peaks_of(str(path))
+    assert len(peaks) >= 15
+    clk = FakeClock()
+    src = ReplaySource(path, sleep=clk.sleep, now=clk.now)
+    t0 = 40.0
+    src.takeover(index=int(t0 * FS), last_uv=0, last_r=39.6, rr=0.8)   # so the next beat is wanted 0.4 s after the join
+    assert any(p - src.start_s == pytest.approx(0.4, abs=1e-6) for p in peaks), "a peak lands one interval after the old last beat"
+    assert src.start_s >= 0.6, "never the file's first second"
+    first = take(src, 1)[0]
+    s0 = int(round(src.start_s * FS))
+    assert first.t == pytest.approx(t0)
+    assert first.uv[0] == 0 and first.uv[-1] == values[s0 + PACKET - 1]
