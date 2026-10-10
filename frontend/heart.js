@@ -202,46 +202,32 @@ export class Heart {
     return true;
   }
 
-  // A room for the heart to float in: a floor grid under it and four wall grids that meet the
-  // floor's edges, fading into fog. The orbit limits keep the camera inside, so nothing clips.
+  // A plain room for the heart to float in: one box seen from inside, floor, walls and ceiling in
+  // the theme's room color with its twelve edges as faint lines, fading into fog (Thomas,
+  // 2026-10-10: the grid room had too many grids). The orbit limits keep the camera inside.
   buildGrid(wb) {
-    if (this.grid) this.scene.remove(this.grid);
+    if (this.room) this.scene.remove(this.room);
     const g = new THREE.Group();
     const HALF = 8;
-    const DIV = 64;                       // 0.25 units per cell on floor and walls alike, so lines meet
     const floorY = wb.min.y - 0.35;
-    const floor = new THREE.GridHelper(HALF * 2, DIV);
-    floor.position.y = floorY;
-    floor.material.opacity = 0.45;   // Thomas, 2026-10-10: 0.28 and 0.40 were too faint, 0.60 too visible
-    g.add(floor);
-    for (const [x, z, axis] of [[0, -HALF, 'x'], [0, HALF, 'x'], [-HALF, 0, 'z'], [HALF, 0, 'z']]) {
-      const wall = new THREE.GridHelper(HALF * 2, DIV);
-      if (axis === 'x') wall.rotation.x = Math.PI / 2; else wall.rotation.z = Math.PI / 2;
-      wall.position.set(x, floorY + HALF, z);
-      wall.material.opacity = 0.26;
-      g.add(wall);
-    }
-    for (const h of g.children) {
-      h.material.transparent = true;
-      h.material.depthWrite = false;
-    }
-    this.grid = g;
+    const box = new THREE.BoxGeometry(HALF * 2, HALF * 2, HALF * 2);
+    this.walls = new THREE.Mesh(box, new THREE.MeshStandardMaterial({ roughness: 1, metalness: 0, envMapIntensity: 0.28, side: THREE.BackSide }));
+    this.walls.position.y = floorY + HALF;
+    g.add(this.walls);
+    this.edges = new THREE.LineSegments(new THREE.EdgesGeometry(box), new THREE.LineBasicMaterial({ transparent: true, opacity: 0.22, depthWrite: false }));
+    this.edges.position.y = floorY + HALF;
+    g.add(this.edges);
+    this.room = g;
     this.scene.add(g);
     this.applyTheme();
   }
 
   applyTheme() {
     const T = colors();
-    const stage = new THREE.Color(T.stage);
-    const rule = new THREE.Color(T.rule);
-    this.scene.fog.color.copy(stage);
-    if (!this.grid) return;
-    for (const h of this.grid.children) {
-      // GridHelper carries vertex colors; recolor every vertex to the theme's rule color
-      const attr = h.geometry.getAttribute('color');
-      for (let i = 0; i < attr.count; i++) attr.setXYZ(i, rule.r, rule.g, rule.b);
-      attr.needsUpdate = true;
-    }
+    this.scene.fog.color.set(T.stage);
+    if (!this.room) return;
+    this.walls.material.color.set(T.room);
+    this.edges.material.color.set(T.rule);
   }
 
   patch(mat, mesh) {
