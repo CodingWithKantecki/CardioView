@@ -10,3 +10,5 @@ frontend/assets/heart-pro/
 sessions/
 .env
 .venv-voice/
+cloud/static/
+cloud/.vercel/
