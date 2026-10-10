@@ -15,6 +15,7 @@ const ARM_MS = 5000;        // a second S or Esc must come within this
 const FLASH_MS = 4000;
 const BREATH_S = 10;        // 5 s in, 5 s out: 6 breaths a minute
 const VOICE_KEY = 'cardioview.voice';
+const STARTED_KEY = 'cardioview.started';   // per tab, so a reload of the booth screen keeps it
 const MIN_DONE_MS = 2600;   // let "All done" finish before the summary opens
 
 function readVoice() {
@@ -23,6 +24,17 @@ function readVoice() {
 
 function writeVoice(on) {
   try { localStorage.setItem(VOICE_KEY, on ? 'on' : 'off'); } catch { /* private window */ }
+}
+
+function readStarted() {
+  try { return sessionStorage.getItem(STARTED_KEY); } catch { return null; }
+}
+
+function writeStarted(id) {
+  try {
+    if (id) sessionStorage.setItem(STARTED_KEY, id);
+    else sessionStorage.removeItem(STARTED_KEY);
+  } catch { /* private window */ }
 }
 
 export class SessionOverlay {
@@ -39,6 +51,7 @@ export class SessionOverlay {
     this.flashText = '';
     this.flashUntil = 0;
     this.voiceOn = readVoice();
+    this.started = readStarted();   // the session S started in this tab: only this tab opens its summary
     this.clips = {};
     this.lastIndex = -1;
     this.lastBreath = '';
@@ -65,12 +78,15 @@ export class SessionOverlay {
     }
     if (msg.state === 'idle') {
       this.lastIndex = -1;
+      if (this.started) this.remember(null);
       if (msg.note && prev.state !== 'idle') {
         this.flash(NOTE[msg.note] || 'Session ended');
         if (msg.note === 'stopped') this.say('stopped');
       }
     }
-    if (msg.state === 'done') {
+    if (msg.state === 'done' && msg.id === this.started) {
+      // the booth screen; phones and other viewers keep the live view
+      this.remember(null);
       const wait = this.analyzingAt ? Math.max(0, MIN_DONE_MS - (performance.now() - this.analyzingAt)) : 0;
       setTimeout(() => location.assign(`/s/${encodeURIComponent(msg.id)}?screen=1`), wait);
     }
@@ -85,7 +101,7 @@ export class SessionOverlay {
       if (busy) { this.flash('A session is already running'); return true; }
       if (now - this.armedS < ARM_MS) {
         this.armedS = 0;
-        this.post('/api/session/start');
+        this.post('/api/session/start').then((body) => { if (body && body.id) this.remember(body.id); });
       } else {
         this.armedS = now;
       }
@@ -111,16 +127,22 @@ export class SessionOverlay {
     return false;
   }
 
+  // the server's answer, or null after flashing why not
   async post(path) {
     try {
       const res = await fetch(path, { method: 'POST' });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        this.flash(body.reason || 'The server said no');
-      }
+      const body = await res.json().catch(() => ({}));
+      if (res.ok) return body;
+      this.flash(body.reason || 'The server said no');
     } catch {
       this.flash('Server offline');
     }
+    return null;
+  }
+
+  remember(id) {
+    this.started = id;
+    writeStarted(id);
   }
 
   flash(text) {

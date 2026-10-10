@@ -64,7 +64,7 @@ A visitor can save a two minute session and take a summary of it home.
 
 1. Strap them in and explain: their ECG is recorded for about two minutes, without their name, kept on this laptop until the end of the event, and they can delete it from their phone.
 2. If they agree, press S, then S again. The stage walks them through it: hold still, rest, slow breathing with the ring, squats, recovery.
-3. The big screen then shows their summary with a QR code. Esc goes back to the live view, and so does three minutes without a key.
+3. The screen where you pressed S then shows their summary with a QR code; phones watching the live view stay on it. Esc goes back to the live view, and so does three minutes without a key.
 
 Esc twice during a session stops it and deletes it. V turns the voice on or off. While a session runs, the Strap / Demo and rhythm buttons wait: stop the session first.
 
