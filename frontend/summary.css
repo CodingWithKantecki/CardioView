@@ -85,3 +85,9 @@ body.screen .foot { grid-column: 1 / 6; grid-row: 3; padding: 12px 28px 16px; bo
 body.screen .foot p { margin: 0; }
 body.screen #delete { display: none; }
 [hidden] { display: none !important; }
+
+/* printing the report (the Export menu's PDF): keep the dark sheet, drop the controls */
+@media print {
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .back, #delete { display: none !important; }
+}

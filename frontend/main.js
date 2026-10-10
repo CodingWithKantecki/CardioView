@@ -1,5 +1,6 @@
 import { StreamClock } from './clock.js';
-import { Trace, NOW_INSET, WINDOW_S, exportCsv } from './trace.js';
+import { Trace, NOW_INSET, WINDOW_S } from './trace.js';
+import { csv as exportCsv, fhir as exportFhir, report as exportReport } from './export.js';
 import { Chambers } from './chambers.js';
 import { Heart } from './heart.js';
 import { Glitch } from './glitch.js';
@@ -34,25 +35,6 @@ const lanes = new Chambers(els.lanes);
 trace.beats = lanes.beats;   // one shared list of recent beats
 const timeline = new Timeline(els.strip, trace, lanes, clock);
 
-// Export: everything the timeline holds, as a recording CSV named for the moment and the source
-function exportName() {
-  const d = new Date();
-  const pad = (v) => String(v).padStart(2, '0');
-  const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
-  const src = !status ? 'ecg' : status.source === 'live' ? 'strap' : status.source === 'recorded' ? 'recording' : 'simulated';
-  return `cardioview_${stamp}_${src}.csv`;
-}
-document.getElementById('export').addEventListener('click', () => {
-  const out = exportCsv(trace);
-  if (!out) return;
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([out.text], { type: 'text/csv' }));
-  a.download = exportName();
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
-});
 const labels = {};
 const sparks = {};
 for (const el of document.querySelectorAll('.label')) {
@@ -73,8 +55,8 @@ const session = new SessionOverlay(
 // embed mode), so the app never reloads: Back or three idle minutes in the report close it.
 const report = {
   el: $('report'), frame: $('report-frame'),
-  open(id) {
-    this.frame.src = `/s/${encodeURIComponent(id)}?screen=1&embed=1`;
+  open(id, print = false) {
+    this.frame.src = `/s/${encodeURIComponent(id)}?screen=1&embed=1${print ? '&print=1' : ''}`;
     this.el.hidden = false;
     this.frame.focus();
   },
@@ -356,3 +338,23 @@ if (REDUCED_MOTION) {   // auto-rotate is off under reduced motion; the dock's c
   b.dataset.label = 'Auto-rotate is off under reduced motion';
 }
 
+// Export asks for the shape: CSV and FHIR are made in the page; the PDF report is stored by the
+// server and opened in the report overlay, which prints it (Save as PDF), QR included.
+const exportMenu = { button: $('export'), menu: $('export-menu') };
+function showExportMenu(on) { exportMenu.menu.hidden = !on; exportMenu.button.setAttribute('aria-expanded', String(on)); }
+exportMenu.button.addEventListener('click', () => showExportMenu(exportMenu.menu.hidden));
+document.addEventListener('click', (e) => { if (!exportMenu.menu.hidden && !e.target.closest('.export-item')) showExportMenu(false); });
+for (const b of exportMenu.menu.querySelectorAll('button')) {
+  b.addEventListener('click', async () => {
+    showExportMenu(false);
+    if (!trace.ts.length) { session.flash('Nothing to export yet'); return; }
+    const format = b.dataset.format;
+    if (format === 'csv') exportCsv(trace, status);
+    else if (format === 'fhir') exportFhir(trace, status, shownBeat);
+    else if (format === 'pdf') {
+      session.flash('Making the report');
+      try { report.open(await exportReport(trace, status), true); }
+      catch (err) { session.flash(err.message); }
+    }
+  });
+}

@@ -7,7 +7,7 @@ const params = new URLSearchParams(location.search);
 const screenMode = params.has('screen');
 const FONT = '600 12px "JetBrains Mono", monospace';   // chart readouts, in capitals like the 130 HZ corner on the live ECG
 const WAVE = '700 15px "Helvetica Neue", Helvetica, Arial, sans-serif';   // P, QRS, T: the voice of the chamber letters
-const STEP_NAME = { rest: 'REST', breathe: 'BREATHE', squats: 'SQUATS', recover: 'RECOVER' };
+const STEP_NAME = { rest: 'REST', breathe: 'BREATHE', squats: 'SQUATS', recover: 'RECOVER', export: 'EXPORT' };
 const IDLE_MS = 180000;   // the big screen goes back to live after 3 minutes
 const GONE = 'This session is no longer available.';
 
@@ -191,6 +191,7 @@ function refuse(block, reason) {
 
 // whose heart it was: the strap's wearer, or the booth's demo data (never presented as the visitor's)
 function who(s) {
+  if (s.export) return s.source === 'live' ? 'Exported ECG' : s.source === 'recorded' ? 'Exported recording' : 'Exported simulation';
   if (s.source === 'recorded') return 'Session on recorded data';
   if (s.source === 'simulated') return 'Session on simulated data';
   return 'Your session';
@@ -198,13 +199,15 @@ function who(s) {
 
 function render(s) {
   const minutes = Math.max(1, Math.round((s.steps?.at(-1)?.end || 60) / 60));
+  const length = s.export ? `${s.seconds} s` : `${minutes} min`;
   $('meta').textContent = s.demo
     ? 'Demo session, synthetic data'
-    : `${who(s)}, ${minutes} min, ${time(s.created)}${s.ended_early ? ', ended early' : ''}`;
+    : `${who(s)}, ${length}, ${time(s.created)}${s.ended_early ? ', ended early' : ''}`;
   $('until').textContent = s.demo ? '' : `Available until ${day(s.keep_until)}`;
 
   const e = s.effort;
-  if (!e.ok) { $('effort-text').textContent = e.reason; $('effort-text').classList.add('dim'); }   // the chart decides on its own
+  if (s.export) $('effort-text').textContent = 'Heart rate across the exported stretch, measured as one resting window.';
+  else if (!e.ok) { $('effort-text').textContent = e.reason; $('effort-text').classList.add('dim'); }   // the chart decides on its own
   else if (e.peak_bpm - e.rest_bpm < 10) $('effort-text').textContent = `Resting ${e.rest_bpm} bpm. Your heart rate stayed close to that during squats (peak ${e.peak_bpm} bpm).`;
   else $('effort-text').textContent = `Resting ${e.rest_bpm} bpm. Peak ${e.peak_bpm} bpm during squats. Dropped ${e.drop_bpm} bpm in the 30 s after.`;
 
@@ -234,6 +237,7 @@ function render(s) {
   $('sheet').hidden = false;
   draw(s);
   if (!screenMode && !s.demo) $('delete').hidden = false;
+  if (params.has('print')) setTimeout(() => window.print(), 800);   // the Export menu's PDF: Save as PDF in the dialog
 }
 
 function draw(s) {

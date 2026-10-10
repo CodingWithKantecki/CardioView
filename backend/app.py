@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Callable
 
 import httpx
+import numpy as np
 import segno
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
@@ -440,6 +441,61 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, http: h
         # in a thread: the first demo summary takes seconds of NeuroKit work, and the pump shares this loop
         return await asyncio.to_thread(lambda: demo_summary() if sid == "demo" else store.summary(sid, utcnow()))
 
+    @app.post("/api/export/report")
+    async def export_report(request: Request):
+        """The page's ECG buffer in (fs, t0, uv, source, device); a saved summary out, served like a
+        session at /s/<id> with its QR, so the printed report's code opens the same page later."""
+        try:
+            body = await request.json()
+        except ValueError:
+            body = None
+        if not isinstance(body, dict) or not isinstance(body.get("uv"), list):
+            return JSONResponse({"reason": "Send fs, t0 and uv."}, status_code=400)
+        try:
+            uv = [int(v) for v in body["uv"]]
+            t0 = float(body.get("t0", 0.0))
+        except (TypeError, ValueError):
+            return JSONResponse({"reason": "uv must be whole microvolts and t0 a number."}, status_code=400)
+        if len(uv) < 5 * FS:
+            return JSONResponse({"reason": "Less than 5 seconds of ECG, nothing to measure yet."}, status_code=409)
+        if len(uv) > 15 * 60 * FS:
+            return JSONResponse({"reason": "More than 15 minutes; export a shorter stretch."}, status_code=413)
+        source = str(body.get("source", "unknown"))[:20]
+        device = str(body.get("device", ""))[:80]
+        sid = store.new_id()
+        created = utcnow()
+        packet = Packet(t0, uv)
+        seconds = round(len(uv) / FS, 2)
+        meta = {"id": sid, "created": created.isoformat(), "keep_until": sessions.keep_until.isoformat(),
+                "source": source, "device": device, "state": "recording",
+                "consent": {"by": "operator", "how": "export", "at": created.isoformat()},
+                "steps": [], "ended_early": False, "published": False, "export": True}
+        rest = [{"name": "rest", "start": t0, "end": packet.t_end}]   # the whole stretch measures as rest
+
+        def build() -> dict:
+            store.create(sid, meta)
+            store.append(sid, packet, [])
+            t = t0 + np.arange(len(uv)) / FS
+            return analysis.analyze(t, np.asarray(uv), rest)
+
+        summary = await asyncio.to_thread(build)
+        summary["steps"] = [{"name": "export", "start": 0.0, "end": seconds}]
+        summary.update(id=sid, created=meta["created"], keep_until=meta["keep_until"], source=source,
+                       ended_early=False, export=True, seconds=round(seconds))
+        link = sessions.link(sid)
+        if sessions.publish is not None:
+            try:
+                public = await sessions.publish(sid, summary, sessions.keep_until)
+            except Exception:
+                log.exception("could not publish export %s", sid)
+                public = None
+            if public:
+                link, meta["published"] = public, True
+        meta.update(state="done", link=link, steps=[{"name": "export", "start": t0, "end": packet.t_end, "seconds": seconds}])
+        await asyncio.to_thread(store.write_summary, sid, summary)
+        await asyncio.to_thread(store.write_meta, sid, meta)
+        return {"id": sid, "link": link, "seconds": round(seconds)}
+
     @app.get("/api/s/{sid}")
     async def summary_get(sid: str):
         summary = await find_summary(sid)
@@ -457,7 +513,8 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, http: h
     async def summary_qr(sid: str):
         if await find_summary(sid) is None:
             return Response(status_code=404)
-        link = sessions.done_link if sid == sessions.sid and sessions.done_link else sessions.link(sid)
+        stored = (store.read_meta(sid) or {}).get("link") if sid != "demo" and store.valid_id(sid) else None
+        link = stored or (sessions.done_link if sid == sessions.sid and sessions.done_link else sessions.link(sid))
         buf = io.BytesIO()
         segno.make(link, error="m").save(buf, kind="svg", scale=8, border=3, dark="#0A1115", light="#E8F1F2")
         return Response(buf.getvalue(), media_type="image/svg+xml")
