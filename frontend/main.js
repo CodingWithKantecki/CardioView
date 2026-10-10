@@ -32,7 +32,7 @@ const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;  
 
 const RHYTHM_LABELS = {
   sinus: 'Normal rhythm', tachy: 'Tachycardia', brady: 'Bradycardia',
-  afib: 'Atrial fibrillation', pvc: 'Extra beats', vt: 'Ventricular tachycardia',
+  afib: 'Atrial fibrillation', pvc: 'Extra beats', vt: 'Ventricular tachycardia', mi: 'Heart attack',
 };
 
 const clock = new StreamClock();

@@ -42,7 +42,7 @@ def beats_for(pattern, seconds=30):
     return beats, lost, packets
 
 
-@pytest.mark.parametrize("pattern,lo,hi", [("sinus", 66, 78), ("tachy", 130, 150), ("brady", 38, 48), ("vt", 140, 160)])
+@pytest.mark.parametrize("pattern,lo,hi", [("sinus", 66, 78), ("tachy", 130, 150), ("brady", 38, 48), ("vt", 140, 160), ("mi", 92, 108)])
 def test_rates_land_where_the_pattern_says(pattern, lo, hi):
     beats, lost, _ = beats_for(pattern)
     bpms = [b.bpm for b in beats if b.bpm]
@@ -59,12 +59,21 @@ def test_afib_is_irregular_and_pvcs_come_early():
     assert (rr < 0.62).sum() >= 3 and (rr > 1.0).sum() >= 3
 
 
+def test_heart_attack_lifts_the_st_segment_as_it_builds():
+    from backend.sources.rhythm import infarct
+
+    def after_r(k, s=0.10):   # mV at s seconds after the R peak
+        return sum(a * np.exp(-((s - c) ** 2) / (2 * w * w)) for c, a, w in infarct(k))
+    assert after_r(0) < 0.05 and after_r(1) > 0.35
+    assert after_r(0.5) < after_r(1)
+
+
 def test_labels_and_amplitude():
     clk = FakeClock()
     assert RhythmSource("sinus", sleep=clk.sleep, now=clk.now).status.device == "Simulated: Normal rhythm"
     src = RhythmSource("vt", sleep=clk.sleep, now=clk.now)
     assert src.status.device == "Simulated: Ventricular tachycardia"
-    assert set(LABELS) == {"sinus", "tachy", "brady", "afib", "pvc", "vt"}
+    assert set(LABELS) == {"sinus", "tachy", "brady", "afib", "pvc", "vt", "mi"}
     amp = max(abs(v) for v in list(__import__("itertools").islice(src._stream(), 5 * FS)))
     assert 500 <= amp <= 800, "R peaks should sit near the strap's 600 uV"
 
