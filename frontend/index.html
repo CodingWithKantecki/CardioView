@@ -35,7 +35,13 @@
     <div class="label side-left" data-chamber="rv" hidden><b>RV</b><span>Right ventricle</span><canvas class="spark" data-spark="rv"></canvas></div>
     <div class="label side-right" data-chamber="lv" hidden><b>LV</b><span>Left ventricle</span><canvas class="spark" data-spark="lv"></canvas></div>
     <div class="alert" id="alert" hidden><b id="alert-title"></b><span id="alert-hint"></span></div>
-    <label class="opacity"><span>Opacity</span><input id="opacity" type="range" min="15" max="100" value="100" aria-label="Heart opacity"></label>
+    <nav class="dock" id="dock" aria-label="Heart view controls">
+      <span class="dock-item"><button type="button" data-action="rotate" data-label="Rotate" aria-pressed="false" aria-label="Rotate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></svg></button></span>
+      <span class="dock-item"><button type="button" data-action="wireframe" data-label="Wireframe" aria-pressed="false" aria-label="Wireframe"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 3v18M4 7.5l8 4.5 8-4.5M4 16.5l8-4.5 8 4.5"/></svg></button></span>
+      <span class="dock-item"><button type="button" data-action="open" data-label="Open" aria-pressed="false" aria-label="Open the heart"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M12 7.4V20"/><path d="M9 11h3M12 14h3"/></svg></button></span>
+      <span class="dock-item has-pop"><button type="button" data-action="opacity" data-label="Opacity" aria-label="Opacity"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"/></svg></button><div class="opacity-pop"><span>Opacity</span><input id="opacity" type="range" min="15" max="100" value="100" aria-label="Heart opacity"></div></span>
+      <span class="dock-item"><button type="button" data-action="reset" data-label="Reset view" aria-label="Reset view"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg></button></span>
+    </nav>
   </section>
 
   <aside class="column" id="column">

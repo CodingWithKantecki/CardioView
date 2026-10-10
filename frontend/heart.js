@@ -327,6 +327,15 @@ export class Heart {
 
   setRotate(on) { this.state.rotate = on; this.controls.autoRotate = on; }
 
+  // back to the set's camera, refitted to the stage
+  resetView() {
+    const cam = this.config?.camera || {};
+    this.camera.position.fromArray(cam.position || [0, 0.15, 4.9]);
+    this.controls.target.fromArray(cam.target || [0, 0.05, 0]);
+    this.controls.update();
+    this.fit();
+  }
+
   setWireframe(on) {
     this.state.wireframe = on;
     for (const m of this.materials) m.wireframe = on;

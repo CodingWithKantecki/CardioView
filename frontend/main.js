@@ -4,6 +4,7 @@ import { Chambers } from './chambers.js';
 import { Heart } from './heart.js';
 import { Glitch } from './glitch.js';
 import { Timeline } from './timeline.js';
+import { Dock } from './dock.js';
 import { invalidate as invalidateTheme } from './theme.js';
 
 const $ = (id) => document.getElementById(id);
@@ -230,6 +231,10 @@ function drawFrame() {
   if (lost && !REDUCED_MOTION) glitch.draw(performance.now());
   timeline.draw(t);
   syncTransport();
+  dock.update();
+  dock.setPressed('rotate', heart.state.rotate);
+  dock.setPressed('wireframe', userWireframe);
+  dock.setPressed('open', heart.state.cutaway);
 }
 
 // the transport tray shows the clock's mode; a replay that catches up flips back to live by itself
@@ -264,6 +269,15 @@ for (const b of document.querySelectorAll('#rhythms button')) {
 
 const opacity = $('opacity');
 opacity.addEventListener('input', () => heart.setOpacity(Number(opacity.value) / 100));
+
+// the dock: the same actions as the keys
+const dock = new Dock($('dock'), {
+  rotate: () => heart.setRotate(!heart.state.rotate),
+  wireframe: () => { userWireframe = !userWireframe; },
+  open: () => heart.setCutaway(!heart.state.cutaway),
+  opacity: () => opacity.focus(),
+  reset: () => heart.resetView(),
+});
 
 // Keys keep the other views reachable without chrome: R spins, W wireframe, C cutaway. Plain keys only:
 // Cmd+C to copy text or Cmd+R to reload must not touch the heart (Cmd+C used to cut it open).

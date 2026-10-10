@@ -130,15 +130,29 @@ body.lost .label, body.lost .leaders { opacity: 0.3; }
 body.lost #trace { opacity: 0.5; }
 body.lost .bpm { opacity: 0.35; }
 
-/* opacity slider: square gold thumb, hairline track */
-.opacity { position: absolute; left: var(--gutter); bottom: 20px; z-index: 3; display: flex; align-items: center; gap: 12px; }
-.opacity span { font-family: var(--mono); font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2); }
-.opacity input { -webkit-appearance: none; appearance: none; width: 160px; height: 18px; margin: 0; background: transparent; cursor: pointer; }
-.opacity input::-webkit-slider-runnable-track { height: 2px; background: var(--line-2); }
-.opacity input::-moz-range-track { height: 2px; background: var(--line-2); }
-.opacity input::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; margin-top: -6px; background: var(--accent); border: 0; }
-.opacity input::-moz-range-thumb { width: 14px; height: 14px; background: var(--accent); border: 0; border-radius: 0; }
-.opacity input:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(43, 212, 189, 0.4); }
+/* the dock: the heart's view controls at the bottom of the stage, cells that grow toward the
+   pointer (dock.js), a mono label above the hovered one, toggles pressed in the accent */
+.dock { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 3; display: flex; align-items: flex-end; }
+.dock-item { position: relative; display: flex; align-items: flex-end; padding: var(--cell-w); background: var(--line-2); }   /* each cell frames itself, so a grown cell does not stretch the tray */
+.dock-item + .dock-item { margin-left: calc(-1 * var(--cell-w)); }
+.dock button { width: 48px; height: 48px; border: 0; margin: 0; padding: 0; background: var(--card); color: var(--ink-2); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.dock button:hover { color: var(--ink); }
+.dock button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+.dock button:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(43, 212, 189, 0.4); }
+.dock button svg { width: 46%; height: 46%; display: block; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: square; stroke-linejoin: miter; }
+.dock button::after { content: attr(data-label); position: absolute; left: 50%; bottom: calc(100% + 12px); transform: translateX(-50%); padding: 6px 10px; background: var(--card); border: 2px solid var(--line-2); font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; line-height: 1; color: var(--ink); white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.12s; }
+.dock-item:hover button::after, .dock button:focus-visible::after { opacity: 1; }
+.dock-item.has-pop button::after { display: none; }
+/* the opacity slider in a popover above its cell: square accent thumb, 2 px track */
+.opacity-pop { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); display: none; align-items: center; gap: 12px; padding: 12px 14px; background: var(--card); border: 2px solid var(--line-2); }
+.dock-item:hover .opacity-pop, .dock-item:focus-within .opacity-pop { display: flex; }
+.opacity-pop span { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2); }
+.opacity-pop input { -webkit-appearance: none; appearance: none; width: 160px; height: 18px; margin: 0; background: transparent; cursor: pointer; }
+.opacity-pop input::-webkit-slider-runnable-track { height: 2px; background: var(--line-2); }
+.opacity-pop input::-moz-range-track { height: 2px; background: var(--line-2); }
+.opacity-pop input::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; margin-top: -6px; background: var(--accent); border: 0; }
+.opacity-pop input::-moz-range-thumb { width: 14px; height: 14px; background: var(--accent); border: 0; border-radius: 0; }
+.opacity-pop input:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(43, 212, 189, 0.4); }
 
 /* instrument column: white card with navy rules, three instruments sharing the height */
 .column { position: relative; min-height: 0; background: var(--card); padding: 0; display: grid; grid-template-rows: auto minmax(0, 1.15fr) minmax(0, 1fr); }
