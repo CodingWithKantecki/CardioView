@@ -162,6 +162,7 @@ Spec: `docs/superpowers/specs/2026-10-10-rhythm-feasibility-design.md`. Research
 
 - `research/rhythm/` tests a lightweight detector (uncorrected NeuroKit2 beats, six rhythm features, two tiny logistic models saved as JSON) on PTB-XL, PhysioNet 2017 and MIT-BIH, at each dataset's own rate and at the strap's 130 Hz integer microvolts, against a pass bar fixed in advance (`scoring.py`). Verdicts land in `research/rhythm/RESULTS.md`; item 11 may show only conditions that pass there.
 - No neural network and no torch, because the backend runs on Render. Its own environment, `.venv-research`, adds only what the booth lacks (wfdb, and huggingface_hub to publish the two models with their results); `signals.py`, `labels.py`, `scoring.py` and `detector.py` use only the booth's packages and are tested with the main suite. Downloads stay out of git.
+- Outcome (2026-10-10, `RESULTS.md`): at 130 Hz only pauses over 2 s pass (88.6% caught, 99.4% of other windows unflagged). AF (27.6% caught at 98% specificity) and extra beats (38.1%) fail, with the same numbers at the native rate, so 130 Hz is not the limit; slow and fast rate fail only against PTB-XL's diagnosis codes, while the bpm itself is right and already on screen. Item 11 may show pauses only.
 
 ## Milestones
 
