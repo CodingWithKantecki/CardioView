@@ -1,15 +1,16 @@
 # Rhythm feasibility test: which conditions survive one strap lead at 130 Hz
 
-Date 2026-10-10, revised the same day: a lightweight detector replaces the fine-tuned neural network of the first version. Branch `gabe_backend_evaluation`, local commits only (not pushed). Handoff item 10; it gates item 11 (condition flags for visitors).
+Date 2026-10-10, revised twice the same day: a lightweight detector replaces the fine-tuned neural network of the first version, and the Hugging Face Hub replaces Databricks. Branch `gabe_rhythm_feasibility` (off main), local commits only (not pushed). Handoff item 10; it gates item 11 (condition flags for visitors).
 
 ## Purpose
 
-CardioView's summary shows measurements only. Before any condition name may reach a visitor, this test answers, per condition: can a lightweight detector, small enough to run inside the backend on Render, detect it reliably from one lead sampled the way the Polar H10 samples it (130 Hz, integer microvolts)? A condition can be shown later only if it passes here. The test is also the Databricks (MLflow) sponsor-track entry; the Hugging Face track rests on the Kokoro voice coach.
+CardioView's summary shows measurements only. Before any condition name may reach a visitor, this test answers, per condition: can a lightweight detector, small enough to run inside the backend on Render, detect it reliably from one lead sampled the way the Polar H10 samples it (130 Hz, integer microvolts)? A condition can be shown later only if it passes here. Its two fitted models and their results are published on the Hugging Face Hub, beside the Kokoro voice coach in the Hugging Face sponsor track.
 
 Decided with the user on 2026-10-10:
 - A lightweight detector: beat timing, a few rhythm features and at most two tiny logistic models stored as JSON. No neural network: the backend is hosted on Render, where torch and a 370 MB model would be slow and large. Fine-tuning ECGFounder was the first design and is dropped.
 - Flutter, first-degree AV block, long QT and WPW are not attempted.
-- One fixed split for the two models, the pass bar below, Databricks Free Edition for MLflow and the verdict notebook, the code in `research/rhythm/` with its own environment (no torch).
+- One fixed split for the two models, the pass bar below, the code in `research/rhythm/` with its own environment (no torch).
+- No Databricks: the results go to `RESULTS.md`, and the two models with their results are published on the Hugging Face Hub.
 
 ## The detector (what item 11 would run)
 
@@ -65,33 +66,32 @@ Not attempted: flutter, first-degree AV block, long QT and WPW. They depend on w
 - Every verdict is shown next to the native version's numbers: a condition that fails on both is limited by the single lead or the detector, not by 130 Hz.
 - Also reported: specificity on PTB-XL `NORM` records alone, the flags raised on Thomas's recordings, and how many stretches had too few beats.
 
-## Databricks and MLflow
+## Hugging Face Hub
 
-- An MLflow experiment `/Users/<the user's Databricks login>/cardioview-rhythm` in the user's Databricks Free Edition workspace. Runs: `features` (counts per dataset and version), `models` (the fitted weights and validation AUROC per version), `verdict` (the pass/fail table and RESULTS.md). Prediction tables are logged as artifacts.
-- `MLFLOW_TRACKING_URI=databricks` with `DATABRICKS_HOST` and `DATABRICKS_TOKEN` in the repo-root `.env` (git-ignored, read with `backend/env.py`). Without them the runs go to a local `research/rhythm/mlruns/` (git-ignored) and the same code works.
-- `research/rhythm/databricks/verdict.py`: a Databricks notebook in source format that reads the experiment's runs and shows the pass/fail table, uploaded to the workspace by the evaluation step.
+- A public model repo under the user's Hugging Face account, `cardioview-rhythm-detector`, holding `af.json` and `extra_beats.json` (both fitted on the strap version) and a model card (`README.md`) generated from the results.
+- The card carries the pass/fail table, the pass bar, how the features are computed, the data and their licenses (PTB-XL: CC BY 4.0; PhysioNet/CinC 2017 and MIT-BIH: Open Data Commons Attribution 1.0) and two plain statements: this is not a medical device, and CardioView shows a visitor only the conditions that pass.
+- `publish.py` uploads with `huggingface_hub` and a write token `HF_TOKEN` in the repo-root `.env` (git-ignored, read with `backend/env.py`). Publishing is public, so it runs only when the user says so.
 
 ## Code and environment
 
 ```
 research/rhythm/
   README.md            set up, download, run, read the verdict
-  requirements.txt     wfdb, mlflow, databricks-sdk, plus the booth's neurokit2, numpy, scipy, pandas (no torch)
+  requirements.txt     wfdb and huggingface_hub, plus the booth's neurokit2, numpy, scipy, pandas (no torch)
   signals.py           resampling, the strap version, windows
   labels.py            labels and splits for PTB-XL, PhysioNet 2017 and MIT-BIH
   scoring.py           AUROC, thresholds, bootstrap intervals, verdicts
   detector.py          uncorrected beats, the six features, logistic fit and predict, JSON save and load
   download.py          the three datasets from PhysioNet into data/
   prepare.py           features for every stretch in both versions, cached as CSV
-  tracking.py          MLflow on Databricks or local
-  evaluate.py          fits the two models per version, applies the pass bar, writes RESULTS.md, logs the runs
+  evaluate.py          fits the two models per version, applies the pass bar, writes RESULTS.md and the model files
+  publish.py           the model card and the upload to the Hugging Face Hub
   models/              af.json and extra_beats.json, fitted on the strap version (item 11 loads them)
-  databricks/verdict.py
   tests/               known-answer tests for signals, labels, scoring and the detector
   RESULTS.md           the committed outcome
 ```
 
-- `.venv-research` (Python 3.12) holds wfdb and mlflow, so the booth's `requirements.txt` gains nothing.
+- `.venv-research` (Python 3.12) holds wfdb and huggingface_hub, so the booth's `requirements.txt` gains nothing.
 - `signals.py`, `labels.py`, `scoring.py` and `detector.py` import only what the booth already has (numpy, scipy, pandas, neurokit2), so their tests run with the main suite in `.venv` (`pytest.ini` gains the path) and item 11 can call the detector from the backend.
 - CLAUDE.md gains a short section and stays under 200 lines; the README points to `research/rhythm/README.md`.
 
@@ -110,6 +110,6 @@ research/rhythm/
 
 ## Risks
 
-- Databricks Free Edition limits (tokens, MLflow from outside the workspace): a run that cannot log there logs locally. The verdict does not depend on Databricks.
+- Publishing is public: the card must carry the verdicts and the not-a-medical-device line, and nothing is uploaded without the user's go-ahead.
 - PTB-XL lead I is not the strap's lead, whose electrodes sit lower on the chest. The real-strap check measures only false alarms, so a pass here is necessary, not sufficient, for showing a flag.
 - A 10 s stretch holds about 8 to 20 beats, which limits AF and extra-beat detection. A visitor session has 30 s of rest, so these numbers are conservative.
