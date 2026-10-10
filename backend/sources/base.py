@@ -85,9 +85,15 @@ class PacedSource(Source):
         self._now = now
         self.index = 0   # stream index of the next sample
         self.preroll_s = preroll_s
+        self._anchor: tuple[float, float] | None = None   # (stream time, wall time it is due)
+
+    def anchor(self, stream_s: float, wall: float) -> None:
+        """Pin the schedule for a handover: stream time `stream_s` is due at wall time `wall`,
+        so this source continues another one's clock without a skip."""
+        self._anchor = (stream_s, wall)
 
     async def packets(self) -> AsyncIterator[Packet]:
-        start = self._now() - self.preroll_s
+        start = (self._anchor[1] - self._anchor[0]) if self._anchor else (self._now() - self.preroll_s)
         self.set_status("streaming")
         while True:
             uv = [next(self._samples) for _ in range(PACKET)]

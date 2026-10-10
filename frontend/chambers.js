@@ -50,6 +50,13 @@ export class Chambers {
 
   clear() { this.beats.length = 0; }
 
+  // drop beats from stream time t on, in place (the trace shares this array)
+  truncate(t) {
+    const keep = this.beats.filter((b) => b.r < t);
+    this.beats.length = 0;
+    this.beats.push(...keep);
+  }
+
   push(beat) {
     const last = this.beats[this.beats.length - 1];
     if (last && beat.r < last.r - 1) this.beats.length = 0;   // stream restarted

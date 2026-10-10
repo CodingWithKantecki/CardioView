@@ -120,6 +120,10 @@ function handle(msg) {
     trace.push(msg.t, msg.uv, msg.fs);
   } else if (msg.type === 'beat') {
     lanes.push(msg);
+  } else if (msg.type === 'handover') {   // a new demo source takes over from this stream time
+    trace.truncate(msg.from);
+    lanes.truncate(msg.from);
+    if (lastSampleT !== null && lastSampleT > msg.from) lastSampleT = msg.from;
   }
 }
 

@@ -1,6 +1,8 @@
 import asyncio
 import json
 
+import pytest
+
 from fastapi.testclient import TestClient
 
 from backend.app import Hub, create_app
@@ -109,9 +111,12 @@ def test_a_switch_starts_the_new_source_from_zero():
             await asyncio.sleep(0.01)
 
     async def run():
+        class LiveSim(SimSource):      # stands in for the strap: a switch away from it is a full reset
+            kind = "live"
+
         hub = Hub("simulated")
         clk = Clk()
-        runner = Runner(hub, {"a": lambda: SimSource(bpm=72, sleep=clk.sleep, now=clk.now),
+        runner = Runner(hub, {"a": lambda: LiveSim(bpm=72, sleep=clk.sleep, now=clk.now),
                               "b": lambda: SimSource(bpm=90, preroll_s=3.0, sleep=clk.sleep, now=clk.now)})
         await runner.start("a")
         await asyncio.sleep(0.4)
@@ -130,5 +135,52 @@ def test_a_switch_starts_the_new_source_from_zero():
         assert beats and beats[0]["r"] < 3.0, "the preroll's beats come with it"
         first_beat = msgs.index(beats[0])
         assert msgs.index(samples[0]) < first_beat, "samples before beats, so the viewer keeps them"
+        await runner.stop()
+    asyncio.run(run())
+
+
+def test_demo_to_demo_is_a_handover_not_a_reset():
+    from backend.app import HANDOVER_OVERLAP, Runner
+    from backend.sources.base import FS, PACKET
+    from backend.sources.sim import SimSource
+
+    class Clk:
+        def __init__(self):
+            self.t = 0.0
+
+        def now(self):
+            return self.t
+
+        async def sleep(self, s):
+            self.t += s
+            await asyncio.sleep(0.005)
+
+    async def run():
+        hub = Hub("simulated")
+        clk = Clk()
+        runner = Runner(hub, {"a": lambda: SimSource(bpm=72, sleep=clk.sleep, now=clk.now),
+                              "b": lambda: SimSource(bpm=140, preroll_s=10.0, sleep=clk.sleep, now=clk.now)})
+        await runner.start("a")
+        for _ in range(200):
+            await asyncio.sleep(0.01)
+            if runner._index > 20 * PACKET:
+                break
+        q = hub.subscribe()
+        t_switch = runner._index / FS
+        await runner.start("b")
+        await asyncio.sleep(0.6)
+        msgs = []
+        while not q.empty():
+            msgs.append(json.loads(q.get_nowait()))
+        hand = [m for m in msgs if m["type"] == "handover"]
+        assert len(hand) == 1, "one handover message"
+        assert abs(hand[0]["from"] - (t_switch - HANDOVER_OVERLAP * PACKET / FS)) < 0.6
+        after = msgs[msgs.index(hand[0]) + 1:]
+        samples = [m for m in after if m["type"] == "samples"]
+        assert samples and samples[0]["t"] == pytest.approx(hand[0]["from"], abs=1e-3), "the new source starts exactly at the handover"
+        assert all(m["t"] > 1.0 for m in samples), "no restart from zero"
+        beats = [m for m in after if m["type"] == "beat"]
+        assert beats and beats[0]["bpm"] is not None, "the detector was primed: the first beat already has a rate"
+        assert all(b["r"] >= hand[0]["from"] for b in beats)
         await runner.stop()
     asyncio.run(run())

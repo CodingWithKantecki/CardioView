@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from collections import deque
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
@@ -13,10 +14,12 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 
 from .pipeline import BeatDetector, SignalMonitor
-from .sources.base import FS, Packet, Source, Status
+from .sources.base import FS, PACKET, PACKET_S, PacedSource, Packet, Source, Status
 
 FRONTEND = Path(__file__).resolve().parent.parent / "frontend"
 BACKLOG_S = 8.0       # seconds of samples a late viewer gets
+HANDOVER_SILENT = 15  # packets of the new source fed to the detector only, so its rhythm history is ready
+HANDOVER_OVERLAP = 2  # packets that replace what the viewer has buffered but not shown yet
 BACKLOG_BEATS = 12    # beats a late viewer gets
 QUEUE_SIZE = 256      # per viewer; the oldest message is dropped when full
 
@@ -67,6 +70,20 @@ class Hub:
         self.beats.append(msg)
         self.broadcast(msg)
 
+    def handover(self, from_t: float) -> None:
+        """A new source takes over from stream time `from_t`: everything after it is replaced."""
+        kept: deque[dict] = deque()
+        for m in self.samples:
+            if m["t"] >= from_t:
+                continue
+            n = int(round((from_t - m["t"]) * FS))
+            if n < len(m["uv"]):
+                m = dict(m, uv=m["uv"][:n])
+            kept.append(m)
+        self.samples = kept
+        self.beats = deque((b for b in self.beats if b["r"] < from_t), maxlen=BACKLOG_BEATS)
+        self.broadcast({"type": "handover", "source": self.source_kind, "from": round(from_t, 4)})
+
     def push_signal(self, msg: dict) -> None:
         self.signal = msg
         log.info("signal: %s %s", "ok" if msg["ok"] else "lost", msg["reason"])
@@ -106,6 +123,8 @@ class Runner:
         self.source: Source | None = None
         self.task: asyncio.Task | None = None
         self._lock = asyncio.Lock()
+        self._index = 0                      # next stream sample index of the running source
+        self._last_wall: float | None = None
 
     async def start(self, name: str, force: bool = False, **kwargs) -> None:
         if name not in self.factories:
@@ -113,16 +132,32 @@ class Runner:
         async with self._lock:
             if name == self.name and not force:
                 return
+            # Between demo sources the new one takes over the running clock (a handover): the
+            # screen keeps flowing and the new rhythm enters at the now line. To or from the
+            # strap it is a full reset.
+            handover = (self.source is not None and self.source.kind != "live" and name != "live"
+                        and self._last_wall is not None
+                        and self._index > (HANDOVER_SILENT + HANDOVER_OVERLAP) * PACKET)
             await self._stop()
             source = self.factories[name](**kwargs)
+            hand_from: float | None = None
+            if handover and isinstance(source, PacedSource):
+                stream_t = self._index / FS
+                source.index = self._index - (HANDOVER_SILENT + HANDOVER_OVERLAP) * PACKET
+                source.anchor(stream_t, min(self._last_wall + PACKET_S, time.monotonic()))
+                hand_from = (self._index - HANDOVER_OVERLAP * PACKET) / FS
+            else:
+                self._index = 0
+                self._last_wall = None
+                self.hub.reset(source.kind)
             self.name = name
             self.source = source
-            self.hub.reset(source.kind)
+            self.hub.source_kind = source.kind
             source.on_status(lambda st, src=source: self.hub.set_status(st) if src is self.source else None)
             self.hub.set_status(source.status)
             self.hub.broadcast(self.hub.signal)
-            self.task = asyncio.create_task(self._pump(source), name=f"pump-{name}")
-            log.info("source: %s %s", name, kwargs or "")
+            self.task = asyncio.create_task(self._pump(source, hand_from), name=f"pump-{name}")
+            log.info("source: %s %s%s", name, kwargs or "", " (handover)" if hand_from is not None else "")
 
     async def _stop(self) -> None:
         if self.task is not None:
@@ -137,13 +172,25 @@ class Runner:
         async with self._lock:
             await self._stop()
 
-    async def _pump(self, source: Source) -> None:
+    async def _pump(self, source: Source, hand_from: float | None = None) -> None:
         detector = BeatDetector()
         monitor = SignalMonitor()
-        preroll = float(getattr(source, "preroll_s", 0.0) or 0.0)
+        preroll = float(getattr(source, "preroll_s", 0.0) or 0.0) if hand_from is None else 0.0
         pending: list[Packet] = []
+        silent: list[Packet] = []
         try:
             async for packet in source.packets():
+                self._index = round(packet.t_end * FS)
+                self._last_wall = time.monotonic()
+                if hand_from is not None and packet.t_end <= hand_from + 1e-6:
+                    silent.append(packet)         # the new source's past: the detector learns it, nobody sees it
+                    continue
+                if silent:
+                    history = Packet(silent[0].t, [v for p in silent for v in p.uv])
+                    silent = []
+                    await asyncio.to_thread(detector.prime, history)
+                    monitor.update(history, [])
+                    self.hub.handover(hand_from)
                 if preroll > 0 and packet.t_end <= preroll + 1e-6:
                     pending.append(packet)        # the history a source starts with: sent all at once below
                     continue

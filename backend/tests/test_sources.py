@@ -72,3 +72,13 @@ def test_preroll_emits_history_at_once_then_paces():
     assert len(clk.sleeps) == 2
     assert clk.sleeps[0] == pytest.approx(9 * PACKET_S - 5.0)
     assert clk.sleeps[1] == pytest.approx(PACKET_S)
+
+
+def test_anchor_continues_another_clock():
+    clk = FakeClock()
+    src = SimSource(bpm=72, sleep=clk.sleep, now=clk.now)
+    src.index = 650                          # stream time 5.0 s
+    src.anchor(5.0, clk.now() + 0.3)         # which is due 0.3 s from now
+    pk = take(src, 1)
+    assert pk[0].t == pytest.approx(5.0)
+    assert clk.sleeps[0] == pytest.approx(0.3 + PACKET_S)
