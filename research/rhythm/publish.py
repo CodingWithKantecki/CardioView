@@ -19,7 +19,7 @@ BODY = """
 
 Two tiny logistic models, `af.json` and `extra_beats.json`, that flag atrial fibrillation and extra beats from one chest-strap ECG lead sampled the way the Polar H10 samples it: 130 Hz, integer microvolts. They belong to CardioView, a KnightHacks IX project that shows a visitor's heart beating in 3D.
 
-**This is not a medical device.** CardioView shows a visitor a condition only when it passes the bar below, and never as a diagnosis.
+**This is not a medical device.** CardioView shows a visitor a condition only when it passes the bar below, and never as a diagnosis. Read the verdicts before using a model: one that fails the bar is published as a measured result, not as a working detector.
 
 ## How it works
 
