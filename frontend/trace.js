@@ -116,18 +116,18 @@ export class Trace {
     const span0 = next ? next.r - newest.r : (newest.rr || 0.8);
     const phase = Math.min(1, Math.max(0, (tDisplay - (newest.r - PRE_S)) / span0));
     const stepX = w * 0.012;
-    const stepY = h * 0.075;
+    const stepY = h * 0.08;
     const span = PRE_S + POST_S;
-    const width0 = w * 0.72;
+    const width0 = w * 0.86;
     const left0 = (w - width0) / 2;   // the front row sits centered in the box; rows behind drift right and shrink
-    const base0 = h * 0.82;
+    const base0 = h * 0.87;
 
     let up = 0, down = 0;
     for (const b of rows) {
       const i0 = this.indexAt(b.r - PRE_S), i1 = this.indexAt(Math.min(b.r + POST_S, tDisplay));
       for (let i = i0; i < i1; i++) { const v = this.ys[i]; if (v > up) up = v; if (-v > down) down = -v; }
     }
-    const targetAmp = Math.min((h * 0.22) / Math.max(200, up), (h * 0.15) / Math.max(120, down));
+    const targetAmp = Math.min((h * 0.27) / Math.max(200, up), (h * 0.12) / Math.max(120, down));
     this.amp3d = this.amp3d ? this.amp3d + (targetAmp - this.amp3d) * 0.08 : targetAmp;
     const amp0 = this.amp3d;
 
