@@ -36,22 +36,32 @@ for (int i = 0; i < 4; i++) {
   transformed += (uCenters[i] - position) * wi * uStrength[i] * uAct[i];
 }
 vChamber = cardioW;
-// valves in the opened heart (radii are zero elsewhere): a small region around each valve moves
+// valves in the opened heart (radii are zero elsewhere). A leaflet is a hinge: every vertex inside
+// the ring's cylinder rotates about the ring point nearest to it, around the ring's tangent, so the
+// ring and the wall never move. AV leaflets are modeled hanging open and swing up to meet at the
+// center while their ventricle squeezes; semilunar cusps are modeled shut and swing out to the wall
+// while it ejects.
 for (int i = 0; i < 4; i++) {
-  if (uValveR[i] <= 0.0) continue;
-  float vd = distance(position, uValveC[i]);
-  float vw = 1.0 - smoothstep(uValveR[i] * 0.55, uValveR[i], vd);
-  if (vw <= 0.0) continue;
+  float R = uValveR[i];
+  if (R <= 0.0) continue;
   vec3 rel = position - uValveC[i];
-  vec3 radial = rel - uValveUp[i] * dot(rel, uValveUp[i]);
-  vec3 radialDir = normalize(radial + vec3(1e-5));
-  if (uValveKind[i] < 0.5) {
-    // AV leaflets are modeled hanging open: shutting swings them up to the ring and together
-    transformed += (uValveUp[i] * 0.6 - radialDir * 0.8) * uValveAmp * vw * (1.0 - uValveOpen[i]);
-  } else {
-    // semilunar cusps are modeled shut: opening pushes them out to the wall and up the vessel
-    transformed += (radialDir * 0.8 + uValveUp[i] * 0.5) * uValveAmp * vw * uValveOpen[i];
-  }
+  float s = dot(rel, uValveUp[i]);
+  vec3 radial = rel - uValveUp[i] * s;
+  float r = length(radial);
+  float L = R * 1.2;
+  float wr = 1.0 - smoothstep(R * ((uValveKind[i] < 0.5) ? 0.85 : 0.65), R * ((uValveKind[i] < 0.5) ? 1.05 : 0.85), r);
+  float wa = (uValveKind[i] < 0.5)
+    ? smoothstep(-L - R * 0.3, -L, s) * (1.0 - smoothstep(R * 0.1, R * 0.4, s))
+    : smoothstep(-R * 0.4, -R * 0.1, s) * (1.0 - smoothstep(L, L + R * 0.3, s));
+  float w = wr * wa;
+  if (w <= 0.0) continue;
+  vec3 rd = radial / max(r, 1e-5);
+  vec3 t = normalize(cross(uValveUp[i], rd));
+  vec3 q = position - (uValveC[i] + rd * R);
+  float amount = (uValveKind[i] < 0.5) ? (1.0 - uValveOpen[i]) : uValveOpen[i];
+  float ang = amount * ((uValveKind[i] < 0.5) ? 1.0 : 0.55);   // leaflets rise to the ring; cusps lean to the wall
+  vec3 q2 = q * cos(ang) + cross(t, q) * sin(ang) + t * dot(t, q) * (1.0 - cos(ang));
+  transformed += (q2 - q) * w;
 }
 `;
 const FRAGMENT_HEAD = `

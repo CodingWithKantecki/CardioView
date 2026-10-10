@@ -5,6 +5,7 @@ import { Heart } from './heart.js';
 import { Glitch } from './glitch.js';
 import { Timeline } from './timeline.js';
 import { Dock } from './dock.js';
+import { drawRhythmTips } from './tips.js';
 import { invalidate as invalidateTheme } from './theme.js';
 
 const $ = (id) => document.getElementById(id);
@@ -28,6 +29,7 @@ function toggleTheme() {
   try { localStorage.setItem('cardioview-theme', next); } catch {}
   invalidateTheme();
   heart.applyTheme();
+  drawRhythmTips();
 }
 const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;   // lost state without the glitch pass
 
@@ -50,6 +52,7 @@ for (const el of document.querySelectorAll('.label')) {
 const heart = new Heart($('heart-view'), { labels, leaders: $('leaders'), missing: $('heart-missing') });
 if (new URLSearchParams(location.search).has('debug')) { window.heart = heart; window.clock = clock; window.trace = trace; }   // for headless checks
 heart.load();
+drawRhythmTips();
 const glitch = new Glitch($('glitch'), heart.renderer.domElement);
 
 let lastSampleT = null;
