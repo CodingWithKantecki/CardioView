@@ -1,0 +1,18 @@
+# Render blueprint: the public CardioView web app, always on, in demo mode (the strap is Bluetooth to
+# the booth laptop, so the cloud copy plays the recording and the rhythms until the bridge feeds it).
+# Dashboard: Blueprints, New Blueprint Instance, pick this repo. Every push to main redeploys.
+services:
+  - type: web
+    name: cardioview
+    runtime: python
+    plan: starter            # the free plan sleeps after 15 idle minutes; a demo link must not
+    region: virginia         # closest to Orlando
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m backend --source data/h10_ecg_thomas.csv --host 0.0.0.0 --port $PORT
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10
+      - key: PYTHONUNBUFFERED
+        value: "1"

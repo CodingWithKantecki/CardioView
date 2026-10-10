@@ -99,6 +99,10 @@ Without this, the QR opens the summary over the booth's Wi-Fi only. To make it o
 
 Only the anonymous summary goes to Neon. The raw ECG stays on this machine.
 
+## Online
+
+`render.yaml` deploys the app to Render as an always-on web service in demo mode (the recording and the rhythms; the strap stays with the booth laptop). In the Render dashboard: Blueprints, New Blueprint Instance, connect this repo, Apply. Every push to main redeploys. Add `GEMINI_API_KEY` in the service's Environment tab for the chat.
+
 ## Tests and checks
 
 ```
