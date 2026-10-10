@@ -6,7 +6,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { colors } from './theme.js';
 
 export const CHAMBERS = ['ra', 'la', 'rv', 'lv'];
-const GLOW = { ra: 0x8C9BFF, rv: 0x4FC3F7, la: 0xFF7AB8, lv: 0xFF8A4C };   // the same four chamber colors as the lanes
+const GLOW = { ra: 0x4D8BFF, rv: 0x7FE24B, la: 0xFF4F4F, lv: 0xFFC93C };   // the same four chamber colors as the lanes
 const STRENGTH = { ra: 0.08, la: 0.08, rv: 0.12, lv: 0.12 };
 const DEBUG = new URLSearchParams(location.search).has('debug');
 
