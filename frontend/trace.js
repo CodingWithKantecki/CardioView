@@ -115,11 +115,12 @@ export class Trace {
     const next = all[all.indexOf(newest) + 1];                 // usually known already: beats arrive before they are displayed
     const span0 = next ? next.r - newest.r : (newest.rr || 0.8);
     const phase = Math.min(1, Math.max(0, (tDisplay - (newest.r - PRE_S)) / span0));
-    const stepX = (w - gutter) * 0.018;
-    const stepY = h * 0.08;
+    const stepX = w * 0.012;
+    const stepY = h * 0.075;
     const span = PRE_S + POST_S;
-    const width0 = (w - gutter) * 0.78;
-    const base0 = h * 0.8;
+    const width0 = w * 0.72;
+    const left0 = (w - width0) / 2;   // the front row sits centered in the box; rows behind drift right and shrink
+    const base0 = h * 0.82;
 
     let up = 0, down = 0;
     for (const b of rows) {
@@ -137,7 +138,7 @@ export class Trace {
       const age = tDisplay - (b.r - PRE_S);                                   // seconds since this row began
       const rowAlpha = Math.max(0, 1 - depth / (ROWS_3D + 0.5)) * Math.min(1, age / 0.2);   // fade in, fade out at the back
       if (rowAlpha <= 0) continue;
-      const x0 = gutter + depth * stepX;
+      const x0 = left0 + depth * stepX;
       const base = base0 - depth * stepY;
       const pxPerS = (width0 * sc) / span;
       const amp = amp0 * sc;

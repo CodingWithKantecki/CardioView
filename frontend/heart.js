@@ -31,11 +31,9 @@ const FRAGMENT_HEAD = `
 uniform vec3 uGlow[4];
 varying vec4 vChamber;
 `;
-const FRAGMENT_BODY = `
-vec3 cardioGlow = vec3(0.0);
-for (int i = 0; i < 4; i++) cardioGlow += uGlow[i] * vChamber[i];
-gl_FragColor.rgb += cardioGlow * 0.12;
-`;
+// no tint on the surface: Thomas did not like the per-chamber glow (2026-10-10); the weights still
+// reach the fragment shader in vChamber should a subtler cue ever be wanted
+const FRAGMENT_BODY = ``;
 
 export class Heart {
   constructor(container, { labels = {}, leaders = null, missing = null } = {}) {
