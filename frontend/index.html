@@ -35,6 +35,15 @@
     <div class="label side-left" data-chamber="rv" hidden><b>RV</b><span>Right ventricle</span><canvas class="spark" data-spark="rv"></canvas></div>
     <div class="label side-right" data-chamber="lv" hidden><b>LV</b><span>Left ventricle</span><canvas class="spark" data-spark="lv"></canvas></div>
     <div class="alert" id="alert" hidden><b id="alert-title"></b><span id="alert-hint"></span></div>
+    <div class="chat" id="chat">
+      <span class="toggle chat-toggle"><button type="button" id="chat-open" aria-expanded="false" aria-controls="chat-box">Ask</button></span>
+      <section class="chat-box" id="chat-box" hidden aria-label="Ask about the data">
+        <header><span class="kicker">Ask about the data</span><button type="button" id="chat-close" aria-label="Close the chat">Close</button></header>
+        <div class="chat-log" id="chat-log" aria-live="polite"></div>
+        <form class="chat-form" id="chat-form"><input id="chat-input" type="text" maxlength="500" placeholder="Why is the rate changing?" autocomplete="off" aria-label="Your question"><button type="submit">Send</button></form>
+        <p class="chat-note">Answers come from an AI and can be wrong</p>
+      </section>
+    </div>
     <nav class="dock" id="dock" aria-label="Heart view controls">
       <span class="dock-item"><button type="button" data-action="rotate" data-label="Rotate" aria-pressed="false" aria-label="Rotate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></svg></button></span>
       <span class="dock-item"><button type="button" data-action="wireframe" data-label="Wireframe" aria-pressed="false" aria-label="Wireframe"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 3v18M4 7.5l8 4.5 8-4.5M4 16.5l8-4.5 8 4.5"/></svg></button></span>

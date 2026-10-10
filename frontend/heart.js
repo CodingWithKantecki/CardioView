@@ -9,6 +9,7 @@ export const CHAMBERS = ['ra', 'la', 'rv', 'lv'];
 const GLOW = { ra: 0x4D8BFF, rv: 0x7FE24B, la: 0xFF4F4F, lv: 0xFFC93C };   // the same four chamber colors as the lanes
 const STRENGTH = { ra: 0.08, la: 0.08, rv: 0.12, lv: 0.12 };
 const DEBUG = new URLSearchParams(location.search).has('debug');
+const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;   // no auto-rotate
 if (DEBUG) window.THREE = THREE;   // for headless picking of model points
 export const VALVES = ['tri', 'mit', 'pul', 'ao'];   // tricuspid, mitral (AV, hang open, shut in systole); pulmonary, aortic (semilunar, shut, open in ejection)
 const FORCED_VALVES = (() => { const v = new URLSearchParams(location.search).get('valves'); return v === null ? null : Number(v); })();
@@ -409,15 +410,25 @@ export class Heart {
     o[3] = smooth(0.35, 0.9, lv);       // aortic
   }
 
-  setRotate(on) { this.state.rotate = on; this.controls.autoRotate = on; }
+  setRotate(on) {
+    if (REDUCED_MOTION) on = false;
+    this.state.rotate = on;
+    this.controls.autoRotate = on;
+  }
 
-  // back to the set's camera, refitted to the stage
+  // Back to the set's camera, refitted to the stage, auto-rotate off. Damping is paused for the
+  // jump so leftover drag inertia does not carry the camera away again.
   resetView() {
     const cam = this.config?.camera || {};
+    const damping = this.controls.enableDamping;
+    this.controls.enableDamping = false;
+    this.controls.update();
     this.camera.position.fromArray(cam.position || [0, 0.15, 4.9]);
     this.controls.target.fromArray(cam.target || [0, 0.05, 0]);
     this.controls.update();
+    this.controls.enableDamping = damping;
     this.fit();
+    this.setRotate(false);
   }
 
   setWireframe(on) {

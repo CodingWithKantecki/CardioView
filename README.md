@@ -38,7 +38,17 @@ python -m backend --source data/<file>.csv      # replay a recording
 python -m backend --source h10                  # live from the Polar H10
 ```
 
-Options: `--bpm 72` sets the simulated rate, `--invert` flips a strap worn upside down, `--host` and `--port` change where it listens (default 0.0.0.0:8000). Whatever you start with, the Strap / Demo toggle at the top right of the viewer switches between the live strap and demo data without a restart; `--demo data/<file>.csv` or `--demo sim` picks the demo source (default: the first recording in `data/`). In Demo, the Simulated rhythm tray beside the heart rate plays synthesized rhythms (normal, bradycardia, atrial fibrillation, extra beats, ventricular tachycardia) for showing the screen without a strap; they are simulations and are never offered beside strap data. Hover the blue ! in a cell to read what that rhythm is. Press T to switch between the dark theme and the cream one.
+Options: `--bpm 72` sets the simulated rate, `--invert` flips a strap worn upside down, `--host` and `--port` change where it listens (default 0.0.0.0:8000). Whatever you start with, the Strap / Demo toggle at the top right of the viewer switches between the live strap and demo data without a restart; `--demo data/<file>.csv` or `--demo sim` picks the demo source (default: the first recording in `data/`). In Demo, the Simulated rhythm tray beside the heart rate plays synthesized rhythms (normal, bradycardia, atrial fibrillation, extra beats, ventricular tachycardia) for showing the screen without a strap; they are simulations and are never offered beside strap data. Hover the blue ! in a cell to read what that rhythm is. Press T to switch between the dark theme and the cream one. The 0 key resets the view, like the dock's Reset view.
+
+### Chat (optional, the only part that needs internet)
+
+The Ask button at the top right of the stage opens a small chat that answers questions about what is on screen (heart rate, ECG, chamber timing, signal, source) through Google's Gemini API. To turn it on, create a file named `.env` in the repo root (next to this README, on any OS) with one line:
+
+```
+GEMINI_API_KEY=your-key-here
+```
+
+Get a free key at https://aistudio.google.com/apikey. The server reads the file at startup, the key never leaves the server and `.env` is ignored by git. Without a key the chat says "Chat is not set up on this server"; without internet it says so too, and everything else keeps working. `GEMINI_MODEL=<name>` in the same file changes the model (default `gemini-3.5-flash`). The answers come from an AI and can be wrong. The chat only talks about the data on screen, never diagnoses, and says which numbers are measured (the ECG), derived (beats, rate, chamber timing) or modeled (the heart and the label waves).
 
 ## The strap
 

@@ -11,10 +11,12 @@ from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 from typing import Callable
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+import httpx
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from . import chat
 from .pipeline import REFRACTORY_S, BeatDetector, SignalMonitor
 from .sources.base import FS, PACKET, PACKET_S, PacedSource, Packet, Source, Status
 
@@ -207,6 +209,10 @@ class Runner:
                 with suppress(asyncio.CancelledError, Exception):
                     await t
 
+    def last_packet_age(self) -> float | None:
+        """Seconds since the running source delivered a packet, or None before the first."""
+        return None if self._last_wall is None else time.monotonic() - self._last_wall
+
     async def _pump(self, source: Source, detector: BeatDetector, monitor: SignalMonitor,
                     takeover: bool = False) -> None:
         preroll = 0.0 if takeover else float(getattr(source, "preroll_s", 0.0) or 0.0)
@@ -242,18 +248,23 @@ class Runner:
         except Exception:
             log.exception("source stopped")
 
-def create_app(factories: dict[str, Callable[[], Source]], initial: str) -> FastAPI:
-    """`factories` maps a name (live, demo) to a function that builds that source."""
+
+def create_app(factories: dict[str, Callable[[], Source]], initial: str,
+               http: httpx.AsyncClient | None = None) -> FastAPI:
+    """`factories` maps a name (live, demo) to a function that builds that source. `http` is the
+    client the chat uses to reach Gemini; tests pass one with a mock transport."""
     hub = Hub("simulated")
     runner = Runner(hub, factories)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        app.state.http = http or httpx.AsyncClient()
         await runner.start(initial)
         try:
             yield
         finally:
             await runner.stop()
+            await app.state.http.aclose()
 
     app = FastAPI(title="CardioView", lifespan=lifespan)
     app.state.hub = hub
@@ -314,6 +325,23 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str) -> Fast
                     t.result()
         finally:
             hub.unsubscribe(q)
+
+    @app.post("/api/chat")
+    async def chat_endpoint(request: Request) -> JSONResponse:
+        """One question about the data on screen. Body: {"question": str, "history": [{"role", "text"}]}.
+        The answer is {"reply", "error"}; `reply` is always words to show, `error` is null or a reason."""
+        try:
+            body = await request.json()
+        except ValueError:
+            body = None
+        if not isinstance(body, dict):
+            body = {}
+        question = body.get("question")
+        if not isinstance(question, str):
+            question = ""
+        snap = chat.snapshot(hub, runner.last_packet_age())
+        result = await chat.ask(question, body.get("history"), snap, app.state.http)
+        return JSONResponse(result.body(), status_code=result.status)
 
     app.mount(f"/a/{version}", StaticFiles(directory=FRONTEND), name="assets")
     app.mount("/", StaticFiles(directory=FRONTEND, html=True), name="viewer")
