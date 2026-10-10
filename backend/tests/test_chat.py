@@ -289,3 +289,19 @@ def test_load_dotenv_sets_without_overriding(tmp_path, monkeypatch):
     assert load_dotenv(tmp_path / "missing.env") == []
     assert load_dotenv(env, override=True) == ["GEMINI_API_KEY", "GEMINI_MODEL", "QUOTED"]
     assert os.environ["GEMINI_MODEL"] == "gemini-x"
+
+
+def test_system_prompt_handles_risk_and_condition_questions():
+    p = chat.SYSTEM_PROMPT
+    risk = p[p.index("Risk and condition questions"):]
+    # the order the reply follows
+    steps = ["demo data", "derived from the ECG", "60 to 100 bpm", "cannot tell whether", "clinician can assess risk"]
+    positions = [risk.index(s) for s in steps]
+    assert positions == sorted(positions)
+    for words in ["athletes often run lower", "exercise, stress, caffeine, poor sleep and illness",
+                  "chest pain, fainting or trouble breathing", "urgent care", "not a medical device",
+                  "Never say the person has, may have, or is at risk for any specific condition",
+                  "never repeat a condition or rhythm name the user typed", "calm, short and friendly"]:
+        assert words in risk, words
+    # the original rules are still there
+    assert "Never diagnose" in p and "never name a heart rhythm or condition for live or recorded data" in p
