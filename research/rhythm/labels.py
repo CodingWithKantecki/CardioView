@@ -84,13 +84,13 @@ def mitbih_windows(symbols, samples, aux, fs: float, n_samples: int, window_s: f
 
 
 def rr_windows(times, n_windows: int, window_s: float = 10.0) -> pd.DataFrame:
-    """Per window: the longest RR, the bpm of the median RR, and how many RRs. An RR belongs to the
-    window of its second beat."""
+    """Per window: the longest RR, the bpm of the median RR, and how many RRs. An RR counts only in a
+    window that holds both its beats: a detector run on one window never sees one across its edge."""
     times = np.asarray(times, dtype=float)
-    rr, ends = np.diff(times), times[1:]
+    rr, starts, ends = np.diff(times), times[:-1], times[1:]
     rows = []
     for k in range(n_windows):
-        r = rr[(ends >= k * window_s) & (ends < (k + 1) * window_s)]
+        r = rr[(starts >= k * window_s) & (ends < (k + 1) * window_s)]
         rows.append({"start_s": k * window_s, "max_rr": float(r.max()) if len(r) else np.nan,
                      "bpm": float(60 / np.median(r)) if len(r) else np.nan, "n_rr": int(len(r))})
     return pd.DataFrame(rows, columns=["start_s", "max_rr", "bpm", "n_rr"])

@@ -32,7 +32,12 @@ def test_mitbih_windows_label_extra_beats_and_leave_out_the_rest():
     assert list(w["extra_beats"]) == [0, 1, -1, -1, -1]   # normal, a PVC, an F beat, inside AF, no beat
 
 
-def test_rr_windows_put_each_interval_in_its_second_beats_window():
+def test_rr_windows_count_an_interval_only_where_both_its_beats_are():
     w = lb.rr_windows(np.array([1.0, 2.0, 3.0, 9.5, 10.5, 11.5]), 2)
     assert w.loc[0, "max_rr"] == 6.5 and w.loc[0, "n_rr"] == 3
     assert w.loc[1, "max_rr"] == 1.0 and round(w.loc[1, "bpm"]) == 60
+
+
+def test_a_pause_across_a_window_edge_counts_in_neither_window():
+    w = lb.rr_windows(np.array([7.0, 8.0, 9.0, 12.0, 13.0, 14.0]), 2)   # the 3 s pause crosses 10 s
+    assert w.loc[0, "max_rr"] == 1.0 and w.loc[1, "max_rr"] == 1.0   # a detector inside one window never sees it
