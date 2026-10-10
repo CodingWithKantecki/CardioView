@@ -65,7 +65,7 @@ body {
 .brand { font-weight: 700; font-size: 20px; letter-spacing: -0.015em; }
 /* the timeline: transport tray plus a strip of the last 30 s with a playhead; drag the strip to scrub */
 .timeline { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 14px; }
-.timeline canvas { flex: 1 1 auto; min-width: 0; height: 48px; display: block; cursor: ew-resize; touch-action: none; }
+.timeline canvas { flex: 1 1 auto; min-width: 0; height: 48px; display: block; cursor: ew-resize; touch-action: none; border: var(--cell-w) solid var(--line-2); background: var(--header); }   /* boxed like the trays */
 .transport button { display: flex; align-items: center; justify-content: center; padding: 9px 13px; }
 .transport svg { width: 12px; height: 12px; display: block; fill: currentColor; }
 /* the status line (strap id, whose recording, which simulated rhythm) lives in the heart rate box, above the tray */

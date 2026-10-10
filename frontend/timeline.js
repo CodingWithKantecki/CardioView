@@ -52,16 +52,30 @@ export class Timeline {
       ctx.beginPath(); ctx.moveTo(x, h * 0.8); ctx.lineTo(x, h); ctx.stroke();
     }
 
-    // the ECG, scaled like the trace
+    // a flat line where there is no signal yet: before the first kept sample, and after the newest
     const ts = this.trace.ts, ys = this.trace.ys;
     const base = h * 0.56;
     const amp = (h * 0.4) / Math.max(200, this.trace.scale);
+    const i0 = this.trace.indexAt(t0);
+    const firstT = i0 < ts.length ? ts[i0] : null;
+    const lastT = ts.length ? ts[ts.length - 1] : null;
+    ctx.strokeStyle = alpha(T.trace, 0.45);
+    ctx.lineWidth = 1 * dpr;
+    ctx.beginPath();
+    if (firstT === null) { ctx.moveTo(0, base); ctx.lineTo(w, base); }
+    else {
+      if (firstT > t0) { ctx.moveTo(0, base); ctx.lineTo(xOf(firstT), base); }
+      if (lastT < live) { ctx.moveTo(xOf(lastT), base); ctx.lineTo(w, base); }
+    }
+    ctx.stroke();
+
+    // the ECG, scaled like the trace
     ctx.strokeStyle = alpha(T.trace, 0.8);
     ctx.lineWidth = 1 * dpr;
     ctx.lineJoin = 'round';
     ctx.beginPath();
     let started = false;
-    for (let i = this.trace.indexAt(t0); i < ts.length && ts[i] <= live; i++) {
+    for (let i = i0; i < ts.length && ts[i] <= live; i++) {
       const x = xOf(ts[i]), y = base - ys[i] * amp;
       if (started) ctx.lineTo(x, y); else { ctx.moveTo(x, y); started = true; }
     }
