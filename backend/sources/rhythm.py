@@ -17,6 +17,19 @@ from .base import FS, MIN_FIRST_BEAT_S, PacedSource
 NORMAL = [(-0.18, 0.12, 0.022), (-0.03, -0.10, 0.009), (0.0, 1.0, 0.011), (0.025, -0.25, 0.010), (0.25, 0.30, 0.050)]
 NO_P = NORMAL[1:]
 WIDE = [(-0.01, 1.1, 0.035), (0.06, -0.7, 0.045), (0.30, -0.45, 0.075)]   # wide QRS, inverted T, no P
+MI_RR = 0.60        # a heart attack runs a little fast
+MI_BUILD_S = 20.0   # and its ECG changes build up over this long after the pattern starts
+
+
+def infarct(k: float) -> list:
+    """A sinus beat on its way to an acute heart attack, k from 0 (normal) to 1: the T wave grows tall
+    and broad first, then the ST segment lifts into it (ST elevation)."""
+    t = min(1.0, 2 * k)
+    st = min(1.0, max(0.0, (k - 0.25) / 0.75))
+    return [(-0.18, 0.12, 0.022), (-0.03, -0.10, 0.009), (0.0, 1.0, 0.011),
+            (0.025, -0.25 + 0.20 * st, 0.010),                       # S, shallower as the J point lifts
+            (0.10, 0.40 * st, 0.045),                                 # the lifted ST segment
+            (0.25 - 0.02 * t, 0.30 + 0.30 * t, 0.050 + 0.015 * t)]    # T
 
 LABELS = {
     "sinus": "Normal rhythm",
@@ -25,6 +38,7 @@ LABELS = {
     "afib": "Atrial fibrillation",
     "pvc": "Extra beats",
     "vt": "Ventricular tachycardia",
+    "mi": "Heart attack",
 }
 UV_PER_MV = 600.0
 EASE_BEATS = 3   # beats over which the interval eases from the old rhythm's to this pattern's
@@ -92,6 +106,13 @@ class RhythmSource(PacedSource):
             if k == 0 and i > 0:
                 return 1.15, NORMAL                   # the pause after it
             return 0.83 + rng.normal(0, 0.02), NORMAL
+        if p == "mi":
+            tpl = infarct(min(1.0, i * MI_RR / MI_BUILD_S))
+            if i % 9 == 8:
+                return 0.38, WIDE                     # an extra beat now and then
+            if i % 9 == 0 and i > 0:
+                return 2 * MI_RR - 0.38, tpl          # the pause after it
+            return MI_RR + rng.normal(0, 0.015), tpl
         return 0.83 + rng.normal(0, 0.025), NORMAL
 
     def _schedule(self, until: float) -> None:

@@ -5,6 +5,8 @@ import { colors, alpha } from './theme.js';
 const NORMAL = [[-0.18, 0.12, 0.022], [-0.03, -0.10, 0.009], [0, 1.0, 0.011], [0.025, -0.25, 0.010], [0.25, 0.30, 0.050]];
 const NO_P = NORMAL.slice(1);
 const WIDE = [[-0.01, 1.1, 0.035], [0.06, -0.7, 0.045], [0.30, -0.45, 0.075]];
+// a heart attack beat with the ST segment fully lifted (the simulator's infarct(1))
+const INFARCT = [[-0.18, 0.12, 0.022], [-0.03, -0.10, 0.009], [0, 1.0, 0.011], [0.025, -0.05, 0.010], [0.10, 0.40, 0.045], [0.23, 0.60, 0.065]];
 const SECONDS = 4;
 
 function rng(seed) {   // mulberry32, so every strip is the same each time
@@ -20,6 +22,7 @@ function beats(pattern) {
     if (pattern === 'brady') rr = 1.4;
     else if (pattern === 'afib') { rr = 0.35 + r() * 0.7; tpl = NO_P; }
     else if (pattern === 'vt') { rr = 0.40; tpl = WIDE; }
+    else if (pattern === 'mi') { rr = 0.60; tpl = INFARCT; }
     else if (pattern === 'pvc') { const k = i % 4; if (k === 3) { rr = 0.52; tpl = WIDE; } else if (k === 0 && i > 0) rr = 1.15; }
     last += rr;
     out.push([last, tpl]);

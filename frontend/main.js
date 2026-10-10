@@ -37,7 +37,7 @@ const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;  
 
 const RHYTHM_LABELS = {
   sinus: 'Normal rhythm', tachy: 'Tachycardia', brady: 'Bradycardia',
-  afib: 'Atrial fibrillation', pvc: 'Extra beats', vt: 'Ventricular tachycardia',
+  afib: 'Atrial fibrillation', pvc: 'Extra beats', vt: 'Ventricular tachycardia', mi: 'Heart attack',
 };
 
 const clock = new StreamClock();
@@ -126,7 +126,7 @@ function handle(msg) {
     rhythms.hidden = msg.source === 'live';
     for (const b of rhythms.querySelectorAll('button')) {
       const name = b.dataset.rhythm;
-      const on = name === 'recording' ? msg.source === 'recorded' : msg.device === 'Simulated: ' + RHYTHM_LABELS[name];
+      const on = msg.device === 'Simulated: ' + RHYTHM_LABELS[name];
       b.setAttribute('aria-pressed', String(!!on));
     }
   } else if (msg.type === 'signal') {
@@ -277,7 +277,7 @@ for (const b of document.querySelectorAll('#rhythms button')) {
     if (session.busy()) { session.flash('Press Esc twice to stop the session first'); return; }
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     const name = b.dataset.rhythm;
-    ws.send(JSON.stringify(name === 'recording' ? { type: 'source', name: 'demo' } : { type: 'rhythm', name }));
+    ws.send(JSON.stringify({ type: 'rhythm', name }));
   });
 }
 
