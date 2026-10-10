@@ -366,7 +366,7 @@ for (const b of sourceCells) {
     const already = want === 'live' ? (!!status && status.source === 'live') : (!!status && status.source === 'recorded');
     if (!already) choose({ type: 'source', name: want });
     else if (want === 'live') lastChoice = { type: 'source', name: 'live' };
-    if (want === 'live') { describeUi.el.hidden = true; describeUi.say(''); }   // a Gemini heart belongs to the demo
+    if (want === 'live') describeUi.close();   // a Gemini heart belongs to the demo
   });
 }
 // the logo toggles full screen (Thomas, 2026-10-10 evening): a click fills the display, another brings the browser's tabs back
@@ -383,9 +383,8 @@ panel.voice.addEventListener('click', () => session.setVoice(!session.voiceOn));
 for (const b of document.querySelectorAll('.rhythm-tray button')) {
   b.addEventListener('click', () => {
     if (session.busy()) { session.flash('Stop the session first'); return; }
-    if (b.dataset.rhythm === 'gemini') { describeUi.open(); return; }   // the text box; the rhythm comes from what is typed
-    describeUi.el.hidden = true;
-    describeUi.say('');
+    if (b.dataset.rhythm === 'gemini') { describeUi.open(); return; }   // the Gemini panel; the rhythm comes from what is typed
+    describeUi.close();
     choose({ type: 'rhythm', name: b.dataset.rhythm });
   });
 }
@@ -394,16 +393,19 @@ for (const b of document.querySelectorAll('.rhythm-tray button')) {
 // simulator's recipe and switches this viewer's demo to it; the recipe is kept as the last choice,
 // so a reconnect brings the same heart back without asking again.
 const describeUi = {
-  el: $('describe'), text: $('describe-text'), go: $('describe-go'), note: $('describe-note'),
-  open() { this.el.hidden = false; this.text.focus(); },
+  el: $('describe'), panel: $('gemini'), tray: $('rhythm-tray'), text: $('describe-text'), go: $('describe-go'), note: $('describe-note'),
+  open() { this.tray.hidden = true; this.panel.hidden = false; this.text.focus(); },   // the panel takes the tray's place
+  close() { this.panel.hidden = true; this.tray.hidden = false; this.say(''); this.panel.classList.remove('busy'); },
+  busy(on) { this.panel.classList.toggle('busy', on); setAttr(this.go, 'aria-disabled', on); },
   say(text) { this.note.textContent = text; this.note.hidden = !text; },
 };
+$('gemini-back').addEventListener('click', () => { describeUi.panel.hidden = true; describeUi.tray.hidden = false; });   // the rhythm playing stays
 describeUi.el.addEventListener('submit', async (e) => {
   e.preventDefault();
   if (session.busy()) { session.flash('Stop the session first'); return; }
   const text = describeUi.text.value.trim();
   if (!text || describeUi.go.getAttribute('aria-disabled') === 'true') return;
-  setAttr(describeUi.go, 'aria-disabled', true);
+  describeUi.busy(true);
   describeUi.say('Gemini is setting up the heart');
   try {
     const res = await fetch('/api/rhythm/describe', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ cid, text }) });
@@ -413,7 +415,7 @@ describeUi.el.addEventListener('submit', async (e) => {
       describeUi.say(`Simulated ${data.name.toLowerCase()}. ${data.summary}`);
     } else describeUi.say(data.reply || 'Gemini did not answer, try again');
   } catch { describeUi.say('Gemini heart needs an internet connection'); }
-  setAttr(describeUi.go, 'aria-disabled', false);
+  describeUi.busy(false);
 });
 
 initChat();
