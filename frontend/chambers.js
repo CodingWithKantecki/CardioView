@@ -7,7 +7,7 @@ const RISE_S = 0.1;
 const RELEASE_S = 0.2;
 export const ORDER = ['ra', 'la', 'rv', 'lv'];
 const laneColor = (c) => colors()[c];   // one color per chamber, from the --c-ra/rv/la/lv tokens
-const KEEP = 40;
+const KEEP = 120;   // beats kept: 30 s of timeline at any rate
 const SPARK_S = 3;
 
 export function intervals(beat) {

@@ -3,13 +3,14 @@ import { Trace, NOW_INSET } from './trace.js';
 import { Chambers } from './chambers.js';
 import { Heart } from './heart.js';
 import { Glitch } from './glitch.js';
+import { Timeline } from './timeline.js';
 import { invalidate as invalidateTheme } from './theme.js';
 
 const $ = (id) => document.getElementById(id);
 const els = {
   device: $('conn'), bpm: $('bpm'), rr: $('rr'),
   trace: $('trace'), lanes: $('lanes'), column: $('column'), nowEcg: $('nowline-ecg'), nowLanes: $('nowline-lanes'),
-  alert: $('alert'), alertTitle: $('alert-title'), alertHint: $('alert-hint'),
+  alert: $('alert'), alertTitle: $('alert-title'), alertHint: $('alert-hint'), strip: $('timeline-strip'),
 };
 
 // Debug: ?act=1 holds every chamber at full squeeze, ?act=0 relaxes them; ?signal=lost forces the lost state.
@@ -38,6 +39,7 @@ const clock = new StreamClock();
 const trace = new Trace(els.trace);
 const lanes = new Chambers(els.lanes);
 trace.beats = lanes.beats;   // one shared list of recent beats
+const timeline = new Timeline(els.strip, trace, lanes, clock);
 const labels = {};
 const sparks = {};
 for (const el of document.querySelectorAll('.label')) {
@@ -45,7 +47,7 @@ for (const el of document.querySelectorAll('.label')) {
   sparks[el.dataset.chamber] = el.querySelector('.spark');
 }
 const heart = new Heart($('heart-view'), { labels, leaders: $('leaders'), missing: $('heart-missing') });
-if (new URLSearchParams(location.search).has('debug')) window.heart = heart;   // for headless checks
+if (new URLSearchParams(location.search).has('debug')) { window.heart = heart; window.clock = clock; }   // for headless checks
 heart.load();
 const glitch = new Glitch($('glitch'), heart.renderer.domElement);
 
@@ -221,7 +223,18 @@ function drawFrame() {
   applyLost(lost);
   heart.render();
   if (lost && !REDUCED_MOTION) glitch.draw(performance.now());
+  timeline.draw(t);
+  syncTransport();
 }
+
+// the transport tray shows the clock's mode; a replay that catches up flips back to live by itself
+let shownMode = null;
+function syncTransport() {
+  if (clock.mode === shownMode) return;
+  shownMode = clock.mode;
+  for (const b of document.querySelectorAll('#transport button')) b.setAttribute('aria-pressed', String(b.dataset.mode === clock.mode));
+}
+for (const b of document.querySelectorAll('#transport button')) b.addEventListener('click', () => clock.setMode(b.dataset.mode));
 
 // one error must never stop the screen: draw what we can and keep the loop alive
 function frame() {

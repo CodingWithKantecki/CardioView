@@ -1,7 +1,7 @@
 // ECG trace on a canvas. Samples are keyed by stream time; drawing follows t_display.
 import { colors, alpha } from './theme.js';
 const FS_DEFAULT = 130;
-const KEEP_S = 14;
+const KEEP_S = 40;   // the timeline reaches back 30 s, plus the 6 s window
 
 export const WINDOW_S = 6;       // seconds from the left edge to the now line
 export const NOW_INSET = 12;     // CSS px between the now line and the right edge: the graphs fill their box
@@ -36,6 +36,7 @@ function roundedPath(ctx, pts) {
 const PRE_S = 0.3;      // 3D: seconds shown before each R peak
 const POST_S = 0.6;     // 3D: seconds shown after each R peak
 const ROWS_3D = 8;      // 3D: beats stacked
+const BEAT_GAP_S = 0.08; // 3D: a row stops this far short of the neighboring beats, so a fast rhythm never shows two R peaks in one row
 
 export class Trace {
   constructor(canvas) {
@@ -142,8 +143,11 @@ export class Trace {
       const base = base0 - depth * stepY;
       const pxPerS = (width0 * sc) / span;
       const amp = amp0 * sc;
-      const tEnd = Math.min(b.r + POST_S, tDisplay);
-      const i0 = this.indexAt(b.r - PRE_S), i1 = this.indexAt(tEnd);
+      const idx = all.indexOf(b);
+      const prev = all[idx - 1], nxt = all[idx + 1];
+      const tStart = Math.max(b.r - PRE_S, prev ? prev.r + BEAT_GAP_S : -Infinity);
+      const tEnd = Math.min(b.r + POST_S, nxt ? nxt.r - BEAT_GAP_S : Infinity, tDisplay);
+      const i0 = this.indexAt(tStart), i1 = this.indexAt(tEnd);
       if (i1 - i0 < 3) continue;
       const pts = [];
       for (let i = i0; i < i1; i++) pts.push([x0 + (this.ts[i] - (b.r - PRE_S)) * pxPerS, base - this.ys[i] * amp]);
