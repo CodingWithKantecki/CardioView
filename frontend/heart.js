@@ -56,7 +56,7 @@ export class Heart {
     container.appendChild(this.renderer.domElement);
 
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.Fog(0x0A1115, 6, 16);   // color follows the theme; the far walls fade into it
+    this.scene.fog = new THREE.Fog(0x0A1115, 14, 44);   // color follows the theme; starts beyond the room's walls so its corners stay defined
     this.camera = new THREE.PerspectiveCamera(30, 1, 0.01, 100);
     this.camera.position.set(0, 0.1, 4.4);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
@@ -203,18 +203,19 @@ export class Heart {
   }
 
   // A plain room for the heart to float in: one box seen from inside, floor, walls and ceiling in
-  // the theme's room color with its twelve edges as faint lines, fading into fog (Thomas,
-  // 2026-10-10: the grid room had too many grids). The orbit limits keep the camera inside.
+  // the theme's room color with its twelve edges as crisp lines (Thomas, 2026-10-10: the grid
+  // room had too many grids, then the fog made the corners fade). The orbit limits keep the
+  // camera inside.
   buildGrid(wb) {
     if (this.room) this.scene.remove(this.room);
     const g = new THREE.Group();
     const HALF = 8;
     const floorY = wb.min.y - 0.35;
     const box = new THREE.BoxGeometry(HALF * 2, HALF * 2, HALF * 2);
-    this.walls = new THREE.Mesh(box, new THREE.MeshStandardMaterial({ roughness: 1, metalness: 0, envMapIntensity: 0.28, side: THREE.BackSide }));
+    this.walls = new THREE.Mesh(box, new THREE.MeshStandardMaterial({ roughness: 1, metalness: 0, envMapIntensity: 0.16, side: THREE.BackSide }));
     this.walls.position.y = floorY + HALF;
     g.add(this.walls);
-    this.edges = new THREE.LineSegments(new THREE.EdgesGeometry(box), new THREE.LineBasicMaterial({ transparent: true, opacity: 0.22, depthWrite: false }));
+    this.edges = new THREE.LineSegments(new THREE.EdgesGeometry(box), new THREE.LineBasicMaterial({ transparent: true, opacity: 0.5, depthWrite: false }));
     this.edges.position.y = floorY + HALF;
     g.add(this.edges);
     this.room = g;
