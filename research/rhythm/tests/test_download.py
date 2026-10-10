@@ -46,3 +46,23 @@ def test_a_transfer_cut_short_resumes_where_it_stopped(tmp_path, monkeypatch):
 def test_a_server_that_ignores_the_range_starts_over_cleanly(tmp_path, monkeypatch):
     serve(monkeypatch, tmp_path, honour_range=False)
     assert dl.fetch("file.bin", "https://example.org/file.bin").read_bytes() == PAYLOAD
+
+
+def test_mirror_fetches_what_is_missing_and_retries_a_short_body(tmp_path, monkeypatch):
+    bodies = {"https://x/a.dat": b"abcdef", "https://x/b.hea": b"hea"}
+    calls = []
+
+    def urlopen(req, timeout):
+        calls.append(req.full_url)
+        body = bodies[req.full_url]
+        if req.full_url.endswith("a.dat") and calls.count(req.full_url) == 1:
+            return Response(body[:3], 200, len(body))   # cut short: tried again
+        return Response(body, 200, len(body))
+
+    monkeypatch.setattr(dl.urllib.request, "urlopen", urlopen)
+    (tmp_path / "c.hea").write_bytes(b"there")
+    jobs = {tmp_path / "sub" / "a.dat": "https://x/a.dat", tmp_path / "b.hea": "https://x/b.hea",
+            tmp_path / "c.hea": "https://x/c.hea"}
+    assert dl.mirror(jobs, workers=2) == 2
+    assert (tmp_path / "sub" / "a.dat").read_bytes() == b"abcdef" and (tmp_path / "b.hea").read_bytes() == b"hea"
+    assert "https://x/c.hea" not in calls
