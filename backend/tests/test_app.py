@@ -116,9 +116,15 @@ def test_a_switch_starts_the_new_source_from_zero():
         await runner.start("a")
         await asyncio.sleep(0.4)
         assert hub.samples and hub.samples[-1]["t"] > 0
+        q = hub.subscribe()
         await runner.start("b")
         await asyncio.sleep(0.4)
-        assert hub.samples[0]["t"] == 0.0, "the new source starts its clock at zero"
-        assert len(hub.samples) >= 5, "a preroll fills the backlog at once"
+        msgs = []
+        while not q.empty():
+            msgs.append(json.loads(q.get_nowait()))
+        assert msgs[0]["type"] == "status" and msgs[0]["source"] == "simulated"
+        samples = [m for m in msgs if m["type"] == "samples"]
+        assert samples[0]["t"] == 0.0, "the new source starts its clock at zero"
+        assert len(samples) >= 5, "a preroll fills the screen at once"
         await runner.stop()
     asyncio.run(run())

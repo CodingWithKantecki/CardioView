@@ -8,7 +8,7 @@ import { invalidate as invalidateTheme } from './theme.js';
 const $ = (id) => document.getElementById(id);
 const els = {
   device: $('conn'), bpm: $('bpm'), rr: $('rr'),
-  trace: $('trace'), lanes: $('lanes'), column: $('column'), nowline: $('nowline'),
+  trace: $('trace'), lanes: $('lanes'), column: $('column'), nowEcg: $('nowline-ecg'), nowLanes: $('nowline-lanes'),
   alert: $('alert'), alertTitle: $('alert-title'), alertHint: $('alert-hint'),
 };
 
@@ -17,7 +17,6 @@ const params = new URLSearchParams(location.search);
 const actParam = params.get('act');
 const FORCED_ACT = actParam === null ? null : { ra: +actParam, la: +actParam, rv: +actParam, lv: +actParam };
 const FORCED_LOST = params.get('signal') === 'lost';
-const FORCED_CONNECTING = params.get('signal') === 'connecting';
 // theme: navy by default; ?theme=light or the T key, remembered per browser
 const savedTheme = (() => { try { return localStorage.getItem('cardioview-theme'); } catch { return null; } })();
 if (params.get('theme') || savedTheme) document.documentElement.dataset.theme = params.get('theme') || savedTheme;
@@ -53,7 +52,6 @@ let lastSampleT = null;
 let lastSampleWall = null;
 let shownBeat = null;
 let status = null;                       // last status message
-let liveSince = null;                    // wall time the strap was chosen
 let signal = { ok: true, reason: '' };   // last signal message
 let wsOpen = false;
 let ws = null;
@@ -63,19 +61,13 @@ let flickerUntil = 0;
 
 // It is either working or not connected: one message for every strap problem.
 const NOT_CONNECTED = ['Not connected', 'Wet the pads and wear the strap snug on the chest'];
-const CONNECTING = ['Connecting to the strap', 'Wear it snug on the chest', true];   // calm: a chosen strap connecting is not a fault
-const CONNECT_GRACE_MS = 8000;
 
 // Why the screen cannot follow a heart right now, or null when it can.
 function lostState() {
   if (FORCED_LOST) return NOT_CONNECTED;
-  if (FORCED_CONNECTING) return CONNECTING;
   if (!status) return null;
   if (!wsOpen) return ['Server offline', 'Retrying'];
-  if (status.source === 'live' && status.state !== 'streaming') {
-    const fresh = liveSince !== null && performance.now() - liveSince < CONNECT_GRACE_MS;
-    return status.state === 'connecting' && fresh ? CONNECTING : NOT_CONNECTED;
-  }
+  if (status.source === 'live' && status.state !== 'streaming') return NOT_CONNECTED;
   if (lastSampleWall !== null && performance.now() - lastSampleWall > 3000) return NOT_CONNECTED;
   if (!signal.ok) return NOT_CONNECTED;
   return null;
@@ -98,7 +90,6 @@ function handle(msg) {
     if (!status || status.source !== msg.source || status.device !== msg.device) {   // a new source: everything restarts from zero
       trace.clear(); lanes.clear(); clock.reset(); shownBeat = null; lastSampleT = null; lastSampleWall = null;
       signal = { ok: true, reason: '' };
-      if (msg.source === 'live' && (!status || status.source !== 'live')) liveSince = performance.now();
     }
     status = msg;
     setStatus(msg);
@@ -147,10 +138,12 @@ function placeNowLine() {
   const tr = els.trace.getBoundingClientRect();
   const ln = els.lanes.getBoundingClientRect();
   const x = tr.left - col.left + GUTTER + (tr.width - GUTTER) * NOW_FRAC;
-  const top = trace.mode === '3d' ? ln.top - 14 : tr.top;   // the waterfall has no time axis
-  els.nowline.style.left = `${x.toFixed(1)}px`;
-  els.nowline.style.top = `${(top - col.top).toFixed(1)}px`;
-  els.nowline.style.height = `${(ln.bottom - top).toFixed(1)}px`;
+  for (const [el, r] of [[els.nowEcg, tr], [els.nowLanes, ln]]) {   // one line per band, never across the rule
+    el.style.left = `${x.toFixed(1)}px`;
+    el.style.top = `${(r.top - col.top).toFixed(1)}px`;
+    el.style.height = `${r.height.toFixed(1)}px`;
+  }
+  els.nowEcg.hidden = trace.mode === '3d';   // the waterfall has no time axis
 }
 
 function setEcgMode(mode) {
@@ -177,9 +170,7 @@ function showBeat(b) {
 }
 
 function applyLost(lost) {
-  const calm = !!lost && lost[2] === true;
-  document.body.classList.toggle('lost', !!lost && !calm);
-  els.alert.classList.toggle('calm', calm);
+  document.body.classList.toggle('lost', !!lost);
   els.alert.hidden = !lost;
   if (lost) {
     if (els.alertTitle.textContent !== lost[0]) els.alertTitle.textContent = lost[0];
@@ -188,7 +179,7 @@ function applyLost(lost) {
   // wireframe flicker while lost, on top of whatever the W key set
   const now = performance.now();
   if (lost && !REDUCED_MOTION && now > flickerUntil && Math.random() < 0.04) flickerUntil = now + 50 + Math.random() * 120;
-  const want = userWireframe || (!!lost && !calm && now < flickerUntil);
+  const want = userWireframe || (!!lost && now < flickerUntil);
   if (want !== appliedWireframe) { heart.setWireframe(want); appliedWireframe = want; }
 }
 
@@ -207,7 +198,7 @@ function frame() {
   }
   applyLost(lost);
   heart.render();
-  if (lost && !lost[2] && !REDUCED_MOTION) glitch.draw(performance.now());
+  if (lost && !REDUCED_MOTION) glitch.draw(performance.now());
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

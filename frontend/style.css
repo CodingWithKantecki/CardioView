@@ -106,8 +106,6 @@ html[data-theme="light"] .alert { background: radial-gradient(closest-side, rgba
 .alert b { font-size: 28px; font-weight: 700; letter-spacing: -0.01em; color: var(--alert); }
 .alert span { color: var(--ink-2); font-size: 13px; }
 .alert span:empty { display: none; }
-.alert.calm b { color: var(--ink); font-size: 22px; }
-.alert.calm span { color: var(--muted); }
 body.lost #heart-view { opacity: 0; }
 .glitch { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 4; pointer-events: none; display: none; }
 body.lost .glitch { display: block; }
@@ -136,15 +134,18 @@ body.lost .bpm { opacity: 0.35; }
 .readout { display: flex; align-items: baseline; gap: 10px; margin-top: 2px; }
 .bpm { font-family: var(--sans); font-weight: 700; font-size: clamp(56px, 9.5vh, 112px); line-height: 0.95; letter-spacing: -0.04em; color: var(--ink); }
 .unit { font-size: 18px; color: var(--ink-2); }
-.rr { margin: 2px 0 0; font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted); }
+.rr { margin: 2px 0 0; white-space: nowrap; font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted); }
 .instrument h2 .toggle { margin-left: auto; }
 .rate-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
+.rate-row > div:first-child { flex: 0 0 auto; }
 .rhythms { flex: 0 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
 .rhythm-tray { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; }
 .rhythm-tray button { padding: 10px 4px; text-align: center; overflow: hidden; text-overflow: ellipsis; font-size: clamp(10px, 0.62vw, 12.5px); letter-spacing: 0.1em; }
 .rhythm-tray button[data-rhythm="recording"] { grid-column: span 2; }
 .instrument canvas { flex: 1 1 auto; min-height: 0; width: 100%; display: block; margin-top: 12px; }
 .nowline { position: absolute; width: 0; border-left: 2px dashed var(--accent); pointer-events: none; z-index: 2; }
+#nowline-lanes span { display: none; }
+#nowline-ecg[hidden] + #nowline-lanes span { display: block; }
 .nowline span { position: absolute; top: -2px; right: 9px; font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; color: var(--accent); }
 
 @media (max-width: 760px) {
