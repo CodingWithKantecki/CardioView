@@ -3,10 +3,16 @@ import { colors, alpha } from './theme.js';
 const FS_DEFAULT = 130;
 const KEEP_S = 14;
 
-export const WINDOW_S = 6;
-export const NOW_FRAC = 0.92;
-export const GUTTER = 48;
-export const BASELINE_FRAC = 0.64;
+export const WINDOW_S = 6;       // seconds from the left edge to the now line
+export const NOW_INSET = 12;     // CSS px between the now line and the right edge: the graphs fill their box
+export const GUTTER = 0;         // no left gutter; the lane letters sit inside their lanes
+export const BASELINE_FRAC = 0.66;
+
+// the shared time axis of the trace and the lanes, so beats line up between them
+export function geometry(w, dpr) {
+  const gutter = GUTTER * dpr, xNow = w - NOW_INSET * dpr;
+  return { gutter, xNow, pxPerS: (xNow - gutter) / WINDOW_S };
+}
 
 export function fitCanvas(canvas) {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -184,11 +190,9 @@ export class Trace {
     const { w, h, dpr } = fitCanvas(this.canvas);
     const ctx = this.ctx;
     ctx.clearRect(0, 0, w, h);
-    const gutter = GUTTER * dpr;
+    const { gutter, xNow, pxPerS } = geometry(w, dpr);
     const drawable = w - gutter;
-    const xNow = gutter + drawable * NOW_FRAC;
-    const tLeft = tDisplay === null ? 0 : tDisplay - WINDOW_S * NOW_FRAC;
-    const pxPerS = drawable / WINDOW_S;
+    const tLeft = tDisplay === null ? 0 : tDisplay - WINDOW_S;
     const baseline = h * BASELINE_FRAC;
 
     // grid
@@ -221,7 +225,7 @@ export class Trace {
     }
     const target = Math.max(200, peak);
     this.scale = target > this.scale ? target : this.scale + (target - this.scale) * 0.02;
-    const amp = (h * 0.5) / this.scale;
+    const amp = (h * 0.56) / this.scale;   // the recent peak reaches a tenth from the top
 
     ctx.save();
     ctx.beginPath();

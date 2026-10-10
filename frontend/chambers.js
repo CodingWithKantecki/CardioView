@@ -1,5 +1,5 @@
 // Chamber lanes and activation, both pure functions of t_display and the recent beats.
-import { fitCanvas, WINDOW_S, NOW_FRAC, GUTTER } from './trace.js';
+import { fitCanvas, WINDOW_S, geometry } from './trace.js';
 import { colors, alpha } from './theme.js';
 
 export const ATRIA_S = 0.12;
@@ -157,14 +157,11 @@ export class Chambers {
     const { w, h, dpr } = fitCanvas(this.canvas);
     const ctx = this.ctx;
     ctx.clearRect(0, 0, w, h);
-    const gutter = GUTTER * dpr;
-    const drawable = w - gutter;
-    const xNow = gutter + drawable * NOW_FRAC;
-    const pxPerS = drawable / WINDOW_S;
-    const tLeft = tDisplay === null ? 0 : tDisplay - WINDOW_S * NOW_FRAC;
+    const { gutter, xNow, pxPerS } = geometry(w, dpr);
+    const tLeft = tDisplay === null ? 0 : tDisplay - WINDOW_S;
     const rows = ORDER.length;
     const rowH = h / rows;
-    const pad = rowH * 0.2;
+    const pad = rowH * 0.12;
     const step = Math.max(1, Math.round(dpr));
 
     const T = colors();
@@ -186,11 +183,6 @@ export class Chambers {
       const top = rowH * r + pad;
       const amp = base - top;
       ctx.save();
-      // the chamber letters, in the same bold Helvetica as the labels on the heart
-      ctx.font = `700 ${15 * dpr}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
-      ctx.fillStyle = alpha(T.ink, 0.85);
-      ctx.textBaseline = 'middle';
-      ctx.fillText(c.toUpperCase(), 0, (top + base) / 2);
       ctx.strokeStyle = alpha(T.rule, 0.22);
       ctx.lineWidth = 1.5 * dpr;
       ctx.beginPath(); ctx.moveTo(gutter, base); ctx.lineTo(w, base); ctx.stroke();
@@ -239,5 +231,21 @@ export class Chambers {
       ctx.fill();
       ctx.restore();
     }
+
+    // the chamber letters inside each lane's top-left corner, in the same bold Helvetica as the
+    // labels on the heart, on a knock-out so the shapes pass under them
+    ctx.save();
+    ctx.font = `700 ${15 * dpr}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+    ctx.textBaseline = 'top';
+    for (let r = 0; r < rows; r++) {
+      const label = ORDER[r].toUpperCase();
+      const tw = ctx.measureText(label).width;
+      const lx = 12 * dpr, ly = rowH * r + pad + 1 * dpr;
+      ctx.fillStyle = alpha(T.paper, 0.85);
+      ctx.fillRect(lx - 5 * dpr, ly - 3 * dpr, tw + 10 * dpr, 21 * dpr);
+      ctx.fillStyle = alpha(T.ink, 0.85);
+      ctx.fillText(label, lx, ly);
+    }
+    ctx.restore();
   }
 }

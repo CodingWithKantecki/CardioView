@@ -1,5 +1,5 @@
 import { StreamClock } from './clock.js';
-import { Trace, GUTTER, NOW_FRAC } from './trace.js';
+import { Trace, NOW_INSET } from './trace.js';
 import { Chambers } from './chambers.js';
 import { Heart } from './heart.js';
 import { Glitch } from './glitch.js';
@@ -154,7 +154,7 @@ function placeNowLine() {
   const col = els.column.getBoundingClientRect();
   const tr = els.trace.getBoundingClientRect();
   const ln = els.lanes.getBoundingClientRect();
-  const x = tr.left - col.left + GUTTER + (tr.width - GUTTER) * NOW_FRAC;
+  const x = tr.left - col.left + tr.width - NOW_INSET;
   for (const [el, r] of [[els.nowEcg, tr], [els.nowLanes, ln]]) {   // one line per band, never across the rule
     el.style.left = `${x.toFixed(1)}px`;
     el.style.top = `${(r.top - col.top).toFixed(1)}px`;
