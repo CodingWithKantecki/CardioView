@@ -42,10 +42,15 @@ Change these only if Thomas says so.
 ## Layout
 
 ```
-backend/    app.py (FastAPI, /ws, /api/chat, static files), pipeline.py, chat.py, env.py, sources/ (base.py, sim.py, replay.py, h10.py), tests/
-frontend/   index.html, main.js, clock.js, chambers.js, heart.js, trace.js, chat.js, style.css, vendor/, assets/ (heart model + heart.json)
-tools/      h10_record.py (strap to CSV, no server), trim_csv.py, screenshot.mjs (headless check)
+backend/    app.py (FastAPI, /ws, /api/chat, session routes, static files), pipeline.py, chat.py, env.py, sources/ (base.py, sim.py, replay.py, h10.py),
+            session.py (saved sessions), analysis.py (session summary), synth.py (synthetic sessions), cloud.py (Neon sync), tests/
+frontend/   index.html, main.js, clock.js, chambers.js, heart.js, trace.js, chat.js, style.css, session.js/.css (stage overlay),
+            summary.html/.js/.css (summary page), vendor/, assets/ (heart model + heart.json)
+tools/      h10_record.py (strap to CSV, no server), trim_csv.py, screenshot.mjs (headless check),
+            sessions.py (list, delete, wipe, cloud-init, deploy), make_voice.py (voice clips, own venv)
+cloud/      public summary pages on Vercel (app.py reads Neon), deployed with tools/sessions.py deploy
 data/       ECG fixtures: CSV with header time_s,ecg_uv at 130 Hz, in microvolts
+sessions/   saved visitor sessions, never committed (see Saved sessions)
 ```
 
 ## The strap
@@ -113,9 +118,12 @@ One WebSocket at `/ws`, JSON, server to viewer:
 {"type": "samples", "source": "live", "t": 12.480, "fs": 130, "uv": [12, -8, 31]}
 {"type": "beat", "source": "live", "r": 12.911, "rr": 0.83, "bpm": 72, "ra_on": -0.20, "la_on": -0.17, "v_on": -0.04, "v_off": 0.32, "p_found": true}
 {"type": "signal", "source": "live", "ok": false, "reason": "pads"}
+{"type": "session", "state": "running", "id": "x7Qk...", "step": "breathe", "index": 2, "count": 5, "elapsed_s": 12.3, "length_s": 40, "paused": false}
 ```
 
 `t` is the stream time of the first sample in `uv`. `source` is `live`, `recorded` or `simulated`. `state` is `connecting`, `streaming` or `reconnecting`. `signal` is sent on change (and first thing to a late viewer): the only reason is `pads`, meaning no signal at all: samples pinned near 19930 uV (the pads left the skin) or a flat line, over the last 2 s. Noisy or odd signal is still signal and is never flagged (Thomas's call). Lost after 0.5 s, ok again after 1 s of signal (`SignalMonitor` in pipeline.py; `CARDIOVIEW_DEBUG=1` logs the numbers per packet). Send raw microvolts. The viewer removes baseline drift (one-pole 0.5 Hz high-pass) and scales for display (follow the recent peak, floor 200 uV).
+
+`session` states are `idle` (with an optional `note`: `stopped` or `write_failed`), `running`, `analyzing` and `done` (with `link` and `online`). The backlog sends the current one right after the status and signal.
 
 ## Viewer
 
@@ -131,6 +139,21 @@ One WebSocket at `/ws`, JSON, server to viewer:
 
 An Ask pill at the top right of the stage opens a 280 px box that answers questions about the data on screen. That corner is the one spot the heart and its labels never reach at 1920 by 1080: the box must end above the LA label (at most 300 px tall, checked by screenshot), and on phones it is a bottom sheet. Same tokens as the rest of the page, no radius, no shadow, no glow. Motion is transform and opacity only: the pill grows 5 percent on hover and settles back slower, the box scales out of the pill's corner over 0.36 s on a soft ease-out and folds back in 0.24 s (chat.js keeps it in the DOM with a `closing` class until the animation ends), each new line rises a few pixels; all of it is off under prefers-reduced-motion. `frontend/chat.js` posts `{"question", "history"}` to `POST /api/chat` and gets `{"reply", "error"}`: `reply` is always words to show, `error` is null or missing_key, rate_limit, offline, timeout, model, upstream, empty. The browser keeps the last 6 exchanges and sends them back; the server stores nothing. `backend/chat.py` builds the context from the hub itself (source, state, device, signal, the last 12 beats, a 2 s ECG summary) and calls Gemini over REST with httpx. The key is `GEMINI_API_KEY`, loaded from `.env` by `backend/env.py`, sent in a header, never in a URL or a log; `.env` is gitignored. The model is `DEFAULT_MODEL` in chat.py (gemini-3.5-flash; `GEMINI_MODEL` overrides it), thinking off, with one retry without that field for models that reject it (the lite ones). 429 and 503 both say "Busy right now, try again soon". The system prompt refuses off-topic questions, never diagnoses or names a rhythm for live or recorded data (a simulated rhythm's name may be repeated as shown in the header), and keeps measured, derived and modeled apart. Tests use `httpx.MockTransport`; nothing reaches the network. The chat is the only part of CardioView that needs internet.
 
+## Saved sessions
+
+Spec: `docs/superpowers/specs/2026-10-10-visitor-sessions-design.md`. Opt-in per visitor, measurements only.
+
+- A session starts only from `POST /api/session/start`, sent after the visitor agreed; that is the consent, recorded in `session.json`. Cancel deletes everything.
+- Steps: get ready (until the signal is clean for 5 s, at most 30 s), rest 30 s, breathe 40 s at 6 a minute, squats 20 s, recover 30 s. Step clocks count received samples, so a strap drop pauses them; 15 s without samples ends the session with the steps that finished.
+- `backend/analysis.py` makes five sections: effort and recovery, breathing, heart rate variability, the average beat (waves labelled, no durations: the QRS onset moves 20 to 75 ms at 130 Hz) and beat timing. Each is values or a plain reason. No verdicts, no reference ranges.
+- `sessions/<id>/` holds `ecg.csv` (replays with `--source`), `beats.csv`, `session.json` and `summary.json`. Never committed. Keep-until is 24 h by default (`--keep-until`); unfinished and expired sessions are deleted at startup.
+- The runner hands each live packet and its beats to the session (`Runner(on_packet=...)`), never the preroll history or a takeover's priming; a failure there is logged and the pump goes on. While a session is running or being measured, the server ignores `source` and `rhythm` messages: stop the session first.
+- Stage keys: S twice starts, Esc twice stops and deletes, V turns the voice on or off. `frontend/session.js` draws one prompt line (Helvetica, like the alert), one mono status line and a breathing ring behind the heart, in the theme's colors; nothing on the stage is clickable. During a session the Strap / Demo and rhythm buttons only say to press Esc twice first.
+- The summary page (`frontend/summary.html`) serves the big screen (`/s/<id>?screen=1`, with the QR), phones on the LAN and the public copy in `cloud/`. `/s/demo` is a synthetic session for screenshots. Its tokens copy style.css (it stands alone on Vercel) and it follows the booth's T theme; a session on demo data says "Session on recorded data" or "simulated data", never "Your session".
+- Voice: `tools/make_voice.py` renders the step lines once with Kokoro 82M from Hugging Face (Python 3.12, its own `.venv-voice`); the WAVs in `frontend/assets/voice/` are committed, so the booth needs neither the model nor the internet.
+- Cloud is optional: with `NEON_DATABASE_URL` and `CARDIOVIEW_PUBLIC_URL` in `.env`, the anonymous summary (never the ECG) goes to Neon and the QR opens the Vercel page in `cloud/`. Offline or without them, the QR is the LAN link; a sync loop retries every 30 s and applies deletes made on phones. `cloud/vercel.json` pins the FastAPI preset: a project made with `vercel project add` starts as Other and deploys `cloud/` as plain files with no app.
+- `python tools/sessions.py wipe` after the event deletes every local session and every Neon row; `list` and `delete <id>` are there for the operator.
+
 ## Milestones
 
 - M0. `tools/h10_record.py`: connect, print battery and sample counts, save a CSV. Give it to Thomas first. His recording proves the strap path and becomes the main fixture. Record at least 90 s and trim the settling lead-in.
@@ -141,7 +164,7 @@ An Ask pill at the top right of the stage opens a 280 px box that answers questi
 
 ## Tests
 
-`pytest` covers: bpm within 2 of a simulated rate, every beat emitted once, every beat emitted within 0.9 s of stream time after its R peak, a stream time jump restamps beats, sources paced like the strap, `sources/h10.py` against the fake client (decode, battery, invert, reconnect), and every `data/h10_ecg_*.csv` replayed without gaps over 2 s.
+`pytest` covers: bpm within 2 of a simulated rate, every beat emitted once, every beat emitted within 0.9 s of stream time after its R peak, a stream time jump restamps beats, sources paced like the strap, `sources/h10.py` against the fake client (decode, battery, invert, reconnect), and every `data/h10_ecg_*.csv` replayed without gaps over 2 s. Sessions: the analysis against synthetic sessions with known answers and bad input, the step machine by samples (pause, drop, cancel, consent), the routes end to end (including that source and rhythm switches wait and that a failing session hook never stops the pump), the Neon sync and the public app with fake databases, and the sessions command.
 
 ## Conventions
 

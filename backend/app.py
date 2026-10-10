@@ -3,24 +3,32 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import io
 import json
 import logging
+import socket
 import time
 from collections import deque
 from contextlib import asynccontextmanager, suppress
+from datetime import datetime, timedelta
+from functools import lru_cache
 from pathlib import Path
 from typing import Callable
 
 import httpx
+import segno
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from . import chat
+from . import analysis, chat
 from .pipeline import REFRACTORY_S, BeatDetector, SignalMonitor
+from .session import SessionError, SessionManager, SessionStore, utcnow
 from .sources.base import FS, PACKET, PACKET_S, PacedSource, Packet, Source, Status
+from .synth import synth_session
 
 FRONTEND = Path(__file__).resolve().parent.parent / "frontend"
+SESSIONS = FRONTEND.parent / "sessions"
 BACKLOG_S = 8.0       # seconds of samples a late viewer gets, and what a takeover's detector is primed on
 TAKEOVER_FRESH_S = 1.5  # a source whose last packet is older than this is stale: switching away from it resets instead
 BACKLOG_BEATS = 12    # beats a late viewer gets
@@ -45,6 +53,29 @@ def asset_version(root: Path = FRONTEND) -> str:
     return h.hexdigest()[:10]
 
 
+def lan_address() -> str:
+    """This machine's address on the network phones would use. No packet is sent."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("10.255.255.255", 1))
+        return s.getsockname()[0]
+    except OSError:
+        return "127.0.0.1"
+    finally:
+        s.close()
+
+
+@lru_cache(maxsize=1)
+def demo_summary() -> dict:
+    """The summary page's demo: a synthetic session, nobody's ECG."""
+    ses = synth_session(seed=1)
+    summary = analysis.analyze(ses.t, ses.uv, ses.steps)
+    now = utcnow()
+    summary.update(id="demo", created=now.isoformat(), keep_until=(now + timedelta(days=365)).isoformat(),
+                   source="simulated", ended_early=False, demo=True)
+    return summary
+
+
 class Hub:
     """Fan-out of messages to every viewer plus a short backlog for late ones."""
 
@@ -56,6 +87,7 @@ class Hub:
         self.status = {"type": "status", "source": source_kind, "state": "connecting",
                        "device": "", "fs": FS}
         self.signal = {"type": "signal", "source": source_kind, "ok": True, "reason": ""}
+        self.session = {"type": "session", "state": "idle"}
 
     def reset(self, source_kind: str) -> None:
         """A new source is starting from zero: forget the old backlog and signal state."""
@@ -69,6 +101,10 @@ class Hub:
                        "device": status.device, "fs": FS}
         log.info("status: %s %s", status.state, status.device)
         self.broadcast(self.status)
+
+    def set_session(self, msg: dict) -> None:
+        self.session = msg
+        self.broadcast(msg)
 
     def push_samples(self, packet: Packet) -> None:
         msg = {"type": "samples", "source": self.source_kind, "t": round(packet.t, 4),
@@ -109,7 +145,7 @@ class Hub:
             q.put_nowait(text)
 
     def backlog(self) -> list[str]:
-        out = [dumps(self.status), dumps(self.signal)]
+        out = [dumps(self.status), dumps(self.signal), dumps(self.session)]
         out += [dumps(m) for m in self.samples]
         out += [dumps(m) for m in self.beats]
         return out
@@ -127,9 +163,11 @@ class Runner:
     """Owns the running source. `start(name)` stops the current one and starts another from zero:
     fresh stream clock, fresh detector and monitor, empty backlog."""
 
-    def __init__(self, hub: Hub, factories: dict[str, Callable[..., Source]]):
+    def __init__(self, hub: Hub, factories: dict[str, Callable[..., Source]],
+                 on_packet: Callable[[Packet, list], None] | None = None):
         self.hub = hub
         self.factories = factories
+        self.on_packet = on_packet           # saved sessions see every live packet and its beats
         self.name: str | None = None
         self.source: Source | None = None
         self.task: asyncio.Task | None = None
@@ -238,6 +276,11 @@ class Runner:
                 beats = await asyncio.to_thread(detector.feed, packet)
                 for beat in beats:
                     self.hub.push_beat(beat.message(source.kind))
+                if self.on_packet is not None:
+                    try:
+                        self.on_packet(packet, beats)
+                    except Exception:
+                        log.exception("saved session hook failed; the live view goes on")
                 changed = monitor.update(packet, beats)
                 if changed is not None:
                     if changed.ok:
@@ -249,26 +292,53 @@ class Runner:
             log.exception("source stopped")
 
 
-def create_app(factories: dict[str, Callable[[], Source]], initial: str,
-               http: httpx.AsyncClient | None = None) -> FastAPI:
+def create_app(factories: dict[str, Callable[[], Source]], initial: str, http: httpx.AsyncClient | None = None, *,
+               sessions_dir: Path | None = None, keep_until: datetime | None = None, public_host: str | None = None,
+               port: int = 8000, cloud=None) -> FastAPI:
     """`factories` maps a name (live, demo) to a function that builds that source. `http` is the
-    client the chat uses to reach Gemini; tests pass one with a mock transport."""
+    client the chat uses to reach Gemini; tests pass one with a mock transport. `cloud` is an object
+    with publish, unpublish and run(manager), or None to keep saved sessions on the laptop."""
     hub = Hub("simulated")
-    runner = Runner(hub, factories)
+    store = SessionStore(sessions_dir or SESSIONS)
+    host = public_host or lan_address()
+    sessions = SessionManager(
+        store, analyze=analysis.analyze, broadcast=hub.set_session,
+        link=lambda sid: f"http://{host}:{port}/s/{sid}",
+        publish=cloud.publish if cloud else None, unpublish=cloud.unpublish if cloud else None,
+        keep_until=keep_until,
+    )
+    runner = Runner(hub, factories, on_packet=sessions.on_packet)
+
+    async def ticker() -> None:
+        while True:
+            await asyncio.sleep(1.0)
+            sessions.tick()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.http = http or httpx.AsyncClient()
+        gone = store.clean_up(utcnow())
+        if gone:
+            log.info("removed %d unfinished or expired sessions", gone)
         await runner.start(initial)
+        tasks = [asyncio.create_task(ticker(), name="ticker")]
+        if cloud is not None:
+            tasks.append(asyncio.create_task(cloud.run(sessions), name="cloud"))
         try:
             yield
         finally:
+            for task in tasks:
+                task.cancel()
+            for task in tasks:
+                with suppress(asyncio.CancelledError, Exception):
+                    await task
             await runner.stop()
             await app.state.http.aclose()
 
     app = FastAPI(title="CardioView", lifespan=lifespan)
     app.state.hub = hub
     app.state.runner = runner
+    app.state.sessions = sessions
 
     @app.middleware("http")
     async def revalidate(request, call_next):
@@ -308,6 +378,8 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str,
                     continue
                 if not isinstance(msg, dict):
                     continue
+                if msg.get("type") in ("source", "rhythm") and sessions.state in ("running", "analyzing"):
+                    continue   # a session records one source: stop it first (Esc twice)
                 if msg.get("type") == "source":
                     await runner.start(str(msg.get("name", "")))
                 elif msg.get("type") == "rhythm":
@@ -342,6 +414,54 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str,
         snap = chat.snapshot(hub, runner.last_packet_age())
         result = await chat.ask(question, body.get("history"), snap, app.state.http)
         return JSONResponse(result.body(), status_code=result.status)
+
+    @app.post("/api/session/start")
+    async def session_start():
+        sessions.set_source(hub.status["source"], hub.status["device"])
+        try:
+            return {"id": sessions.start()}
+        except SessionError as e:
+            return JSONResponse({"reason": str(e)}, status_code=409)
+
+    @app.post("/api/session/cancel")
+    async def session_cancel():
+        await sessions.cancel()
+        return {"ok": True}
+
+    @app.post("/api/session/dismiss")
+    async def session_dismiss():
+        sessions.dismiss()
+        return {"ok": True}
+
+    async def find_summary(sid: str) -> dict | None:
+        # in a thread: the first demo summary takes seconds of NeuroKit work, and the pump shares this loop
+        return await asyncio.to_thread(lambda: demo_summary() if sid == "demo" else store.summary(sid, utcnow()))
+
+    @app.get("/api/s/{sid}")
+    async def summary_get(sid: str):
+        summary = await find_summary(sid)
+        if summary is None:
+            return JSONResponse({"reason": "This session is no longer available."}, status_code=404)
+        return summary
+
+    @app.delete("/api/s/{sid}")
+    async def summary_delete(sid: str):
+        if sid == "demo" or not store.valid_id(sid) or not await sessions.delete(sid):
+            return JSONResponse({"reason": "This session is no longer available."}, status_code=404)
+        return {"ok": True}
+
+    @app.get("/api/s/{sid}/qr.svg")
+    async def summary_qr(sid: str):
+        if await find_summary(sid) is None:
+            return Response(status_code=404)
+        link = sessions.done_link if sid == sessions.sid and sessions.done_link else sessions.link(sid)
+        buf = io.BytesIO()
+        segno.make(link, error="m").save(buf, kind="svg", scale=8, border=3, dark="#0A1115", light="#E8F1F2")
+        return Response(buf.getvalue(), media_type="image/svg+xml")
+
+    @app.get("/s/{sid}")
+    async def summary_page(sid: str):
+        return FileResponse(FRONTEND / "summary.html")
 
     app.mount(f"/a/{version}", StaticFiles(directory=FRONTEND), name="assets")
     app.mount("/", StaticFiles(directory=FRONTEND, html=True), name="viewer")

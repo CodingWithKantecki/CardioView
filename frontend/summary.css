@@ -1,0 +1,94 @@
+/* The summary of a saved session: the big screen (?screen=1), a phone on the booth Wi-Fi, and the public link.
+   The viewer's look: JetBrains Mono 700 in uppercase for titles, status and controls, 600 for readouts;
+   Helvetica for sentences and the numeral; square corners, no shadows, thick rules between regions.
+   The tokens copy style.css, because this page also stands alone on Vercel; the booth's T theme is
+   applied by summary.js. */
+@font-face { font-family: "JetBrains Mono"; font-weight: 600; font-style: normal; font-display: swap; src: url(/vendor/fonts/jetbrains-mono-latin-600-normal.woff2) format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 700; font-style: normal; font-display: swap; src: url(/vendor/fonts/jetbrains-mono-latin-700-normal.woff2) format("woff2"); }
+
+:root {
+  --paper: #0A1115; --card: #0F1A1F; --header: #0E1A1F; --on-header: #E8F1F2; --on-header-2: #B9C9CC;
+  --ink: #E8F1F2; --ink-2: #B9C9CC; --muted: #7F969B;
+  --line: rgba(232, 241, 242, 0.14); --line-2: rgba(232, 241, 242, 0.28); --line-strong: rgba(232, 241, 242, 0.45);
+  --sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --gutter: 16px;
+  --rule-w: 4px;     /* rules between regions, as in the viewer */
+  --cell-w: 3px;
+  /* chart colors (six-digit hex, like the viewer's --c-* variables) */
+  --c-ink: #E8F1F2; --c-dim: #7F969B; --c-rule: #E8F1F2; --c-trace: #37E07E;
+}
+html[data-theme="light"] {
+  --paper: #F5F1E8; --card: #FFFFFF; --header: #14233E;
+  --ink: #14233E; --ink-2: #41506C; --muted: #6B7A94;
+  --line: rgba(20, 35, 62, 0.12); --line-2: rgba(20, 35, 62, 0.28); --line-strong: rgba(20, 35, 62, 0.5);
+  --c-ink: #14233E; --c-dim: #6B7A94; --c-rule: #14233E; --c-trace: #14233E;
+}
+
+* { box-sizing: border-box; border-radius: 0; box-shadow: none; }
+html, body { margin: 0; }
+body {
+  background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.4;
+  font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased;
+}
+
+.top { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 20px; padding: 14px var(--gutter); background: var(--header); color: var(--on-header); border-bottom: var(--rule-w) solid var(--line-2); }
+.brand { font-weight: 700; font-size: 20px; letter-spacing: -0.015em; }
+.meta { font-family: var(--mono); font-size: clamp(12px, 1.6vh, 15px); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--on-header-2); }
+
+/* phone first: one column */
+.sheet { display: grid; grid-template-columns: minmax(0, 1fr); }
+.block { padding: 20px var(--gutter); border-bottom: var(--rule-w) solid var(--line-2); min-width: 0; }
+.block h2 { margin: 0 0 10px; font-family: var(--mono); font-size: 15px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; line-height: 1.15; }
+.text { margin: 0; }
+.chart { display: block; width: 100%; height: 190px; margin-top: 12px; }
+.timing .chart { height: 280px; }
+.figure { margin: 0 0 6px; font-weight: 700; font-size: 48px; line-height: 1; letter-spacing: -0.04em; }
+.block.refused .chart, .block.refused .figure { display: none; }
+.block.refused .text { color: var(--muted); }
+.take { display: none; }
+.foot { padding: 20px var(--gutter) 40px; color: var(--ink-2); font-size: 14px; }
+.foot p { margin: 0 0 18px; }
+/* back to the live view, a cell at the right end of the header */
+.back { margin-left: auto; padding: 8px 14px; background: var(--card); color: var(--on-header); border: 2px solid var(--line-2); cursor: pointer; font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
+.back:hover { border-color: var(--line-strong); color: #FFFFFF; }
+.back:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(43, 212, 189, 0.4); }
+
+#delete {
+  font-family: var(--mono); font-size: 14px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--ink); background: var(--card); cursor: pointer;
+  min-height: 48px; padding: 12px 20px; border: var(--cell-w) solid var(--line-2);
+}
+#delete:hover { border-color: var(--line-strong); }
+#delete:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(43, 212, 189, 0.4); }
+.gone { margin: 22vh var(--gutter) 0; text-align: center; color: var(--muted); font-size: 18px; }
+.dim { color: var(--muted); }
+
+/* the big screen: effort across the top, four columns under it, the QR in its own column on the right */
+body.screen { height: 100vh; overflow: hidden; display: flex; flex-direction: column; font-size: 17px; }
+body.screen .top { flex: 0 0 60px; flex-wrap: nowrap; padding: 0 28px; }
+body.screen .sheet {
+  flex: 1 1 auto; min-height: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) 380px;
+  grid-template-rows: minmax(0, 1.05fr) minmax(0, 1fr) auto;
+}
+body.screen .block { display: flex; flex-direction: column; min-height: 0; padding: 22px 28px; border-bottom: 0; }
+body.screen .block h2 { font-size: clamp(15px, 1.9vh, 19px); }
+body.screen .effort { grid-column: 1 / 5; grid-row: 1; border-bottom: var(--rule-w) solid var(--line-2); }
+body.screen .breathing { grid-column: 1; grid-row: 2; }
+body.screen .hrv { grid-column: 2; grid-row: 2; border-left: var(--rule-w) solid var(--line-2); }
+body.screen .beat { grid-column: 3; grid-row: 2; border-left: var(--rule-w) solid var(--line-2); }
+body.screen .timing { grid-column: 4; grid-row: 2; border-left: var(--rule-w) solid var(--line-2); }
+body.screen .chart { flex: 1 1 auto; min-height: 0; height: auto; }
+body.screen .figure { font-size: clamp(56px, 8vh, 96px); }
+body.screen .take {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center;
+  grid-column: 5; grid-row: 1 / 3; padding: 28px; background: var(--card); border-left: var(--rule-w) solid var(--line-strong);
+}
+body.screen .take img { width: 300px; height: 300px; border: var(--cell-w) solid var(--line-2); }
+body.screen .take p { margin: 0; }
+body.screen #qr-text { font-weight: 500; }
+body.screen .foot { grid-column: 1 / 6; grid-row: 3; padding: 12px 28px 16px; border-top: var(--rule-w) solid var(--line-2); }
+body.screen .foot p { margin: 0; }
+body.screen #delete { display: none; }
+[hidden] { display: none !important; }

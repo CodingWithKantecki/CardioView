@@ -6,6 +6,7 @@
 <title>CardioView</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="session.css">
 <script type="importmap">
 { "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }
 </script>
@@ -26,6 +27,7 @@
 
 <main class="screen">
   <section class="stage" aria-label="Heart">
+    <div class="session-ring" id="session-ring" hidden aria-hidden="true"></div>
     <div id="heart-view"></div>
     <canvas id="glitch" class="glitch" aria-hidden="true"></canvas>
     <p id="heart-missing" class="missing" hidden>Heart model not installed, see the README</p>
@@ -44,6 +46,7 @@
         <p class="chat-note">Answers come from an AI and can be wrong</p>
       </section>
     </div>
+    <div class="session" id="session" hidden aria-live="polite"><p class="session-prompt" id="session-prompt"></p><p class="session-sub" id="session-sub"></p></div>
     <nav class="dock" id="dock" aria-label="Heart view controls">
       <span class="dock-item"><button type="button" data-action="rotate" data-label="Rotate" aria-pressed="false" aria-label="Rotate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></svg></button></span>
       <span class="dock-item"><button type="button" data-action="wireframe" data-label="Wireframe" aria-pressed="false" aria-label="Wireframe"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 3v18M4 7.5l8 4.5 8-4.5M4 16.5l8-4.5 8 4.5"/></svg></button></span>

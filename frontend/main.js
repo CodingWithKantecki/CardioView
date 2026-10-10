@@ -8,6 +8,7 @@ import { Dock } from './dock.js';
 import { drawRhythmTips } from './tips.js';
 import { invalidate as invalidateTheme } from './theme.js';
 import { initChat } from './chat.js';
+import { SessionOverlay } from './session.js';
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -55,6 +56,10 @@ if (new URLSearchParams(location.search).has('debug')) { window.heart = heart; w
 heart.load();
 drawRhythmTips();
 const glitch = new Glitch($('glitch'), heart.renderer.domElement);
+const session = new SessionOverlay(
+  { box: $('session'), prompt: $('session-prompt'), sub: $('session-sub'), ring: $('session-ring') },
+  { reducedMotion: REDUCED_MOTION },
+);
 
 let lastSampleT = null;
 let lastSampleWall = null;
@@ -136,6 +141,8 @@ function handle(msg) {
     trace.push(msg.t, msg.uv, msg.fs);
   } else if (msg.type === 'beat') {
     lanes.push(msg);
+  } else if (msg.type === 'session') {
+    session.handle(msg);
   }
 }
 
@@ -239,6 +246,7 @@ function drawFrame() {
   dock.setPressed('rotate', heart.state.rotate);
   dock.setPressed('wireframe', userWireframe);
   dock.setPressed('open', heart.state.cutaway);
+  session.frame(performance.now());
 }
 
 // the transport tray shows the clock's mode; a replay that catches up flips back to live by itself
@@ -259,12 +267,14 @@ requestAnimationFrame(frame);
 
 for (const b of document.querySelectorAll('#source-mode button')) {
   b.addEventListener('click', () => {
+    if (session.busy()) { session.flash('Press Esc twice to stop the session first'); return; }
     if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'source', name: b.dataset.source }));
   });
 }
 
 for (const b of document.querySelectorAll('#rhythms button')) {
   b.addEventListener('click', () => {
+    if (session.busy()) { session.flash('Press Esc twice to stop the session first'); return; }
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     const name = b.dataset.rhythm;
     ws.send(JSON.stringify(name === 'recording' ? { type: 'source', name: 'demo' } : { type: 'rhythm', name }));
@@ -302,6 +312,7 @@ if (REDUCED_MOTION) {   // auto-rotate is off under reduced motion; the dock's c
 window.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+  if (session.key(e)) return;   // S, Esc, V: saved sessions
   const k = e.key.toLowerCase();
   if (k === 't') toggleTheme();
   else if (k === 'r') view.rotate();

@@ -7,3 +7,7 @@ tools/node_modules/
 tools/out/
 data/*_raw.csv
 .env
+sessions/
+.venv-voice/
+cloud/static/
+cloud/.vercel/
