@@ -52,7 +52,10 @@ class OtherSource(FakeSource):
 def test_websocket_sends_status_then_samples():
     app = create_app({"demo": FakeSource, "live": OtherSource}, "demo")
     with TestClient(app) as client:
-        assert client.get("/").status_code == 200
+        page = client.get("/")
+        assert page.status_code == 200 and '<base href="/a/' in page.text, "assets are versioned"
+        version = page.text.split('<base href="/a/')[1].split('/')[0]
+        assert client.get(f"/a/{version}/theme.js").status_code == 200
         with client.websocket_connect("/ws") as ws:
             first = ws.receive_json()
             assert first["type"] == "status"

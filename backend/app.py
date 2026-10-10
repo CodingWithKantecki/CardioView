@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import time
@@ -11,6 +12,7 @@ from pathlib import Path
 from typing import Callable
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from .pipeline import REFRACTORY_S, BeatDetector, SignalMonitor
@@ -26,6 +28,18 @@ log = logging.getLogger("cardioview")
 
 def dumps(msg: dict) -> str:
     return json.dumps(msg, separators=(",", ":"))
+
+
+def asset_version(root: Path = FRONTEND) -> str:
+    """A short hash of every viewer file's path, size and mtime: the assets are served under
+    /a/<version>/, so a changed set of files gets new URLs and a browser can never pair an old
+    cached module with a new one (Chrome's plain reload revalidates only the page itself)."""
+    h = hashlib.sha1()
+    for p in sorted(root.rglob("*")):
+        if p.is_file():
+            st = p.stat()
+            h.update(f"{p.relative_to(root)}:{st.st_size}:{st.st_mtime_ns}".encode())
+    return h.hexdigest()[:10]
 
 
 class Hub:
@@ -230,11 +244,21 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str) -> Fast
 
     @app.middleware("http")
     async def revalidate(request, call_next):
-        # the viewer's modules import each other by path, so a reload must never mix an old file
-        # with new ones: every file is revalidated (a 304 when unchanged)
+        # belt and braces with the versioned asset path: every file is revalidated on a reload
+        # (a 304 when unchanged), so an edit without a server restart shows up too
         response = await call_next(request)
         response.headers["Cache-Control"] = "no-cache"
         return response
+
+    version = asset_version()
+
+    @app.get("/", include_in_schema=False)
+    async def index() -> HTMLResponse:
+        # the page points every relative URL (styles, modules, the import map, the model) at the
+        # versioned asset path; the WebSocket URL is absolute and unaffected
+        html = (FRONTEND / "index.html").read_text()
+        html = html.replace("<head>\n", f'<head>\n<base href="/a/{version}/">\n', 1)
+        return HTMLResponse(html)
 
     @app.websocket("/ws")
     async def ws(websocket: WebSocket) -> None:
@@ -274,5 +298,6 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str) -> Fast
         finally:
             hub.unsubscribe(q)
 
+    app.mount(f"/a/{version}", StaticFiles(directory=FRONTEND), name="assets")
     app.mount("/", StaticFiles(directory=FRONTEND, html=True), name="viewer")
     return app
