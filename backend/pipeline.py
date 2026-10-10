@@ -6,7 +6,9 @@ beat once it is at least 0.25 s old. Every time is stream time (sample index /
 """
 from __future__ import annotations
 
+import logging
 import math
+import os
 from collections import deque
 from dataclasses import asdict, dataclass
 
@@ -14,6 +16,9 @@ import neurokit2 as nk
 import numpy as np
 
 from .sources.base import FS, PACKET_S, Packet
+
+log = logging.getLogger("cardioview.signal")
+DEBUG_QUALITY = os.environ.get("CARDIOVIEW_DEBUG") == "1"   # log every packet's quality numbers
 
 WINDOW_S = 8.0        # seconds of signal kept
 WARMUP_S = 3.0        # no beats before this much contiguous data
@@ -263,6 +268,11 @@ class SignalMonitor:
             reason = "no_beats"
         else:
             reason = ""
+
+        if DEBUG_QUALITY:
+            corr = self._shape_corr[-1] if self._shape_corr else float("nan")
+            log.info("q t=%.1f p2p=%.0f clip=%.2f corr=%.2f beats=%d reason=%s ok=%s",
+                     now, p2p, clipped, corr, len(beats), reason or "-", self.signal.ok)
 
         changed = None
         if reason:
