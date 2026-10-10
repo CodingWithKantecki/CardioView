@@ -101,6 +101,8 @@ def create_app(source: Source) -> FastAPI:
                     hub.push_beat(beat.message(source.kind))
                 changed = monitor.update(packet, beats)
                 if changed is not None:
+                    if changed.ok:
+                        detector.forget_rhythm()
                     hub.push_signal(changed.message(source.kind))
         except asyncio.CancelledError:
             raise

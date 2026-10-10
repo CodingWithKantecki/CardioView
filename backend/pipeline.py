@@ -33,11 +33,11 @@ FLAT_UV = 40          # peak to peak below this is no contact
 NOISE_UV = 6000       # peak to peak above this is motion or a settling contact
 NO_BEAT_S = 3.0       # no accepted beat for this long is not a usable signal
 LOST_AFTER_S = 0.5    # bad for this long (about two packets) before reporting lost
-OK_AFTER_S = 2.0      # clean for this long before reporting ok again
+OK_AFTER_S = 1.5      # clean for this long before reporting ok again, unless a strong pair comes first
 SHAPE_PRE_S = 0.10    # QRS window around each R peak compared with the previous beat
 SHAPE_POST_S = 0.15
 SHAPE_BAD = 0.6       # consecutive beats correlating below this do not look like the same heart
-SHAPE_GOOD = 0.7
+STRONG_PAIR = 0.85    # one pair this alike, after a loss, is a heart again: recover at once
 REASON_HOLD_S = 2.0   # while lost, a different reason must persist this long before it replaces the shown one
 
 
@@ -78,6 +78,11 @@ class BeatDetector:
         self._rr: deque[float] = deque(maxlen=5)
         self._last_v_off: float | None = None
         self._data_s = 0.0        # contiguous seconds seen since the last reset
+
+    def forget_rhythm(self) -> None:
+        """Drop the RR history (after a signal loss) so bpm rebuilds from real beats."""
+        self._rr.clear()
+        self._last_v_off = None
 
     def feed(self, packet: Packet) -> list[Beat]:
         if self._t_end is None or abs(packet.t - self._t_end) > JUMP_S:
@@ -192,6 +197,7 @@ class SignalMonitor:
         self._prev_shape: np.ndarray | None = None
         self._shape_corr: deque[float] = deque(maxlen=4)
         self._candidate: tuple[str, float] | None = None   # (reason, since) while lost
+        self._lost_at = float("-inf")
 
     def _window(self, t_from: float, t_to: float) -> np.ndarray | None:
         i0 = int(round((t_from - self._t0) * self.fs))
@@ -218,9 +224,10 @@ class SignalMonitor:
         c = list(self._shape_corr)
         return len(c) >= 3 and sum(1 for v in c[-4:] if v < SHAPE_BAD) >= 3
 
-    def _shape_good(self) -> bool:
-        c = list(self._shape_corr)
-        return len(c) < 2 or all(v >= SHAPE_GOOD for v in c[-3:])
+    def _strong_pair(self) -> bool:
+        """The newest two beats, both after the loss began, match closely."""
+        return (len(self._shape_corr) > 0 and self._shape_corr[-1] >= STRONG_PAIR
+                and self._last_beat is not None and self._last_beat > self._lost_at + 0.3)
 
     def update(self, packet: Packet, beats: list) -> Signal | None:
         """Feed one packet and the beats it produced. Returns a Signal when the state changes."""
@@ -252,7 +259,7 @@ class SignalMonitor:
         elif (self._last_beat is None and self._data_s > NO_BEAT_S + WARMUP_S) or \
              (self._last_beat is not None and now - self._last_beat > NO_BEAT_S):
             reason = "no_beats"
-        elif self._shape_bad() or (not self.signal.ok and not self._shape_good()):
+        elif self._shape_bad() and not (not self.signal.ok and self._strong_pair()):
             reason = "no_beats"
         else:
             reason = ""
@@ -265,6 +272,7 @@ class SignalMonitor:
             if self.signal.ok and now - self._bad_since >= LOST_AFTER_S:
                 self.signal = Signal(False, reason)
                 self._candidate = None
+                self._lost_at = now
                 changed = self.signal
             elif not self.signal.ok and self.signal.reason != reason:
                 if self._candidate is None or self._candidate[0] != reason:
@@ -279,7 +287,7 @@ class SignalMonitor:
             self._bad_since = None
             if self._good_since is None:
                 self._good_since = now
-            if not self.signal.ok and now - self._good_since >= OK_AFTER_S:
+            if not self.signal.ok and (self._strong_pair() or now - self._good_since >= OK_AFTER_S):
                 self.signal = Signal(True)
                 changed = self.signal
         return changed

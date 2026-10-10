@@ -36,7 +36,7 @@ def test_clipping_reports_pads_then_recovers():
     assert changes[0][1] is False and changes[0][2] == "pads"
     assert 15.0 <= changes[0][0] <= 16.5, "lost should be reported within about a second"
     assert changes[-1][1] is True, "should recover on clean signal"
-    assert changes[-1][0] >= 21 + 2.0
+    assert 21.0 <= changes[-1][0] <= 25.0, "recovery should follow the first matching beats, within a few seconds"
 
 
 def test_flat_line_and_noise_reasons():
@@ -81,3 +81,14 @@ def test_shape_check_keeps_a_steady_heart_ok():
     values = list(simulate(110, seconds=40))
     _, _, changes = run(values)
     assert changes == []
+
+
+def test_recovery_is_quick_after_garbage():
+    clean = list(simulate(72, seconds=40))
+    rng = np.random.default_rng(3)
+    garbage = [int(v) for v in rng.uniform(-2500, 2500, 8 * FS)]
+    _, _, changes = run(clean[:15 * FS] + garbage + clean[15 * FS:])
+    lost = [c for c in changes if c[1] is False]
+    ok = [c for c in changes if c[1] is True]
+    assert lost and ok
+    assert ok[-1][0] - 23.0 <= 3.5, f"took {ok[-1][0] - 23.0:.1f} s to recover after clean signal returned"
