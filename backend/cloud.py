@@ -11,7 +11,6 @@ import json
 import logging
 import os
 from datetime import datetime
-from pathlib import Path
 
 from .session import utcnow
 
@@ -29,18 +28,6 @@ create table if not exists session_summary (
   deleted_at timestamptz
 );
 """
-
-
-def load_env(path: Path) -> None:
-    """KEY=value lines from a local .env into the environment, without overriding what is set."""
-    if not path.is_file():
-        return
-    for line in path.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
 
 
 class NeonDb:
