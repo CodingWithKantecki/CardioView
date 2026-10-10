@@ -1,11 +1,12 @@
 // Chamber lanes and activation, both pure functions of t_display and the recent beats.
 import { fitCanvas, WINDOW_S, NOW_FRAC, GUTTER } from './trace.js';
+import { colors, alpha } from './theme.js';
 
 export const ATRIA_S = 0.12;
 const RISE_S = 0.1;
 const RELEASE_S = 0.2;
 export const ORDER = ['ra', 'la', 'rv', 'lv'];
-const COLOR = { ra: '#5B9BFF', la: '#FF5C83', rv: '#5B9BFF', lv: '#FF5C83' };
+const laneColor = (c) => (c === 'ra' || c === 'rv' ? colors().right : colors().left);
 const KEEP = 40;
 const SPARK_S = 3;
 
@@ -113,7 +114,7 @@ export class Chambers {
     const base = h - 1.5 * dpr;
     const top = 2 * dpr;
     ctx.save();
-    ctx.strokeStyle = 'rgba(140,151,171,0.25)';
+    ctx.strokeStyle = alpha(colors().grid, 0.3);
     ctx.lineWidth = 1 * dpr;
     ctx.beginPath(); ctx.moveTo(0, base); ctx.lineTo(w, base); ctx.stroke();
     if (tDisplay !== null) {
@@ -126,7 +127,7 @@ export class Chambers {
       }
       ctx.lineTo(w - 1, base);
       ctx.closePath();
-      ctx.fillStyle = COLOR[c] + '1A';
+      ctx.fillStyle = alpha(laneColor(c), 0.1);
       ctx.fill();
       ctx.beginPath();
       for (let x = 0; x < w; x++) {
@@ -135,7 +136,7 @@ export class Chambers {
         const y = base - a * (base - top);
         if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       }
-      ctx.strokeStyle = COLOR[c];
+      ctx.strokeStyle = laneColor(c);
       ctx.lineWidth = 1.25 * dpr;
       ctx.lineJoin = 'round';
       ctx.stroke();
@@ -159,9 +160,10 @@ export class Chambers {
     const pad = Math.min(8 * dpr, rowH * 0.16);
     const step = Math.max(1, Math.round(dpr));
 
+    const T = colors();
     if (tDisplay !== null) {
       ctx.save();
-      ctx.strokeStyle = 'rgba(232,236,243,0.09)';
+      ctx.strokeStyle = alpha(T.rule, 0.1);
       ctx.lineWidth = 1 * dpr;
       for (const b of this.beats) {
         if (b.r < tLeft || b.r > tDisplay) continue;
@@ -178,21 +180,22 @@ export class Chambers {
       const amp = base - top;
       ctx.save();
       ctx.font = `${14 * dpr}px "IBM Plex Sans", sans-serif`;
-      ctx.fillStyle = '#7F8AA0';
+      ctx.fillStyle = T.dim;
       ctx.textBaseline = 'middle';
       ctx.fillText(c.toUpperCase(), 0, (top + base) / 2);
-      ctx.strokeStyle = 'rgba(232,236,243,0.10)';
+      ctx.strokeStyle = alpha(T.rule, 0.12);
       ctx.lineWidth = 1 * dpr;
       ctx.beginPath(); ctx.moveTo(gutter, base); ctx.lineTo(w, base); ctx.stroke();
       ctx.restore();
       if (tDisplay === null) continue;
 
+      const col = laneColor(c);
       const fill = ctx.createLinearGradient(gutter, 0, xNow, 0);
-      fill.addColorStop(0, COLOR[c] + '1F');
-      fill.addColorStop(1, COLOR[c] + '8C');
+      fill.addColorStop(0, alpha(col, 0.12));
+      fill.addColorStop(1, alpha(col, 0.55));
       const line = ctx.createLinearGradient(gutter, 0, xNow, 0);
-      line.addColorStop(0, COLOR[c] + '4D');
-      line.addColorStop(1, COLOR[c]);
+      line.addColorStop(0, alpha(col, 0.3));
+      line.addColorStop(1, col);
 
       ctx.save();
       ctx.beginPath(); ctx.rect(gutter, 0, xNow - gutter, h); ctx.clip();
@@ -220,8 +223,8 @@ export class Chambers {
 
       // pen dot at the leading edge
       ctx.save();
-      ctx.fillStyle = COLOR[c];
-      ctx.shadowColor = COLOR[c];
+      ctx.fillStyle = col;
+      ctx.shadowColor = col;
       ctx.shadowBlur = 8 * dpr;
       ctx.beginPath();
       ctx.arc(xNow, base - last * amp, 3 * dpr, 0, Math.PI * 2);

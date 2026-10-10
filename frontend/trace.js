@@ -1,4 +1,5 @@
 // ECG trace on a canvas. Samples are keyed by stream time; drawing follows t_display.
+import { colors, alpha } from './theme.js';
 const FS_DEFAULT = 130;
 const KEEP_S = 14;
 
@@ -83,6 +84,7 @@ export class Trace {
     const ctx = this.ctx;
     ctx.clearRect(0, 0, w, h);
     if (tDisplay === null || this.ts.length === 0) return;
+    const T = colors();
     const all = this.beats.filter((b) => b.r - PRE_S >= this.ts[0]);
     const shown = all.filter((b) => b.r - PRE_S <= tDisplay);
     const rows = shown.slice(-ROWS_3D);
@@ -113,8 +115,8 @@ export class Trace {
       const depth = (n - 1 - k) + phase;   // 0 = a beat that just started
       const sc = Math.pow(0.96, depth);
       const age = tDisplay - (b.r - PRE_S);                                   // seconds since this row began
-      const alpha = Math.max(0, 1 - depth / (ROWS_3D + 0.5)) * Math.min(1, age / 0.2);   // fade in, fade out at the back
-      if (alpha <= 0) continue;
+      const rowAlpha = Math.max(0, 1 - depth / (ROWS_3D + 0.5)) * Math.min(1, age / 0.2);   // fade in, fade out at the back
+      if (rowAlpha <= 0) continue;
       const x0 = gutter + depth * stepX;
       const base = base0 - depth * stepY;
       const pxPerS = (width0 * sc) / span;
@@ -131,19 +133,19 @@ export class Trace {
       roundedPath(ctx, pts);
       ctx.lineTo(pts[pts.length - 1][0], base);
       ctx.closePath();
-      ctx.fillStyle = `rgba(7,10,18,${(0.96 * Math.min(1, age / 0.2)).toFixed(3)})`;
+      ctx.fillStyle = alpha(T.paper, 0.96 * Math.min(1, age / 0.2));
       ctx.fill();
       if (depth < 1) {
         const g = ctx.createLinearGradient(0, base - h * 0.2, 0, base);
-        g.addColorStop(0, `rgba(67,224,160,${(0.22 * (1 - depth) * Math.min(1, age / 0.2)).toFixed(3)})`);
-        g.addColorStop(1, 'rgba(67,224,160,0)');
+        g.addColorStop(0, alpha(T.trace, 0.22 * (1 - depth) * Math.min(1, age / 0.2)));
+        g.addColorStop(1, alpha(T.trace, 0));
         ctx.fillStyle = g;
         ctx.fill();
       }
-      ctx.strokeStyle = `rgba(232,236,243,${(0.09 * alpha).toFixed(3)})`;
+      ctx.strokeStyle = alpha(T.rule, 0.12 * rowAlpha);
       ctx.lineWidth = 1 * dpr;
       ctx.beginPath(); ctx.moveTo(x0, base); ctx.lineTo(x0 + width0 * sc, base); ctx.stroke();
-      ctx.strokeStyle = `rgba(67,224,160,${alpha.toFixed(3)})`;
+      ctx.strokeStyle = alpha(T.trace, rowAlpha);
       ctx.lineWidth = (1.2 + 0.8 * Math.max(0, 1 - depth)) * dpr;
       ctx.lineJoin = 'round';
       ctx.lineCap = 'round';
@@ -169,7 +171,8 @@ export class Trace {
 
     // grid
     ctx.save();
-    ctx.strokeStyle = 'rgba(140,151,171,0.07)';
+    const T = colors();
+    ctx.strokeStyle = alpha(T.grid, 0.08);
     ctx.lineWidth = 1 * dpr;
     const stepPx = pxPerS * 0.2;
     const phase = tDisplay === null ? 0 : ((tLeft % 0.2) + 0.2) % 0.2;
@@ -201,11 +204,11 @@ export class Trace {
     ctx.beginPath();
     ctx.rect(gutter, 0, drawable, h);
     ctx.clip();
-    ctx.strokeStyle = '#43E0A0';
+    ctx.strokeStyle = T.trace;
     ctx.lineWidth = 2 * dpr;
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
-    ctx.shadowColor = 'rgba(67,224,160,0.35)';
+    ctx.shadowColor = alpha(T.trace, 0.3);
     ctx.shadowBlur = 5 * dpr;
     ctx.beginPath();
     let pen = false;

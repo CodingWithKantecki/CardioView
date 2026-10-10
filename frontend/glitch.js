@@ -59,8 +59,9 @@ export class Glitch {
     // static over the whole stage
     const pattern = ctx.createPattern(this.tile, 'repeat');
     pattern.setTransform(new DOMMatrix().translate(Math.random() * 256, Math.random() * 256));
+    const blend = isLight() ? 'multiply' : 'screen';   // static darkens a light theme, lightens a dark one
     ctx.save();
-    ctx.globalCompositeOperation = 'screen';
+    ctx.globalCompositeOperation = blend;
     ctx.globalAlpha = now < this.flashUntil ? 0.5 : 0.2;
     ctx.fillStyle = pattern;
     ctx.fillRect(0, 0, w, h);
@@ -68,7 +69,7 @@ export class Glitch {
 
     // red wash and a flash
     ctx.save();
-    ctx.globalCompositeOperation = 'screen';
+    ctx.globalCompositeOperation = blend;
     ctx.fillStyle = now < this.flashUntil ? 'rgba(229,52,78,0.22)' : 'rgba(229,52,78,0.08)';
     ctx.fillRect(0, 0, w, h);
     ctx.restore();

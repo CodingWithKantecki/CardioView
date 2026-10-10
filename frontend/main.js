@@ -16,6 +16,7 @@ const params = new URLSearchParams(location.search);
 const actParam = params.get('act');
 const FORCED_ACT = actParam === null ? null : { ra: +actParam, la: +actParam, rv: +actParam, lv: +actParam };
 const FORCED_LOST = params.get('signal') === 'lost';
+if (params.get('theme')) document.documentElement.dataset.theme = params.get('theme');   // ?theme=dark
 const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;   // lost state without the glitch pass
 
 const clock = new StreamClock();
