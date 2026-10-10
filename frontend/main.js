@@ -36,7 +36,6 @@ let lastSampleT = null;
 let lastSampleWall = null;
 let shownBeat = null;
 let status = null;                       // last status message
-let streamingSince = null;               // wall time the strap started streaming
 let signal = { ok: true, reason: '' };   // last signal message
 let wsOpen = false;
 let ws = null;
@@ -44,26 +43,17 @@ let userWireframe = false;
 let appliedWireframe = false;
 let flickerUntil = 0;
 
-const REASONS = {
-  pads: ['No signal from the strap', 'Wet the pads and wear it snug on the chest'],
-};
+// It is either working or not connected: one message for every strap problem.
+const NOT_CONNECTED = ['Not connected', 'Wet the pads and wear the strap snug on the chest'];
 
 // Why the screen cannot follow a heart right now, or null when it can.
 function lostState() {
-  if (FORCED_LOST) return REASONS.pads;
+  if (FORCED_LOST) return NOT_CONNECTED;
   if (!status) return null;
   if (!wsOpen) return ['Server offline', 'Retrying'];
-  if (status.source === 'live' && status.state !== 'streaming') {
-    return status.state === 'reconnecting'
-      ? ['Strap disconnected', 'Wet the pads and wear it snug on the chest']
-      : ['Waiting for the strap', 'Wet the pads and wear it snug on the chest'];
-  }
-  if (lastSampleWall !== null && performance.now() - lastSampleWall > 3000) return ['No data from the strap', ''];
-  if (!signal.ok) {
-    const settling = status.source === 'live' && streamingSince !== null && performance.now() - streamingSince < 30000;
-    if (settling) return ['Settling in', 'The pads take up to half a minute to make contact'];
-    return REASONS[signal.reason] || ['No signal', ''];
-  }
+  if (status.source === 'live' && status.state !== 'streaming') return NOT_CONNECTED;
+  if (lastSampleWall !== null && performance.now() - lastSampleWall > 3000) return NOT_CONNECTED;
+  if (!signal.ok) return NOT_CONNECTED;
   return null;
 }
 
@@ -84,9 +74,7 @@ function handle(msg) {
     if (status && status.source !== msg.source) {   // the server switched sources: start clean
       trace.clear(); lanes.clear(); clock.reset(); shownBeat = null; lastSampleT = null; lastSampleWall = null;
       signal = { ok: true, reason: '' };
-      streamingSince = null;
     }
-    if (msg.state === 'streaming' && !(status && status.state === 'streaming')) streamingSince = performance.now();
     status = msg;
     setStatus(msg);
     for (const b of document.querySelectorAll('#source-mode button')) {
