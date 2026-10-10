@@ -37,7 +37,7 @@ QUALITY_WINDOW_S = 2.0
 FLAT_UV = 40          # peak to peak below this is no contact
 CLIP_WINDOW_S = 0.5   # clipping is judged on the newest half second so recovery is quick
 LOST_AFTER_S = 0.5    # bad for this long (about two packets) before reporting lost
-OK_AFTER_S = 0.6      # signal back for this long (about one packet) before reporting ok again
+OK_AFTER_S = 0.5      # signal back for this long (one packet) before reporting ok again
 
 
 @dataclass
