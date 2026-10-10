@@ -40,6 +40,7 @@ body {
 .top { flex: 0 0 64px; display: flex; align-items: center; gap: 36px; padding: 0 var(--gutter); border-bottom: 1px solid var(--hair); }
 .brand { font-weight: 600; font-size: 22px; letter-spacing: -0.01em; }
 .device { font-family: var(--mono); font-size: 13px; color: var(--dimmer); }
+.source-toggle { margin-left: auto; }
 .device:empty { display: none; }
 
 /* screen */

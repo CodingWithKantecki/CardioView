@@ -43,8 +43,12 @@ class FakeSource(Source):
         await asyncio.sleep(30)
 
 
+class OtherSource(FakeSource):
+    kind = "simulated"
+
+
 def test_websocket_sends_status_then_samples():
-    app = create_app(FakeSource())
+    app = create_app({"demo": FakeSource, "live": OtherSource}, "demo")
     with TestClient(app) as client:
         assert client.get("/").status_code == 200
         with client.websocket_connect("/ws") as ws:
@@ -53,3 +57,20 @@ def test_websocket_sends_status_then_samples():
             assert first["source"] == "recorded"
             seen = [ws.receive_json() for _ in range(3)]
             assert any(m["type"] == "samples" and m["fs"] == 130 and len(m["uv"]) == PACKET for m in seen)
+
+
+def test_viewer_can_switch_sources():
+    app = create_app({"demo": FakeSource, "live": OtherSource}, "demo")
+    with TestClient(app) as client:
+        with client.websocket_connect("/ws") as ws:
+            first = ws.receive_json()
+            assert first["type"] == "status" and first["source"] == "recorded"
+            ws.send_json({"type": "source", "name": "live"})
+            seen = []
+            for _ in range(20):
+                m = ws.receive_json()
+                seen.append(m)
+                if m["type"] == "status" and m["source"] == "simulated":
+                    break
+            assert any(m["type"] == "status" and m["source"] == "simulated" for m in seen)
+            assert app.state.runner.name == "live"

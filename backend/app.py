@@ -7,6 +7,7 @@ import logging
 from collections import deque
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
+from typing import Callable
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
@@ -36,6 +37,13 @@ class Hub:
         self.beats: deque[dict] = deque(maxlen=BACKLOG_BEATS)
         self.status = {"type": "status", "source": source_kind, "state": "connecting",
                        "device": "", "fs": FS}
+        self.signal = {"type": "signal", "source": source_kind, "ok": True, "reason": ""}
+
+    def reset(self, source_kind: str) -> None:
+        """A new source is starting: forget the old backlog and signal state."""
+        self.source_kind = source_kind
+        self.samples.clear()
+        self.beats.clear()
         self.signal = {"type": "signal", "source": source_kind, "ok": True, "reason": ""}
 
     def set_status(self, status: Status) -> None:
@@ -87,42 +95,83 @@ class Hub:
         self.clients.discard(q)
 
 
-def create_app(source: Source) -> FastAPI:
-    hub = Hub(source.kind)
-    detector = BeatDetector()
-    monitor = SignalMonitor()
+class Runner:
+    """Owns the running source. `start(name)` stops the current one and starts another."""
 
-    async def pump() -> None:
+    def __init__(self, hub: Hub, factories: dict[str, Callable[[], Source]]):
+        self.hub = hub
+        self.factories = factories
+        self.name: str | None = None
+        self.source: Source | None = None
+        self.task: asyncio.Task | None = None
+        self._lock = asyncio.Lock()
+
+    async def start(self, name: str) -> None:
+        if name not in self.factories:
+            return
+        async with self._lock:
+            if name == self.name:
+                return
+            await self._stop()
+            source = self.factories[name]()
+            self.name = name
+            self.source = source
+            self.hub.reset(source.kind)
+            source.on_status(lambda st, src=source: self.hub.set_status(st) if src is self.source else None)
+            self.hub.set_status(source.status)
+            self.hub.broadcast(self.hub.signal)
+            self.task = asyncio.create_task(self._pump(source), name=f"pump-{name}")
+            log.info("source: %s", name)
+
+    async def _stop(self) -> None:
+        if self.task is not None:
+            self.task.cancel()
+            with suppress(asyncio.CancelledError, Exception):
+                await self.task
+            self.task = None
+        self.source = None
+        self.name = None
+
+    async def stop(self) -> None:
+        async with self._lock:
+            await self._stop()
+
+    async def _pump(self, source: Source) -> None:
+        detector = BeatDetector()
+        monitor = SignalMonitor()
         try:
             async for packet in source.packets():
-                hub.push_samples(packet)
+                self.hub.push_samples(packet)
                 beats = await asyncio.to_thread(detector.feed, packet)
                 for beat in beats:
-                    hub.push_beat(beat.message(source.kind))
+                    self.hub.push_beat(beat.message(source.kind))
                 changed = monitor.update(packet, beats)
                 if changed is not None:
                     if changed.ok:
                         detector.forget_rhythm()
-                    hub.push_signal(changed.message(source.kind))
+                    self.hub.push_signal(changed.message(source.kind))
         except asyncio.CancelledError:
             raise
         except Exception:
             log.exception("source stopped")
 
+
+def create_app(factories: dict[str, Callable[[], Source]], initial: str) -> FastAPI:
+    """`factories` maps a name (live, demo) to a function that builds that source."""
+    hub = Hub("simulated")
+    runner = Runner(hub, factories)
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        source.on_status(hub.set_status)
-        hub.set_status(source.status)
-        task = asyncio.create_task(pump(), name="pump")
+        await runner.start(initial)
         try:
             yield
         finally:
-            task.cancel()
-            with suppress(asyncio.CancelledError, Exception):
-                await task
+            await runner.stop()
 
     app = FastAPI(title="CardioView", lifespan=lifespan)
     app.state.hub = hub
+    app.state.runner = runner
 
     @app.websocket("/ws")
     async def ws(websocket: WebSocket) -> None:
@@ -137,7 +186,13 @@ def create_app(source: Source) -> FastAPI:
 
         async def receive() -> None:
             while True:
-                await websocket.receive_text()
+                text = await websocket.receive_text()
+                try:
+                    msg = json.loads(text)
+                except ValueError:
+                    continue
+                if isinstance(msg, dict) and msg.get("type") == "source":
+                    await runner.start(str(msg.get("name", "")))
 
         tasks = [asyncio.create_task(send()), asyncio.create_task(receive())]
         try:

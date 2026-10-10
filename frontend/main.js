@@ -39,6 +39,7 @@ let status = null;                       // last status message
 let streamingSince = null;               // wall time the strap started streaming
 let signal = { ok: true, reason: '' };   // last signal message
 let wsOpen = false;
+let ws = null;
 let userWireframe = false;
 let appliedWireframe = false;
 let flickerUntil = 0;
@@ -80,9 +81,17 @@ function setStatus(msg) {
 
 function handle(msg) {
   if (msg.type === 'status') {
+    if (status && status.source !== msg.source) {   // the server switched sources: start clean
+      trace.clear(); lanes.clear(); clock.reset(); shownBeat = null; lastSampleT = null; lastSampleWall = null;
+      signal = { ok: true, reason: '' };
+      streamingSince = null;
+    }
     if (msg.state === 'streaming' && !(status && status.state === 'streaming')) streamingSince = performance.now();
     status = msg;
     setStatus(msg);
+    for (const b of document.querySelectorAll('#source-mode button')) {
+      b.setAttribute('aria-pressed', String((b.dataset.source === 'live') === (msg.source === 'live')));
+    }
   } else if (msg.type === 'signal') {
     signal = { ok: !!msg.ok, reason: msg.reason || '' };
   } else if (msg.type === 'samples') {
@@ -100,7 +109,7 @@ function handle(msg) {
 
 function connect() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  const ws = new WebSocket(`${proto}://${location.host}/ws`);
+  ws = new WebSocket(`${proto}://${location.host}/ws`);
   ws.onopen = () => { wsOpen = true; };
   ws.onmessage = (ev) => handle(JSON.parse(ev.data));
   ws.onclose = () => {
@@ -174,6 +183,12 @@ function frame() {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+
+for (const b of document.querySelectorAll('#source-mode button')) {
+  b.addEventListener('click', () => {
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'source', name: b.dataset.source }));
+  });
+}
 
 const opacity = $('opacity');
 opacity.addEventListener('input', () => heart.setOpacity(Number(opacity.value) / 100));
