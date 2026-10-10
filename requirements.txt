@@ -1,0 +1,14 @@
+bleak==3.0.2
+bleakheart==0.2.0
+neurokit2==0.2.13
+numpy==2.5.3
+scipy==1.18.1
+pandas==2.3.3
+scikit-learn==1.9.1
+matplotlib==3.11.2
+PyWavelets==1.10.0
+fastapi==0.143.0
+uvicorn==0.54.0
+websockets==17.2
+wsproto==1.2.0
+pytest==9.1.1
