@@ -73,16 +73,25 @@ function lostState() {
   return null;
 }
 
-// One quiet line in the header: the strap id while it streams, otherwise the mode or the link state.
+// The status line, in words: the strap id (as data, in mono) while it streams, otherwise whose recording
+// or which simulated rhythm, or the link state. The backend's device strings stay as they are; this only
+// renders them.
 function setStatus(msg) {
   const device = msg.device || '';
+  let text = device || msg.source, id = false;
   if (msg.source === 'live') {
-    if (msg.state === 'streaming') els.device.textContent = device;
-    else if (msg.state === 'reconnecting') els.device.textContent = 'Reconnecting to the strap';
-    else els.device.textContent = 'Connecting to Polar H10';
-  } else {
-    els.device.textContent = device || msg.source;
+    if (msg.state === 'streaming') { text = device; id = true; }
+    else if (msg.state === 'reconnecting') text = 'Reconnecting to the strap';
+    else text = 'Connecting to Polar H10';
+  } else if (device.startsWith('Simulated: ')) {
+    text = 'Simulated ' + device.slice(11).toLowerCase();
+  } else if (device.startsWith('Recording ')) {
+    // recordings are named h10_ecg_<name> by tools/h10_record.py
+    const who = device.slice(10).replace(/^h10_(ecg_)?/, '').replace(/_/g, ' ');
+    text = /^[a-z]+$/i.test(who) ? `${who[0].toUpperCase()}${who.slice(1)}'s recording` : `Recording ${who}`;
   }
+  els.device.textContent = text;
+  els.device.classList.toggle('id', id);
 }
 
 function handle(msg) {

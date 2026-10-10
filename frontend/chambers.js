@@ -186,8 +186,9 @@ export class Chambers {
       const top = rowH * r + pad;
       const amp = base - top;
       ctx.save();
-      ctx.font = `${14 * dpr}px "IBM Plex Sans", sans-serif`;
-      ctx.fillStyle = T.dim;
+      // the chamber letters, in the same bold Helvetica as the labels on the heart
+      ctx.font = `700 ${15 * dpr}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+      ctx.fillStyle = alpha(T.ink, 0.85);
       ctx.textBaseline = 'middle';
       ctx.fillText(c.toUpperCase(), 0, (top + base) / 2);
       ctx.strokeStyle = alpha(T.rule, 0.22);
