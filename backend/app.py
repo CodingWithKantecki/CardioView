@@ -86,11 +86,16 @@ def create_app(source: Source) -> FastAPI:
     detector = BeatDetector()
 
     async def pump() -> None:
-        async for packet in source.packets():
-            hub.push_samples(packet)
-            beats = await asyncio.to_thread(detector.feed, packet)
-            for beat in beats:
-                hub.push_beat(beat.message(source.kind))
+        try:
+            async for packet in source.packets():
+                hub.push_samples(packet)
+                beats = await asyncio.to_thread(detector.feed, packet)
+                for beat in beats:
+                    hub.push_beat(beat.message(source.kind))
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log.exception("source stopped")
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
