@@ -34,6 +34,10 @@ NOISE_UV = 6000       # peak to peak above this is motion or a settling contact
 NO_BEAT_S = 3.0       # no accepted beat for this long is not a usable signal
 LOST_AFTER_S = 0.5    # bad for this long (about two packets) before reporting lost
 OK_AFTER_S = 2.0      # clean for this long before reporting ok again
+SHAPE_PRE_S = 0.10    # QRS window around each R peak compared with the previous beat
+SHAPE_POST_S = 0.15
+SHAPE_BAD = 0.6       # consecutive beats correlating below this do not look like the same heart
+SHAPE_GOOD = 0.7
 
 
 @dataclass
@@ -178,33 +182,75 @@ class SignalMonitor:
 
     def _reset(self) -> None:
         self._buf = np.zeros(0, dtype=np.float64)
+        self._t0 = 0.0                      # stream time of _buf[0]
         self._t_end: float | None = None
         self._data_s = 0.0
         self._last_beat: float | None = None
         self._bad_since: float | None = None
         self._good_since: float | None = None
+        self._prev_shape: np.ndarray | None = None
+        self._shape_corr: deque[float] = deque(maxlen=4)
+
+    def _window(self, t_from: float, t_to: float) -> np.ndarray | None:
+        i0 = int(round((t_from - self._t0) * self.fs))
+        i1 = int(round((t_to - self._t0) * self.fs))
+        if i0 < 0 or i1 > len(self._buf) or i1 - i0 < 8:
+            return None
+        return self._buf[i0:i1]
+
+    def _note_shape(self, r: float) -> None:
+        """Correlate this beat's QRS window with the previous beat's."""
+        w = self._window(r - SHAPE_PRE_S, r + SHAPE_POST_S)
+        if w is None:
+            return
+        w = w - w.mean()
+        norm = float(np.linalg.norm(w))
+        if norm < 1e-6:
+            return
+        w = w / norm
+        if self._prev_shape is not None and len(self._prev_shape) == len(w):
+            self._shape_corr.append(float(np.dot(w, self._prev_shape)))
+        self._prev_shape = w
+
+    def _shape_bad(self) -> bool:
+        c = list(self._shape_corr)
+        return len(c) >= 3 and sum(1 for v in c[-4:] if v < SHAPE_BAD) >= 3
+
+    def _shape_good(self) -> bool:
+        c = list(self._shape_corr)
+        return len(c) < 2 or all(v >= SHAPE_GOOD for v in c[-3:])
 
     def update(self, packet: Packet, beats: list) -> Signal | None:
         """Feed one packet and the beats it produced. Returns a Signal when the state changes."""
         if self._t_end is not None and abs(packet.t - self._t_end) > JUMP_S:
             self._reset()
         uv = np.asarray(packet.uv, dtype=np.float64)
-        keep = int(QUALITY_WINDOW_S * self.fs)
-        self._buf = np.concatenate([self._buf, uv])[-keep:]
+        if self._t_end is None:
+            self._t0 = packet.t
+        self._buf = np.concatenate([self._buf, uv])
+        keep = int(6.0 * self.fs)
+        if len(self._buf) > keep:
+            drop = len(self._buf) - keep
+            self._buf = self._buf[drop:]
+            self._t0 += drop / self.fs
         self._t_end = packet.t_end
         self._data_s += len(uv) / self.fs
         for b in beats:
             self._last_beat = b.r
+            self._note_shape(b.r)
         now = packet.t_last
 
-        clipped = float(np.mean(np.abs(self._buf) >= CLIP_UV))
-        p2p = float(self._buf.max() - self._buf.min())
+        recent = self._buf[-int(QUALITY_WINDOW_S * self.fs):]
+        clipped = float(np.mean(np.abs(recent) >= CLIP_UV))
+        p2p = float(recent.max() - recent.min())
         if clipped > 0.05 or p2p < FLAT_UV:
             reason = "pads"
         elif p2p > NOISE_UV:
             reason = "noise"
         elif (self._last_beat is None and self._data_s > NO_BEAT_S + WARMUP_S) or \
              (self._last_beat is not None and now - self._last_beat > NO_BEAT_S):
+            reason = "no_beats"
+        elif self._shape_bad() or (not self.signal.ok and not self._shape_good()):
             reason = "no_beats"
         else:
             reason = ""

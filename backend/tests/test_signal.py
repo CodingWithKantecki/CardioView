@@ -60,3 +60,24 @@ def test_jump_resets_without_a_false_alarm():
     monitor, detector, changes = run(values[:15 * FS])
     _, _, after = run(values[15 * FS:], monitor, detector, first_index=15 * FS + 47 * FS)
     assert changes == [] and after == []
+
+
+def test_random_spikes_that_look_like_peaks_are_not_a_heart():
+    rng = np.random.default_rng(7)
+    n = 20 * FS
+    garbage = rng.normal(0, 60, n)
+    t = 0
+    while t < n - 40:
+        width = int(rng.integers(3, 30))
+        sign = rng.choice([-1, 1])
+        garbage[t:t + width] += sign * rng.uniform(400, 1500) * np.hanning(width)
+        t += int(rng.integers(60, 160))
+    _, det, changes = run([int(v) for v in garbage])
+    assert changes and changes[0][1] is False, "garbage with peaks should be reported lost"
+    assert changes[0][0] < 12.0
+
+
+def test_shape_check_keeps_a_steady_heart_ok():
+    values = list(simulate(110, seconds=40))
+    _, _, changes = run(values)
+    assert changes == []
