@@ -48,6 +48,7 @@ frontend/   index.html, main.js, clock.js, chambers.js, heart.js, trace.js, styl
             summary.html/.js/.css (summary page), vendor/, assets/ (heart model + heart.json)
 tools/      h10_record.py (strap to CSV, no server), trim_csv.py, screenshot.mjs (headless check),
             sessions.py (list, delete, wipe, cloud-init, deploy), make_voice.py (voice clips, own venv)
+cloud/      public summary pages on Vercel (app.py reads Neon), deployed with tools/sessions.py deploy
 data/       ECG fixtures: CSV with header time_s,ecg_uv at 130 Hz, in microvolts
 sessions/   saved visitor sessions, never committed (see Saved sessions)
 ```
@@ -146,7 +147,7 @@ Spec: `docs/superpowers/specs/2026-10-10-visitor-sessions-design.md`. Opt-in per
 - Stage keys: S twice starts, Esc twice stops and deletes, V turns the voice on or off. `frontend/session.js` draws one prompt line (Helvetica, like the alert), one mono status line and a breathing ring behind the heart, in the theme's colors; nothing on the stage is clickable. During a session the Strap / Demo and rhythm buttons only say to press Esc twice first.
 - The summary page (`frontend/summary.html`) serves the big screen (`/s/<id>?screen=1`, with the QR), phones on the LAN and the public copy in `cloud/`. `/s/demo` is a synthetic session for screenshots. Its tokens copy style.css (it stands alone on Vercel) and it follows the booth's T theme; a session on demo data says "Session on recorded data" or "simulated data", never "Your session".
 - Voice: `tools/make_voice.py` renders the step lines once with Kokoro 82M from Hugging Face (Python 3.12, its own `.venv-voice`); the WAVs in `frontend/assets/voice/` are committed, so the booth needs neither the model nor the internet.
-- Cloud is optional: with `NEON_DATABASE_URL` and `CARDIOVIEW_PUBLIC_URL` in `.env`, the anonymous summary (never the ECG) goes to Neon and the QR opens the Vercel page in `cloud/`. Offline or without them, the QR is the LAN link; a sync loop retries every 30 s and applies deletes made on phones.
+- Cloud is optional: with `NEON_DATABASE_URL` and `CARDIOVIEW_PUBLIC_URL` in `.env`, the anonymous summary (never the ECG) goes to Neon and the QR opens the Vercel page in `cloud/`. Offline or without them, the QR is the LAN link; a sync loop retries every 30 s and applies deletes made on phones. `cloud/vercel.json` pins the FastAPI preset: a project made with `vercel project add` starts as Other and deploys `cloud/` as plain files with no app.
 - `python tools/sessions.py wipe` after the event deletes every local session and every Neon row; `list` and `delete <id>` are there for the operator.
 
 ## Milestones
