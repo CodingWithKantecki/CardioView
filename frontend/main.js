@@ -148,15 +148,28 @@ let flickerUntil = 0;
 // It is either working or not connected: one message for every strap problem.
 const NOT_CONNECTED = ['Not connected', 'Wet the pads and wear the strap snug on the chest'];
 
-// Why the screen cannot follow a heart right now, or null when it can.
+// Why the screen cannot follow a heart right now, or null when it can. `lostWhy` names the rule
+// that fired, for the console: the alert itself says the same thing for every strap problem.
+let lostWhy = '';
+let loggedWhy = '';
 function lostState() {
-  if (FORCED_LOST) return NOT_CONNECTED;
-  if (!status) return null;
-  if (!wsOpen) return ['Server offline', 'Retrying'];
-  if (status.source === 'live' && status.state !== 'streaming') return NOT_CONNECTED;
-  if (lastSampleWall !== null && performance.now() - lastSampleWall > 3000) return NOT_CONNECTED;
-  if (!signal.ok) return NOT_CONNECTED;
-  return null;
+  const why = (reason, state) => { lostWhy = reason; return state; };
+  if (FORCED_LOST) return why('forced by ?signal=lost', NOT_CONNECTED);
+  if (!status) return why('', null);
+  if (!wsOpen) return why('server offline', ['Server offline', 'Retrying']);
+  if (status.source === 'live' && status.state !== 'streaming') return why(`strap ${status.state}`, NOT_CONNECTED);
+  const gap = lastSampleWall === null ? 0 : (performance.now() - lastSampleWall) / 1000;
+  if (gap > 3) return why(`no samples for ${gap.toFixed(1)} s`, NOT_CONNECTED);
+  if (!signal.ok) return why(`signal ${signal.reason}`, NOT_CONNECTED);
+  return why('', null);
+}
+
+// one console line per change of cause, not per frame
+function logLost() {
+  const key = lostWhy.replace(/[\d.]+ s$/, '');
+  if (key === loggedWhy) return;
+  loggedWhy = key;
+  console.info(lostWhy ? `lost: ${lostWhy}` : 'signal back');
 }
 
 // The status line, in words: the strap id (as data, in mono) while it streams, otherwise whose recording
@@ -285,6 +298,7 @@ function drawFrame() {
   trace.holdFrom = heldFrom;
   lanes.holdFrom = heldFrom;
   const lost = lostState();
+  logLost();
   trace.draw(t);
   lanes.draw(t);
   for (const c in sparks) if (!labels[c].hidden) lanes.drawSpark(sparks[c], c, t);
