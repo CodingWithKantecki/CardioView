@@ -5,7 +5,7 @@ import { Heart } from './heart.js';
 
 const $ = (id) => document.getElementById(id);
 const els = {
-  state: $('pill'), stateText: $('pill-text'), device: $('conn'), bpm: $('bpm'), rr: $('rr'),
+  device: $('conn'), bpm: $('bpm'), rr: $('rr'),
   trace: $('trace'), lanes: $('lanes'), column: $('column'), nowline: $('nowline'), floor: $('floor'), ripple: $('ripple'),
 };
 
@@ -29,18 +29,15 @@ heart.load();
 let lastSampleT = null;
 let shownBeat = null;
 
+// One quiet line in the header: the strap id while it streams, otherwise the mode or the link state.
 function setStatus(msg) {
-  els.state.dataset.source = msg.source;
-  els.state.dataset.state = msg.state;
   const device = msg.device || '';
   if (msg.source === 'live') {
-    if (msg.state === 'streaming') els.stateText.textContent = 'Live';
-    else if (msg.state === 'reconnecting') els.stateText.textContent = 'Reconnecting';
-    else els.stateText.textContent = 'Connecting to Polar H10';
-    els.device.textContent = msg.state === 'streaming' ? device : '';
+    if (msg.state === 'streaming') els.device.textContent = device;
+    else if (msg.state === 'reconnecting') els.device.textContent = 'Reconnecting to the strap';
+    else els.device.textContent = 'Connecting to Polar H10';
   } else {
-    els.stateText.textContent = device || msg.source;
-    els.device.textContent = '';
+    els.device.textContent = device || msg.source;
   }
 }
 
@@ -64,10 +61,7 @@ function connect() {
   const ws = new WebSocket(`${proto}://${location.host}/ws`);
   ws.onmessage = (ev) => handle(JSON.parse(ev.data));
   ws.onclose = () => {
-    els.state.dataset.source = 'none';
-    els.state.dataset.state = 'offline';
-    els.stateText.textContent = 'Server offline, retrying';
-    els.device.textContent = '';
+    els.device.textContent = 'Server offline, retrying';
     setTimeout(connect, 1000);
   };
 }

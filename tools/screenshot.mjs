@@ -23,8 +23,7 @@ try {
   await page.goto(url, { waitUntil: 'load' });
   await new Promise((r) => setTimeout(r, waitMs));
   const info = await page.evaluate(() => ({
-    pill: document.getElementById('pill-text')?.textContent,
-    conn: document.getElementById('conn')?.textContent,
+    header: document.getElementById('conn')?.textContent,
     bpm: document.getElementById('bpm')?.textContent,
     rr: document.getElementById('rr')?.textContent,
     modelMissing: !document.getElementById('heart-missing')?.hidden,

@@ -39,16 +39,7 @@ body {
 /* header */
 .top { flex: 0 0 64px; display: flex; align-items: center; gap: 36px; padding: 0 var(--gutter); border-bottom: 1px solid var(--hair); }
 .brand { font-weight: 600; font-size: 22px; letter-spacing: -0.01em; }
-.status { display: flex; align-items: baseline; gap: 14px; }
-.state { display: inline-flex; align-items: center; gap: 9px; color: var(--dim); }
-.state-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dimmer); flex: 0 0 auto; }
-.state[data-source="live"][data-state="streaming"] { color: var(--text); }
-.state[data-source="live"][data-state="streaming"] .state-dot { background: var(--ecg); box-shadow: 0 0 10px rgba(67, 224, 160, 0.6); }
-.state[data-source="recorded"] { color: var(--text); }
-.state[data-source="recorded"] .state-dot { background: var(--right); }
-.state[data-source="simulated"] { color: var(--text); }
-.state[data-source="simulated"] .state-dot { background: var(--dim); }
-.device { font-family: var(--mono); font-size: 13px; color: var(--dim); }
+.device { font-family: var(--mono); font-size: 13px; color: var(--dimmer); }
 .device:empty { display: none; }
 
 /* screen */
