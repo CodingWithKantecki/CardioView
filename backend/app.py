@@ -4,7 +4,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import time
 from collections import deque
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
@@ -41,8 +40,10 @@ class Hub:
         self.signal = {"type": "signal", "source": source_kind, "ok": True, "reason": ""}
 
     def reset(self, source_kind: str) -> None:
-        """A new source is starting on the same stream clock: keep the backlog, reset the signal state."""
+        """A new source is starting from zero: forget the old backlog and signal state."""
         self.source_kind = source_kind
+        self.samples.clear()
+        self.beats.clear()
         self.signal = {"type": "signal", "source": source_kind, "ok": True, "reason": ""}
 
     def set_status(self, status: Status) -> None:
@@ -95,30 +96,25 @@ class Hub:
 
 
 class Runner:
-    """Owns the running source. `start(name)` stops the current one and starts another."""
+    """Owns the running source. `start(name)` stops the current one and starts another from zero:
+    fresh stream clock, fresh detector and monitor, empty backlog."""
 
-    def __init__(self, hub: Hub, factories: dict[str, Callable[[], Source]]):
+    def __init__(self, hub: Hub, factories: dict[str, Callable[..., Source]]):
         self.hub = hub
         self.factories = factories
         self.name: str | None = None
         self.source: Source | None = None
         self.task: asyncio.Task | None = None
         self._lock = asyncio.Lock()
-        self.detector = BeatDetector()      # shared across sources: the stream clock continues
-        self.monitor = SignalMonitor()
-        self._index = 0                     # next stream sample index, carried to the next source
-        self._last_wall: float | None = None
 
-    async def start(self, name: str) -> None:
+    async def start(self, name: str, force: bool = False, **kwargs) -> None:
         if name not in self.factories:
             return
         async with self._lock:
-            if name == self.name:
+            if name == self.name and not force:
                 return
             await self._stop()
-            source = self.factories[name]()
-            source.seed(self._index, self._last_wall)
-            self.detector.forget_rhythm()
+            source = self.factories[name](**kwargs)
             self.name = name
             self.source = source
             self.hub.reset(source.kind)
@@ -126,7 +122,7 @@ class Runner:
             self.hub.set_status(source.status)
             self.hub.broadcast(self.hub.signal)
             self.task = asyncio.create_task(self._pump(source), name=f"pump-{name}")
-            log.info("source: %s", name)
+            log.info("source: %s %s", name, kwargs or "")
 
     async def _stop(self) -> None:
         if self.task is not None:
@@ -142,11 +138,10 @@ class Runner:
             await self._stop()
 
     async def _pump(self, source: Source) -> None:
-        detector, monitor = self.detector, self.monitor
+        detector = BeatDetector()
+        monitor = SignalMonitor()
         try:
             async for packet in source.packets():
-                self._index = round(packet.t_end * FS)
-                self._last_wall = time.monotonic()
                 self.hub.push_samples(packet)
                 beats = await asyncio.to_thread(detector.feed, packet)
                 for beat in beats:
@@ -202,10 +197,9 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str) -> Fast
                 if msg.get("type") == "source":
                     await runner.start(str(msg.get("name", "")))
                 elif msg.get("type") == "rhythm":
-                    await runner.start("rhythm")
-                    src = runner.source
-                    if src is not None and hasattr(src, "set_pattern"):
-                        src.set_pattern(str(msg.get("name", "")))
+                    pattern = str(msg.get("name", ""))
+                    if not (runner.name == "rhythm" and getattr(runner.source, "pattern", None) == pattern):
+                        await runner.start("rhythm", force=True, pattern=pattern)
 
         tasks = [asyncio.create_task(send()), asyncio.create_task(receive())]
         try:

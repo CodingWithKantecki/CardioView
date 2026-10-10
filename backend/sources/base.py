@@ -9,6 +9,7 @@ from typing import AsyncIterator, Callable, Iterable, Iterator
 FS = 130                 # samples per second
 PACKET = 73              # samples per packet, like the strap
 PACKET_S = PACKET / FS   # about 0.56 s
+PREROLL_S = 10.0         # history a simulated or recorded source emits at once when it starts, so a switch fills the screen instantly
 
 
 @dataclass
@@ -55,10 +56,6 @@ class Source:
     def _oriented(self, uv: Iterable[int]) -> list[int]:
         return [-v for v in uv] if self.invert else list(uv)
 
-    def seed(self, index: int, last_wall: float | None) -> None:
-        """Continue another source's stream clock: the next packet starts at sample `index`,
-        due one packet after `last_wall` (monotonic time of the previous packet)."""
-
     async def packets(self) -> AsyncIterator[Packet]:
         raise NotImplementedError
         yield  # pragma: no cover
@@ -75,25 +72,22 @@ class PacedSource(Source):
     """Plays an endless sample stream like the strap does.
 
     73 samples per packet, a packet when its last sample is due, scheduled
-    against an absolute start so it never drifts. `sleep` and `now` can be
-    swapped for fakes in tests.
+    against an absolute start so it never drifts. The first `preroll_s` seconds
+    are already due when it starts, so they come out at once. `sleep` and `now`
+    can be swapped for fakes in tests.
     """
 
     def __init__(self, samples: Iterator[int], invert: bool = False,
-                 sleep=asyncio.sleep, now=time.monotonic):
+                 sleep=asyncio.sleep, now=time.monotonic, preroll_s: float = 0.0):
         super().__init__(invert)
         self._samples = samples
         self._sleep = sleep
         self._now = now
         self.index = 0   # stream index of the next sample
-        self._start_hint: float | None = None
-
-    def seed(self, index: int, last_wall: float | None) -> None:
-        self.index = index
-        self._start_hint = last_wall
+        self.preroll_s = preroll_s
 
     async def packets(self) -> AsyncIterator[Packet]:
-        start = (self._start_hint if self._start_hint is not None else self._now()) - self.index / FS
+        start = self._now() - self.preroll_s
         self.set_status("streaming")
         while True:
             uv = [next(self._samples) for _ in range(PACKET)]

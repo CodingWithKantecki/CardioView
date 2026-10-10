@@ -1,4 +1,4 @@
-"""Simulated rhythms for the demo, switchable while running.
+"""Simulated rhythms for the demo. A rhythm change restarts the source with the new pattern.
 
 Each beat is a sum of Gaussians (the morphology model ecgsyn uses too), placed at R peak times
 chosen per pattern. Values are microvolts with an R peak near 600 uV, like the strap on a chest.
@@ -39,12 +39,6 @@ class RhythmSource(PacedSource):
         self._i = 0
         super().__init__(self._stream(), invert=invert, **kw)
         self.status.device = f"Simulated: {LABELS[self.pattern]}"
-
-    def set_pattern(self, name: str) -> None:
-        if name in LABELS and name != self.pattern:
-            self.pattern = name
-            self._i = 0
-            self.set_status("streaming", f"Simulated: {LABELS[name]}")
 
     def _next(self) -> tuple[float, list]:
         """The interval to the next beat and its shape, by pattern."""

@@ -95,10 +95,10 @@ function setStatus(msg) {
 
 function handle(msg) {
   if (msg.type === 'status') {
-    if (!status || status.source !== msg.source) {   // a source switch: fresh signal state and sample clock
+    if (!status || status.source !== msg.source || status.device !== msg.device) {   // a new source: everything restarts from zero
+      trace.clear(); lanes.clear(); clock.reset(); shownBeat = null; lastSampleT = null; lastSampleWall = null;
       signal = { ok: true, reason: '' };
-      lastSampleWall = null;
-      if (msg.source === 'live') liveSince = performance.now();
+      if (msg.source === 'live' && (!status || status.source !== 'live')) liveSince = performance.now();
     }
     status = msg;
     setStatus(msg);

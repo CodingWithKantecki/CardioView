@@ -8,7 +8,7 @@ from pathlib import Path
 import uvicorn
 
 from .app import create_app
-from .sources.base import Source
+from .sources.base import PREROLL_S, Source
 from .sources.replay import ReplaySource
 from .sources.rhythm import RhythmSource
 from .sources.sim import SimSource
@@ -23,8 +23,8 @@ def demo_factory(spec: str | None, bpm: int, invert: bool):
         fixtures = sorted(p for p in DATA.glob("h10_ecg_*.csv") if not p.stem.endswith("_raw"))
         spec = str(fixtures[0]) if fixtures else "sim"
     if spec == "sim":
-        return lambda: SimSource(bpm=bpm, invert=invert)
-    return lambda: ReplaySource(spec, invert=invert)
+        return lambda: SimSource(bpm=bpm, invert=invert, preroll_s=PREROLL_S)
+    return lambda: ReplaySource(spec, invert=invert, preroll_s=PREROLL_S)
 
 
 def live_factory(invert: bool):
@@ -44,7 +44,9 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--port", type=int, default=8000)
     args = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    rhythm = lambda: RhythmSource("sinus", invert=args.invert)   # noqa: E731
+    def rhythm(pattern: str = "sinus") -> RhythmSource:
+        return RhythmSource(pattern, invert=args.invert, preroll_s=PREROLL_S)
+
     if args.source == "h10":
         factories = {"live": live_factory(args.invert), "demo": demo_factory(args.demo, args.bpm, args.invert), "rhythm": rhythm}
         initial = "live"

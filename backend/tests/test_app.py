@@ -78,7 +78,7 @@ def test_viewer_can_switch_sources():
 
 def test_rhythm_message_starts_the_simulator_with_that_pattern():
     from backend.sources.rhythm import RhythmSource
-    app = create_app({"demo": FakeSource, "live": OtherSource, "rhythm": lambda: RhythmSource("sinus")}, "demo")
+    app = create_app({"demo": FakeSource, "live": OtherSource, "rhythm": lambda pattern="sinus": RhythmSource(pattern)}, "demo")
     with TestClient(app) as client:
         with client.websocket_connect("/ws") as ws:
             assert ws.receive_json()["type"] == "status"
@@ -91,3 +91,34 @@ def test_rhythm_message_starts_the_simulator_with_that_pattern():
                     break
             assert any(m.get("device") == "Simulated: Atrial fibrillation" for m in seen)
             assert app.state.runner.name == "rhythm"
+
+
+def test_a_switch_starts_the_new_source_from_zero():
+    from backend.app import Runner
+    from backend.sources.sim import SimSource
+
+    class Clk:
+        def __init__(self):
+            self.t = 0.0
+
+        def now(self):
+            return self.t
+
+        async def sleep(self, s):
+            self.t += s
+            await asyncio.sleep(0.01)
+
+    async def run():
+        hub = Hub("simulated")
+        clk = Clk()
+        runner = Runner(hub, {"a": lambda: SimSource(bpm=72, sleep=clk.sleep, now=clk.now),
+                              "b": lambda: SimSource(bpm=90, preroll_s=3.0, sleep=clk.sleep, now=clk.now)})
+        await runner.start("a")
+        await asyncio.sleep(0.4)
+        assert hub.samples and hub.samples[-1]["t"] > 0
+        await runner.start("b")
+        await asyncio.sleep(0.4)
+        assert hub.samples[0]["t"] == 0.0, "the new source starts its clock at zero"
+        assert len(hub.samples) >= 5, "a preroll fills the backlog at once"
+        await runner.stop()
+    asyncio.run(run())

@@ -63,11 +63,12 @@ def test_invert_flips_the_signal():
     assert a == [-v for v in b]
 
 
-def test_seed_continues_the_stream_clock():
+def test_preroll_emits_history_at_once_then_paces():
     clk = FakeClock()
-    src = SimSource(bpm=72, sleep=clk.sleep, now=clk.now)
-    src.seed(1300, clk.now() - 0.2)      # the previous source sent sample 1299 a fifth of a second ago
-    pk = take(src, 2)
-    assert pk[0].t == pytest.approx(1300 / FS)
-    assert pk[1].t == pytest.approx(1300 / FS + PACKET_S)
-    assert clk.sleeps[0] == pytest.approx(PACKET_S - 0.2, abs=1e-6), "the next packet is due one packet after the last one"
+    src = SimSource(bpm=72, preroll_s=5.0, sleep=clk.sleep, now=clk.now)
+    pk = take(src, 10)
+    assert [p.t for p in pk] == pytest.approx([k * PACKET_S for k in range(10)])
+    # the packets already due (8 of them for 5 s) come without sleeping, then pacing resumes exactly
+    assert len(clk.sleeps) == 2
+    assert clk.sleeps[0] == pytest.approx(9 * PACKET_S - 5.0)
+    assert clk.sleeps[1] == pytest.approx(PACKET_S)

@@ -59,11 +59,10 @@ def test_afib_is_irregular_and_pvcs_come_early():
     assert (rr < 0.62).sum() >= 3 and (rr > 1.0).sum() >= 3
 
 
-def test_pattern_switch_changes_the_label_and_the_rate():
+def test_labels_and_amplitude():
     clk = FakeClock()
-    src = RhythmSource("sinus", sleep=clk.sleep, now=clk.now)
-    assert src.status.device == "Simulated: Sinus rhythm"
-    src.set_pattern("vt")
+    assert RhythmSource("sinus", sleep=clk.sleep, now=clk.now).status.device == "Simulated: Sinus rhythm"
+    src = RhythmSource("vt", sleep=clk.sleep, now=clk.now)
     assert src.status.device == "Simulated: Ventricular tachycardia"
     assert set(LABELS) == {"sinus", "tachy", "brady", "afib", "pvc", "vt"}
     amp = max(abs(v) for v in list(__import__("itertools").islice(src._stream(), 5 * FS)))
