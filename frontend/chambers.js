@@ -1,5 +1,5 @@
 // Chamber lanes and activation, both pure functions of t_display and the recent beats.
-import { fitCanvas, WINDOW_S, NOW_INSET, geometry } from './trace.js';
+import { fitCanvas, WINDOW_S, NOW_INSET, geometry, keepCut } from './trace.js';
 import { colors, alpha } from './theme.js';
 
 export const ATRIA_S = 0.12;
@@ -7,7 +7,6 @@ const RISE_S = 0.1;
 const RELEASE_S = 0.2;
 export const ORDER = ['ra', 'la', 'rv', 'lv'];
 const laneColor = (c) => colors()[c];   // one color per chamber, from the --c-ra/rv/la/lv tokens
-const KEEP = 40;
 const SPARK_S = 3;
 
 export function intervals(beat) {
@@ -47,6 +46,7 @@ export class Chambers {
     this.ctx = canvas.getContext('2d');
     this.beats = [];
     this.mode = '2d';
+    this.holdFrom = null;   // set by the timeline while off live: keep beats from here
   }
 
   setMode(mode) { this.mode = mode === '3d' ? '3d' : '2d'; }
@@ -57,20 +57,32 @@ export class Chambers {
     const last = this.beats[this.beats.length - 1];
     if (last && beat.r < last.r - 1) this.beats.length = 0;   // stream restarted
     this.beats.push(beat);
-    if (this.beats.length > KEEP) this.beats.splice(0, this.beats.length - KEEP);
+    const cut = keepCut(beat.r, this.holdFrom);
+    let drop = 0;
+    while (drop < this.beats.length && this.beats[drop].r < cut) drop++;
+    if (drop > 0) this.beats.splice(0, drop);
+  }
+
+  // index of the latest beat at or before t (beats are in time order), or -1
+  indexBefore(t) {
+    let lo = 0, hi = this.beats.length - 1, found = -1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (this.beats[mid].r <= t) { found = mid; lo = mid + 1; } else hi = mid - 1;
+    }
+    return found;
   }
 
   latestBefore(t) {
-    for (let i = this.beats.length - 1; i >= 0; i--) if (this.beats[i].r <= t) return this.beats[i];
-    return null;
+    const i = this.indexBefore(t);
+    return i < 0 ? null : this.beats[i];
   }
 
   // activation of one chamber at time t, 0 to 1
   activationOf(c, t) {
     let out = 0;
-    for (let i = this.beats.length - 1; i >= 0; i--) {
+    for (let i = this.indexBefore(t + 0.5); i >= 0; i--) {
       const b = this.beats[i];
-      if (b.r > t + 0.5) continue;
       if (b.r < t - 2) break;
       const [on, off] = intervals(b)[c];
       const a = envelope(t, on, off);

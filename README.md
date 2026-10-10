@@ -2,7 +2,7 @@
 
 See your own heart beat, live in 3D. A Polar H10 chest strap streams ECG over Bluetooth, Python finds every beat, and a browser shows a heart model squeezing chamber by chamber in time with it, next to the live trace, the heart rate and the chamber timing.
 
-Status: the core works. Simulated ECG, CSV replay and the live Polar H10 all drive the trace (2D or a 3D beat waterfall), heart rate, chamber activation lanes (their timing is derived from the ECG, not measured) and the 3D heart with its chamber labels and waves. Drag to orbit, scroll to zoom, an opacity slider, and the R, W and C keys for auto-rotate, wireframe and cutaway. A signal monitor turns the stage into a red glitch with a plain-words alert when there is no signal at all. `data/h10_ecg_thomas.csv` is a real 84 s recording.
+Status: the core works. Simulated ECG, CSV replay and the live Polar H10 all drive the trace (2D or a 3D beat waterfall), heart rate, chamber activation lanes (their timing is derived from the ECG, not measured) and the 3D heart with its chamber labels and waves. Drag to orbit, scroll to zoom, an opacity slider, and the R, W and C keys for auto-rotate, wireframe and cutaway. The strip in the header is the last 30 s: drag it to scrub, and the Rewind, Play, Pause, Fast forward and Live buttons replay it or return to now; the heart, the trace and the lanes all follow. A signal monitor turns the stage into a red glitch with a plain-words alert when there is no signal at all. `data/h10_ecg_thomas.csv` is a real 84 s recording.
 
 ## Setup
 
@@ -63,6 +63,8 @@ python -m pytest
 ```
 
 Headless screenshot of the running viewer (needs Node and Google Chrome): `cd tools && npm install && node screenshot.mjs`. It writes `tools/out/screen.png`.
+
+`python tools/fake_strap.py` runs a server on port 8002 whose strap is fake (the recording streamed like the H10), for checking the Strap / Demo switch without hardware.
 
 ## Credits
 

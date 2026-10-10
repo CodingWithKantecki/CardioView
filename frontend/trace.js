@@ -1,7 +1,8 @@
 // ECG trace on a canvas. Samples are keyed by stream time; drawing follows t_display.
 import { colors, alpha } from './theme.js';
 const FS_DEFAULT = 130;
-const KEEP_S = 14;
+export const KEEP_S = 120;      // history kept while live: the timeline's 30 s window can pan back through it
+export const MAX_KEEP_S = 900;  // off live the history is held, but never more than this
 
 export const WINDOW_S = 6;       // seconds from the left edge to the now line
 export const NOW_INSET = 12;     // CSS px between the now line and the right edge: the graphs fill their box
@@ -12,6 +13,14 @@ export const BASELINE_FRAC = 0.66;
 export function geometry(w, dpr) {
   const gutter = GUTTER * dpr, xNow = w - NOW_INSET * dpr;
   return { gutter, xNow, pxPerS: (xNow - gutter) / WINDOW_S };
+}
+
+// where a buffer may be trimmed to: KEEP_S behind the newest sample, or further back while the
+// timeline holds history from `holdFrom` (null when live), within MAX_KEEP_S
+export function keepCut(newest, holdFrom) {
+  let cut = newest - KEEP_S;
+  if (holdFrom !== null && holdFrom !== undefined) cut = Math.min(cut, holdFrom);
+  return Math.max(cut, newest - MAX_KEEP_S);
 }
 
 export function fitCanvas(canvas) {
@@ -36,6 +45,7 @@ function roundedPath(ctx, pts) {
 const PRE_S = 0.3;      // 3D: seconds shown before each R peak
 const POST_S = 0.6;     // 3D: seconds shown after each R peak
 const ROWS_3D = 8;      // 3D: beats stacked
+const BEAT_GAP_S = 0.08; // 3D: a row stops this far short of the neighboring beats, so a fast rhythm never shows two R peaks in one row
 
 export class Trace {
   constructor(canvas) {
@@ -44,6 +54,7 @@ export class Trace {
     this.ts = [];
     this.ys = [];
     this.scale = 200;
+    this.holdFrom = null;   // set by the timeline while off live: keep samples from here
     this.mode = '2d';
     this.fs = FS_DEFAULT;
     this.beats = [];      // shared with the chamber lanes, newest last
@@ -84,7 +95,8 @@ export class Trace {
     }
     const newest = this.ts[this.ts.length - 1];
     let drop = 0;
-    while (drop < this.ts.length && this.ts[drop] < newest - KEEP_S) drop++;
+    const cut = keepCut(newest, this.holdFrom);
+    while (drop < this.ts.length && this.ts[drop] < cut) drop++;
     if (drop > 0) { this.ts.splice(0, drop); this.ys.splice(0, drop); }
   }
 
@@ -142,8 +154,11 @@ export class Trace {
       const base = base0 - depth * stepY;
       const pxPerS = (width0 * sc) / span;
       const amp = amp0 * sc;
-      const tEnd = Math.min(b.r + POST_S, tDisplay);
-      const i0 = this.indexAt(b.r - PRE_S), i1 = this.indexAt(tEnd);
+      const idx = all.indexOf(b);
+      const prev = all[idx - 1], nxt = all[idx + 1];
+      const tStart = Math.max(b.r - PRE_S, prev ? prev.r + BEAT_GAP_S : -Infinity);
+      const tEnd = Math.min(b.r + POST_S, nxt ? nxt.r - BEAT_GAP_S : Infinity, tDisplay);
+      const i0 = this.indexAt(tStart), i1 = this.indexAt(tEnd);
       if (i1 - i0 < 3) continue;
       const pts = [];
       for (let i = i0; i < i1; i++) pts.push([x0 + (this.ts[i] - (b.r - PRE_S)) * pxPerS, base - this.ys[i] * amp]);

@@ -20,6 +20,7 @@ from .sources.base import FS, PACKET, PACKET_S, PacedSource, Packet, Source, Sta
 
 FRONTEND = Path(__file__).resolve().parent.parent / "frontend"
 BACKLOG_S = 8.0       # seconds of samples a late viewer gets, and what a takeover's detector is primed on
+TAKEOVER_FRESH_S = 1.5  # a source whose last packet is older than this is stale: switching away from it resets instead
 BACKLOG_BEATS = 12    # beats a late viewer gets
 QUEUE_SIZE = 256      # per viewer; the oldest message is dropped when full
 
@@ -133,6 +134,7 @@ class Runner:
         self._lock = asyncio.Lock()
         self._index = 0                      # next stream sample index of the running source
         self._last_wall: float | None = None
+        self._reaping: set[asyncio.Task] = set()   # old pumps finishing their teardown in the background
 
     async def start(self, name: str, force: bool = False, **kwargs) -> None:
         if name not in self.factories:
@@ -141,16 +143,19 @@ class Runner:
             if name == self.name and not force:
                 return
             old = self.source
-            # Between demo sources the new one takes over the running stream: nothing already
-            # sent is touched, the clock runs on, the next beat lands where the old rhythm would
-            # have put it and the rate eases over a few beats. To or from the strap it is a reset.
-            takeover = (old is not None and old.kind != "live" and name != "live"
-                        and self._last_wall is not None and bool(self.hub.samples))
+            # A demo source takes over the running stream from any source that is still fresh, the
+            # strap included: nothing already sent is touched, the clock runs on, the next beat
+            # lands where the old rhythm would have put it and the rate eases over a few beats.
+            # To the strap it is a reset (the strap starts from zero once it connects), and so is
+            # leaving a stale source, whose clock would otherwise rush to catch up.
+            fresh = (self._last_wall is not None and time.monotonic() - self._last_wall < TAKEOVER_FRESH_S
+                     and bool(self.hub.samples))
             await self._stop()
             source = self.factories[name](**kwargs)
+            takeover = old is not None and fresh and source.kind != "live" and isinstance(source, PacedSource)
             detector = BeatDetector()
             monitor = SignalMonitor()
-            if takeover and isinstance(source, PacedSource):
+            if takeover:
                 history = self.hub.history()
                 # the fresh detector learns the old stream's last beats from the backlog; a beat the
                 # old pump never got to send (it confirms 0.25 s after the R) goes out now
@@ -163,7 +168,9 @@ class Runner:
                 last_r, rr = detector.last_r, detector.last_rr
                 template = old.template_at(last_r) if last_r is not None and hasattr(old, "template_at") else None
                 source.takeover(self._index, last_uv=history.uv[-1], last_r=last_r, rr=rr, template=template)
-                source.anchor(self._index / FS, self._last_wall)
+                # due from the last packet's arrival, but never so far back that the new source
+                # bursts to catch up if the switch itself took a moment
+                source.anchor(self._index / FS, max(self._last_wall, time.monotonic() - PACKET_S))
             else:
                 self._index = 0
                 self._last_wall = None
@@ -179,16 +186,26 @@ class Runner:
 
     async def _stop(self) -> None:
         if self.task is not None:
-            self.task.cancel()
-            with suppress(asyncio.CancelledError, Exception):
-                await self.task
-            self.task = None
+            task, self.task = self.task, None
+            task.cancel()
+            # the strap's teardown is a Bluetooth disconnect that can take a second: it finishes
+            # on its own, the new source must not wait for it (Thomas: the switch stalled, then
+            # rushed to catch up). A cancelled pump pushes nothing more.
+            self._reaping.add(asyncio.create_task(self._reap(task)))
         self.source = None
         self.name = None
+
+    async def _reap(self, task: asyncio.Task) -> None:
+        with suppress(asyncio.CancelledError, Exception):
+            await task
+        self._reaping.discard(asyncio.current_task())
 
     async def stop(self) -> None:
         async with self._lock:
             await self._stop()
+            for t in list(self._reaping):
+                with suppress(asyncio.CancelledError, Exception):
+                    await t
 
     async def _pump(self, source: Source, detector: BeatDetector, monitor: SignalMonitor,
                     takeover: bool = False) -> None:
