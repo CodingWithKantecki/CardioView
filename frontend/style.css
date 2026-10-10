@@ -53,18 +53,6 @@ body {
 }
 #heart-view { position: absolute; inset: 0; z-index: 1; }
 #heart-view canvas { display: block; width: 100%; height: 100%; }
-.floor {
-  position: absolute; left: 50%; top: 84%; width: 520px; height: 130px;
-  transform: translate(-50%, -50%); pointer-events: none; z-index: 0;
-}
-.floor::before {
-  content: ""; position: absolute; inset: -30% -10%; border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(255, 92, 131, 0.16), rgba(255, 92, 131, 0) 78%);
-  filter: blur(8px);
-}
-.ring { position: absolute; inset: 0; border-radius: 50%; border: 1px solid rgba(232, 236, 243, 0.14); }
-.ring-2 { inset: 22% 14%; border-color: rgba(232, 236, 243, 0.08); }
-.ripple { position: absolute; inset: 0; border-radius: 50%; border: 1.5px solid rgba(255, 92, 131, 0.6); opacity: 0; transform: scale(0.6); }
 .missing {
   position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); z-index: 2;
   margin: 0; text-align: center; color: var(--dim); font-size: 16px;
