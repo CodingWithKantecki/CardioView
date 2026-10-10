@@ -6,6 +6,7 @@
 <title>CardioView</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="session.css">
 <script type="importmap">
 { "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }
 </script>
@@ -26,6 +27,7 @@
 
 <main class="screen">
   <section class="stage" aria-label="Heart">
+    <div class="session-ring" id="session-ring" hidden aria-hidden="true"></div>
     <div id="heart-view"></div>
     <canvas id="glitch" class="glitch" aria-hidden="true"></canvas>
     <p id="heart-missing" class="missing" hidden>Heart model not installed, see the README</p>
@@ -35,6 +37,7 @@
     <div class="label side-left" data-chamber="rv" hidden><b>RV</b><span>Right ventricle</span><canvas class="spark" data-spark="rv"></canvas></div>
     <div class="label side-right" data-chamber="lv" hidden><b>LV</b><span>Left ventricle</span><canvas class="spark" data-spark="lv"></canvas></div>
     <div class="alert" id="alert" hidden><b id="alert-title"></b><span id="alert-hint"></span></div>
+    <div class="session" id="session" hidden aria-live="polite"><p class="session-prompt" id="session-prompt"></p><p class="session-sub" id="session-sub"></p></div>
     <label class="opacity"><span>Opacity</span><input id="opacity" type="range" min="15" max="100" value="100" aria-label="Heart opacity"></label>
   </section>
 

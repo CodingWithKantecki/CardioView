@@ -44,7 +44,8 @@ Change these only if Thomas says so.
 ```
 backend/    app.py (FastAPI, /ws, static files, session routes), pipeline.py, sources/ (base.py, sim.py, replay.py, h10.py),
             session.py (saved sessions), analysis.py (session summary), synth.py (synthetic sessions), tests/
-frontend/   index.html, main.js, clock.js, chambers.js, heart.js, trace.js, style.css, vendor/, assets/ (heart model + heart.json)
+frontend/   index.html, main.js, clock.js, chambers.js, heart.js, trace.js, style.css, session.js/.css (stage overlay),
+            vendor/, assets/ (heart model + heart.json)
 tools/      h10_record.py (strap to CSV, no server), trim_csv.py, screenshot.mjs (headless check)
 data/       ECG fixtures: CSV with header time_s,ecg_uv at 130 Hz, in microvolts
 sessions/   saved visitor sessions, never committed (see Saved sessions)
@@ -141,6 +142,7 @@ Spec: `docs/superpowers/specs/2026-10-10-visitor-sessions-design.md`. Opt-in per
 - `backend/analysis.py` makes five sections: effort and recovery, breathing, heart rate variability, the average beat (waves labelled, no durations: the QRS onset moves 20 to 75 ms at 130 Hz) and beat timing. Each is values or a plain reason. No verdicts, no reference ranges.
 - `sessions/<id>/` holds `ecg.csv` (replays with `--source`), `beats.csv`, `session.json` and `summary.json`. Never committed. Keep-until is 24 h by default (`--keep-until`); unfinished and expired sessions are deleted at startup.
 - The runner hands each live packet and its beats to the session (`Runner(on_packet=...)`), never the preroll or handover history; a failure there is logged and the pump goes on. While a session is running or being measured, the server ignores `source` and `rhythm` messages: stop the session first.
+- Stage keys: S twice starts, Esc twice stops and deletes, V turns the voice on or off. `frontend/session.js` draws one prompt line, one caption line and a breathing ring behind the heart, in Helvetica and the theme's colors; nothing on the stage is clickable. During a session the Strap / Demo and rhythm buttons only say to press Esc twice first.
 
 ## Milestones
 
