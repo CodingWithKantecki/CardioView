@@ -408,12 +408,13 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, *, sess
         sessions.dismiss()
         return {"ok": True}
 
-    def find_summary(sid: str) -> dict | None:
-        return demo_summary() if sid == "demo" else store.summary(sid, utcnow())
+    async def find_summary(sid: str) -> dict | None:
+        # in a thread: the first demo summary takes seconds of NeuroKit work, and the pump shares this loop
+        return await asyncio.to_thread(lambda: demo_summary() if sid == "demo" else store.summary(sid, utcnow()))
 
     @app.get("/api/s/{sid}")
     async def summary_get(sid: str):
-        summary = find_summary(sid)
+        summary = await find_summary(sid)
         if summary is None:
             return JSONResponse({"reason": "This session is no longer available."}, status_code=404)
         return summary
@@ -426,7 +427,7 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, *, sess
 
     @app.get("/api/s/{sid}/qr.svg")
     async def summary_qr(sid: str):
-        if find_summary(sid) is None:
+        if await find_summary(sid) is None:
             return Response(status_code=404)
         link = sessions.done_link if sid == sessions.sid and sessions.done_link else sessions.link(sid)
         buf = io.BytesIO()

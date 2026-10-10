@@ -1,5 +1,6 @@
 """The session routes end to end: a fast synthetic source, the real detector and analysis."""
 import asyncio
+import threading
 import time
 from datetime import datetime, timezone
 
@@ -164,3 +165,23 @@ def test_summary_page_is_served_for_any_id(client):
     r = c.get("/s/demo")
     assert r.status_code == 200 and "/summary.js" in r.text
     assert c.get("/summary.css").status_code == 200
+
+
+def test_building_the_demo_summary_never_stalls_the_server(tmp_path, monkeypatch):
+    """The demo summary takes seconds of NeuroKit work: it must not hold up the live view meanwhile."""
+    import backend.app as app_module
+
+    def slow_demo():
+        time.sleep(1.0)
+        return {"version": 1, "id": "demo", "demo": True}
+
+    monkeypatch.setattr(app_module, "demo_summary", slow_demo)
+    with TestClient(create_app({"demo": FastSource}, "demo", sessions_dir=tmp_path)) as c:
+        slow = threading.Thread(target=lambda: c.get("/api/s/demo"))
+        slow.start()
+        time.sleep(0.2)                    # the slow build is under way
+        t = time.monotonic()
+        assert c.post("/api/session/dismiss").status_code == 200
+        took = time.monotonic() - t
+        slow.join()
+    assert took < 0.5, f"another request waited {took:.2f} s behind the demo build"
