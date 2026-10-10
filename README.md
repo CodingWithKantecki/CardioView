@@ -2,7 +2,7 @@
 
 See your own heart beat, live in 3D. A Polar H10 chest strap streams ECG over Bluetooth, Python finds every beat, and a browser shows a heart model squeezing chamber by chamber in time with it, next to the live trace, the heart rate and the chamber timing.
 
-Status: the core works. Simulated ECG, CSV replay and the live Polar H10 all drive the trace (2D or a 3D beat waterfall), heart rate, chamber activation lanes and the 3D heart with its chamber labels and waves. Drag to orbit, scroll to zoom, an opacity slider, and the R, W and C keys for auto-rotate, wireframe and cutaway. A signal monitor turns the stage into a red glitch with a plain-words alert when the strap is off, noisy or finds no heartbeat. `data/h10_ecg_thomas.csv` is a real 84 s recording.
+Status: the core works. Simulated ECG, CSV replay and the live Polar H10 all drive the trace (2D or a 3D beat waterfall), heart rate, chamber activation lanes and the 3D heart with its chamber labels and waves. Drag to orbit, scroll to zoom, an opacity slider, and the R, W and C keys for auto-rotate, wireframe and cutaway. A signal monitor turns the stage into a red glitch with a plain-words alert when there is no signal at all. `data/h10_ecg_thomas.csv` is a real 84 s recording.
 
 ## Setup
 
@@ -48,7 +48,7 @@ Options: `--bpm 72` sets the simulated rate, `--invert` flips a strap worn upsid
 - macOS: the terminal app needs Bluetooth permission (System Settings > Privacy & Security > Bluetooth). macOS asks the first time.
 - Record a fixture without the server: `python tools/h10_record.py --seconds 90 --out data/h10_ecg_<name>_raw.csv`, then trim the settling lead-in with `python tools/trim_csv.py data/h10_ecg_<name>_raw.csv data/h10_ecg_<name>.csv --start 30`.
 
-If the pads lose contact, the signal gets too noisy, or the strap drops, the screen says so and the heart glitches until a clean signal is back. Add `?signal=lost` to the URL to rehearse that state.
+If the pads lose contact or the strap drops, the screen says so and the heart glitches until signal is back. A noisy signal is shown as it is. Add `?signal=lost` to the URL to rehearse that state.
 
 ECG is personal data. Only commit your own recording, never a visitor's.
 

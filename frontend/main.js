@@ -44,8 +44,6 @@ let flickerUntil = 0;
 
 const REASONS = {
   pads: ['No signal from the strap', 'Wet the pads and wear it snug on the chest'],
-  noise: ['Signal too noisy to read', 'Hold still for a moment'],
-  no_beats: ['No heartbeat found in the signal', 'Check that the strap sits over the chest'],
 };
 
 // Why the screen cannot follow a heart right now, or null when it can.
