@@ -6,8 +6,8 @@ bridge feeds both it and the public site:
     python tools/bridge.py ws://localhost:8000 wss://cardioview.onrender.com --key <BRIDGE_KEY>
     python tools/bridge.py ws://localhost:8002 --key test --source data/h10_ecg_thomas.csv   # no strap
 
-The key is the servers' BRIDGE_KEY (Render: the service's Environment tab). Each link reconnects
-on its own; stop with Ctrl+C. The servers decide what viewers see: the bridge only feeds the strap.
+The key is the servers' BRIDGE_KEY (Render: the service's Environment tab); --key or BRIDGE_KEY in
+the repo's .env, which the local server reads too. Each link reconnects on its own; stop with Ctrl+C. The servers decide what viewers see: the bridge only feeds the strap.
 """
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -22,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import websockets  # noqa: E402
 
+from backend.env import load_dotenv  # noqa: E402
 from backend.sources.base import Source  # noqa: E402
 
 log = logging.getLogger("bridge")
@@ -90,13 +92,17 @@ async def run(urls: list[str], key: str, spec: str, invert: bool) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser(description="Stream the Polar H10 to a CardioView server")
     ap.add_argument("urls", nargs="+", metavar="url", help="the servers, e.g. ws://localhost:8000 wss://cardioview.onrender.com")
-    ap.add_argument("--key", required=True, help="the server's BRIDGE_KEY")
+    ap.add_argument("--key", default=None, help="the servers' BRIDGE_KEY (default: BRIDGE_KEY from the environment or .env)")
     ap.add_argument("--source", default="h10", help="h10 (default) or a CSV to play as if it were the strap")
     ap.add_argument("--invert", action="store_true", help="flip the signal (strap worn upside down)")
     args = ap.parse_args()
+    load_dotenv()
+    key = args.key or os.environ.get("BRIDGE_KEY", "").strip()
+    if not key:
+        ap.error("no key: pass --key or put BRIDGE_KEY=... in the repo's .env")
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     try:
-        asyncio.run(run(args.urls, args.key, args.source, args.invert))
+        asyncio.run(run(args.urls, key, args.source, args.invert))
     except KeyboardInterrupt:
         pass
 
