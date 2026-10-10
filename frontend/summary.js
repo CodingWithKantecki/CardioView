@@ -311,6 +311,12 @@ if (screenMode) {
 initChat({
   sessionId: sid,
   greeting: 'Ask me to compare session steps or explain one of these measurements.',
+  suggestions: [
+    'Compare rest and squats',
+    'Explain the breathing result',
+    'What does HRV mean here?',
+    'How did recovery change?',
+  ],
   onAction(action) {
     if (action?.type !== 'focus_summary') return;
     const target = document.getElementById(action.target);

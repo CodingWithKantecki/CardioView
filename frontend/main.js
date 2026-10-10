@@ -316,7 +316,14 @@ function applyGeminiAction(action) {
   target.classList.add('ai-focus');
 }
 
-initChat({ onAction: applyGeminiAction });
+initChat({
+  onAction: applyGeminiAction,
+  suggestions: [
+    'Show the fastest recent beat',
+    'Why is the rate changing?',
+    'What is measured or modeled?',
+  ],
+});
 
 const opacity = $('opacity');
 opacity.addEventListener('input', () => heart.setOpacity(Number(opacity.value) / 100));

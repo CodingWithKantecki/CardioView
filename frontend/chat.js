@@ -17,6 +17,23 @@ export function initChat(options = {}) {
   const history = [];
   let busy = false;
   const onAction = typeof options.onAction === 'function' ? options.onAction : () => {};
+  const suggestions = Array.isArray(options.suggestions) ? options.suggestions.slice(0, 5) : [];
+
+  if (suggestions.length) {
+    const prompts = document.createElement('div');
+    prompts.className = 'chat-prompts';
+    prompts.setAttribute('aria-label', 'Suggested questions');
+    for (const question of suggestions) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = question;
+      button.addEventListener('click', () => {
+        if (!busy) submit(question);
+      });
+      prompts.appendChild(button);
+    }
+    form.before(prompts);
+  }
 
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   let isOpen = false;
