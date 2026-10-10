@@ -2,7 +2,7 @@
 
 See your own heart beat, live in 3D. A Polar H10 chest strap streams ECG over Bluetooth, Python finds every beat, and a browser shows a heart model squeezing chamber by chamber in time with it, next to the live trace, the heart rate and the chamber timing.
 
-Status: the core works. Simulated ECG, CSV replay and the live Polar H10 all drive the trace, heart rate, chamber activation lanes (their timing is derived from the ECG, not measured) and the 3D heart with its chamber labels and waves. Drag to orbit, scroll to zoom, and a dock at the bottom of the stage for rotate, wireframe, opening the heart, opacity and reset view (the R, W and C keys do the first three as well). The strip in the header is the last 30 s: drag it to scrub, and the Rewind, Play, Pause, Fast forward and Live buttons replay it or return to now; the heart, the trace and the lanes all follow. A signal monitor turns the stage into a red glitch with a plain-words alert when there is no signal at all. `data/h10_ecg_thomas.csv` is a real 84 s recording.
+Status: the core works. Simulated ECG, CSV replay and the live Polar H10 all drive the trace, heart rate, chamber activation lanes (their timing is derived from the ECG, not measured) and the 3D heart with its chamber labels and waves. Drag to orbit, scroll to zoom, and a dock at the bottom of the stage for rotate, wireframe, opening the heart, opacity and reset view. The strip in the header is the last 30 s: drag it to scrub, and the Rewind, Play, Pause, Fast forward and Live buttons replay it or return to now; the heart, the trace and the lanes all follow. A signal monitor turns the stage into a red glitch with a plain-words alert when there is no signal at all. `data/h10_ecg_thomas.csv` is a real 84 s recording.
 
 ## Setup
 
@@ -73,10 +73,10 @@ The viewer uses the CGTrader pack "Human Heart with Cross section" by devden (pu
 A visitor can save a two minute session and take a summary of it home.
 
 1. Strap them in and explain: their ECG is recorded for about two minutes, without their name, kept on this laptop until the end of the event, and they can delete it from their phone.
-2. If they agree, press S or click Exercise. The stage walks them through it: hold still, rest, slow breathing with the ring, squats, recovery.
-3. The big screen then shows their summary with a QR code. Esc goes back to the live view, and so does three minutes without a key.
+2. If they agree, open the Exercise tab and press Start. The stage walks them through it: hold still, rest, slow breathing with the ring, squats, recovery.
+3. The big screen then shows their summary with a QR code. Back to live returns to the live view, and so does three minutes without a key.
 
-The Exercise cell in the header starts a session with one click, once the visitor has agreed, and stops one with two clicks; it only works while the real strap is streaming, never on demo data. S and Esc twice do the same from the keyboard, and V turns the voice on or off. While a session runs, the Strap / Demo and rhythm buttons wait: stop the session first. The report opens over the live view and Back returns to it.
+The Exercise tab in the header shows a panel with Start, Stop and Voice. Start works only while the real strap is streaming, never on demo data; Stop ends and deletes a running session. There are no keyboard shortcuts. While a session runs, the Strap / Demo and rhythm buttons wait: stop the session first. The report opens over the live view and Back returns to it.
 
 The summary shows effort and recovery, breathing, heart rate variability, their average heartbeat and their beat timing. A section says what it could not measure when the signal was not good enough. A session run on demo data says so at the top. It is a visualization, not a diagnosis.
 

@@ -11,7 +11,6 @@ const NOTE = {
   stopped: 'Session stopped and deleted',
   write_failed: 'Could not save the session, nothing was kept',
 };
-const ARM_MS = 5000;        // a second Esc or stop click must come within this
 const FLASH_MS = 4000;
 const BREATH_S = 10;        // 5 s in, 5 s out: 6 breaths a minute
 const VOICE_KEY = 'cardioview.voice';
@@ -34,7 +33,6 @@ export class SessionOverlay {
     this.reducedMotion = reducedMotion;
     this.msg = { state: 'idle' };
     this.at = 0;              // performance.now() when msg arrived
-    this.armedEsc = 0;
     this.flashText = '';
     this.flashUntil = 0;
     this.voiceOn = readVoice();
@@ -47,17 +45,24 @@ export class SessionOverlay {
     this.onDone = null;       // set by the viewer: opens the report in place
   }
 
-  // the Exercise cell: one click starts (the operator clicks once the visitor has agreed; Thomas
-  // dropped the second press on 2026-10-10), two clicks within 5 s stop a running session
-  exercise(ready) {
-    const now = performance.now();
-    if (this.busy()) {
-      if (now - this.armedEsc < ARM_MS) { this.armedEsc = 0; this.post('/api/session/cancel'); }
-      else { this.armedEsc = now; this.flash('Click Exercise again to stop the session'); }
-      return;
-    }
+  // the Exercise panel's buttons (no keys anywhere, Thomas 2026-10-10): Start once the operator
+  // has the visitor's agreement, Stop ends and deletes a running session, Voice toggles the lines
+  start(ready) {
+    if (this.busy()) { this.flash('A session is already running'); return; }
     if (!ready) { this.flash('Exercise needs the strap on and streaming'); return; }
     this.post('/api/session/start');
+  }
+
+  stop() {
+    if (!this.busy()) return;
+    this.post('/api/session/cancel');
+  }
+
+  setVoice(on) {
+    this.voiceOn = on;
+    writeVoice(on);
+    if (!on) this.hush();
+    this.flash(on ? 'Voice on' : 'Voice off');
   }
 
   // a session is recording or being measured: the source and rhythm switches wait until it stops
@@ -90,36 +95,6 @@ export class SessionOverlay {
       const wait = this.analyzingAt ? Math.max(0, MIN_DONE_MS - (performance.now() - this.analyzingAt)) : 0;
       setTimeout(() => { if (this.onDone) this.onDone(msg.id); else location.assign(`/s/${encodeURIComponent(msg.id)}?screen=1`); }, wait);
     }
-  }
-
-  // true when the key belonged to the session controls
-  key(e) {
-    const k = e.key;
-    const now = performance.now();
-    const busy = this.busy();
-    if (k === 's' || k === 'S') {
-      if (busy) { this.flash('A session is already running'); return true; }
-      this.post('/api/session/start');
-      return true;
-    }
-    if (k === 'Escape') {
-      if (!busy) return false;
-      if (now - this.armedEsc < ARM_MS) {
-        this.armedEsc = 0;
-        this.post('/api/session/cancel');
-      } else {
-        this.armedEsc = now;
-      }
-      return true;
-    }
-    if (k === 'v' || k === 'V') {
-      this.voiceOn = !this.voiceOn;
-      writeVoice(this.voiceOn);
-      if (!this.voiceOn) this.hush();
-      this.flash(this.voiceOn ? 'Voice on' : 'Voice off');
-      return true;
-    }
-    return false;
   }
 
   async post(path) {
@@ -211,9 +186,6 @@ export class SessionOverlay {
     } else if (m.state === 'analyzing') {
       prompt = 'Measuring your session';
       sub = 'A few seconds';
-    }
-    if (this.armedEsc && now - this.armedEsc < ARM_MS) {
-      sub = 'Press Esc again to stop and delete this session';
     }
     if (now < this.flashUntil) {
       if (prompt) sub = this.flashText;

@@ -289,7 +289,6 @@ if (screenMode) {
   $('take').hidden = false;
   $('qr').src = `/api/s/${encodeURIComponent(sid)}/qr.svg`;
   setTimeout(backToLive, IDLE_MS);
-  window.addEventListener('keydown', (e) => { if (e.key === 'Escape') backToLive(); });
   let ours = false;   // seen this session on the booth; leave once it is dismissed, deleted or replaced
   const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
   ws.onmessage = (ev) => {

@@ -72,6 +72,14 @@
         <button type="button" data-rhythm="vt" aria-pressed="false" aria-describedby="tip-vt">V-tach<span class="info" aria-hidden="true">?</span><span class="tip" id="tip-vt" aria-hidden="true"><b>Ventricular tachycardia</b><canvas class="tip-ecg" data-rhythm="vt" aria-hidden="true"></canvas>A fast rhythm, over 100 beats a minute, that starts in the ventricles instead of the sinus node. On the ECG: wide beats and no P waves. If it lasts, it is a medical emergency.</span></button>
         <button type="button" data-rhythm="mi" aria-pressed="false" aria-describedby="tip-mi">Heart attack<span class="info" aria-hidden="true">?</span><span class="tip" id="tip-mi" aria-hidden="true"><b>Heart attack (myocardial infarction)</b><canvas class="tip-ecg" data-rhythm="mi" aria-hidden="true"></canvas>A blocked artery starves part of the heart muscle. On the ECG, the line after each spike lifts up (ST elevation), though not every heart attack shows this. It is an emergency: call 911.</span></button>
       </div>
+      <div class="exercise-panel" id="exercise" hidden>
+        <p class="exercise-note" id="exercise-note"></p>
+        <span class="toggle exercise-tray">
+          <button type="button" id="exercise-start" aria-disabled="true">Start</button>
+          <button type="button" id="exercise-stop" hidden>Stop</button>
+          <button type="button" id="exercise-voice" aria-pressed="true">Voice</button>
+        </span>
+      </div>
     </section>
     <section class="instrument ecg">
       <h2>ECG</h2>

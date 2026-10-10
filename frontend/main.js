@@ -50,7 +50,7 @@ const session = new SessionOverlay(
 );
 
 // The session report opens in an overlay over the live view (an iframe of the summary page in
-// embed mode), so the app never reloads: Back, Esc or three idle minutes in the report close it.
+// embed mode), so the app never reloads: Back or three idle minutes in the report close it.
 const report = {
   el: $('report'), frame: $('report-frame'),
   open(id) {
@@ -74,20 +74,30 @@ function strapReady() {
   return !!status && status.source === 'live' && status.state === 'streaming' && signal.ok;
 }
 
-// the header cells: Strap or Demo for the source, Exercise pressed while a session runs
+// The header tabs: Strap (the live view), Demo (the recording and the rhythms) and Exercise (the live
+// view plus the session panel in the Heart rate box). A running session keeps the Exercise tab.
+let exerciseMode = false;
 const sourceCells = [...document.querySelectorAll('#source-mode button')];
+const panel = { el: $('exercise'), note: $('exercise-note'), start: $('exercise-start'), stop: $('exercise-stop'), voice: $('exercise-voice') };
+const setAttr = (el, name, value) => { if (el.getAttribute(name) !== String(value)) el.setAttribute(name, String(value)); };
 function syncSourceCells() {
   const live = !!status && status.source === 'live';
   const busy = session.busy();
+  if (busy) exerciseMode = true;
+  const ex = exerciseMode && live;
   for (const b of sourceCells) {
     const s = b.dataset.source;
-    const pressed = s === 'live' ? (live && !busy) : s === 'demo' ? (!!status && !live) : busy;
-    if (b.getAttribute('aria-pressed') !== String(pressed)) b.setAttribute('aria-pressed', String(pressed));
-    if (s === 'exercise') {
-      const off = !busy && !strapReady();
-      if (b.getAttribute('aria-disabled') !== String(off)) b.setAttribute('aria-disabled', String(off));
-    }
+    setAttr(b, 'aria-pressed', s === 'live' ? (live && !ex) : s === 'demo' ? (!!status && !live) : ex);
   }
+  panel.el.hidden = !ex;
+  if (!ex) return;
+  const ready = strapReady();
+  const note = busy ? 'Session running' : ready ? 'Strap on. Start the two minute session' : 'Waiting for the strap';
+  if (panel.note.textContent !== note) panel.note.textContent = note;
+  panel.start.hidden = busy;
+  panel.stop.hidden = !busy;
+  setAttr(panel.start, 'aria-disabled', !ready);
+  setAttr(panel.voice, 'aria-pressed', session.voiceOn);
 }
 
 let lastSampleT = null;
@@ -278,15 +288,21 @@ requestAnimationFrame(frame);
 
 for (const b of sourceCells) {
   b.addEventListener('click', () => {
-    if (b.dataset.source === 'exercise') { session.exercise(strapReady()); return; }
-    if (session.busy()) { session.flash('Click Exercise twice to stop the session first'); return; }
-    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'source', name: b.dataset.source }));
+    const s = b.dataset.source;
+    if (session.busy() && s !== 'exercise') { session.flash('Stop the session first'); return; }
+    exerciseMode = s === 'exercise';
+    const want = s === 'demo' ? 'demo' : 'live';   // the Exercise tab is the strap too
+    const onLive = !!status && status.source === 'live';
+    if ((want === 'live') !== onLive && ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'source', name: want }));
   });
 }
+panel.start.addEventListener('click', () => session.start(strapReady()));
+panel.stop.addEventListener('click', () => session.stop());
+panel.voice.addEventListener('click', () => session.setVoice(!session.voiceOn));
 
 for (const b of document.querySelectorAll('#rhythms button')) {
   b.addEventListener('click', () => {
-    if (session.busy()) { session.flash('Click Exercise twice to stop the session first'); return; }
+    if (session.busy()) { session.flash('Stop the session first'); return; }
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     const name = b.dataset.rhythm;
     ws.send(JSON.stringify({ type: 'rhythm', name }));
@@ -319,15 +335,3 @@ if (REDUCED_MOTION) {   // auto-rotate is off under reduced motion; the dock's c
   b.dataset.label = 'Auto-rotate is off under reduced motion';
 }
 
-// Keys keep the other views reachable without chrome: R spins, W wireframe, C cutaway. Plain keys only:
-// Cmd+C to copy text or Cmd+R to reload must not touch the heart (Cmd+C used to cut it open).
-window.addEventListener('keydown', (e) => {
-  if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
-  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-  if (session.key(e)) return;   // S, Esc, V: saved sessions
-  const k = e.key.toLowerCase();
-  if (k === 'r') view.rotate();
-  else if (k === 'w') view.wire();
-  else if (k === 'c') view.cut();
-  else if (k === '0') view.reset();
-});
