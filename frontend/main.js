@@ -236,12 +236,32 @@ initChat();
 const opacity = $('opacity');
 opacity.addEventListener('input', () => heart.setOpacity(Number(opacity.value) / 100));
 
-// Keys keep the other views reachable without chrome: R spins, W wireframe, C cutaway.
+// The view tray and the keys share these: R or Rotate spins, W or Wire, C or Cut, 0 or Reset.
+const viewButtons = {};
+for (const b of document.querySelectorAll('#view-tray button')) viewButtons[b.dataset.view] = b;
+if (REDUCED_MOTION) {   // auto-rotate is off under reduced motion; the pill says so
+  viewButtons.rotate.disabled = true;
+  viewButtons.rotate.title = 'Auto-rotate is off under reduced motion';
+}
+function syncView() {
+  viewButtons.rotate.setAttribute('aria-pressed', String(heart.state.rotate));
+  viewButtons.wire.setAttribute('aria-pressed', String(userWireframe));
+  viewButtons.cut.setAttribute('aria-pressed', String(heart.state.cutaway));
+}
+const view = {
+  rotate: () => { heart.setRotate(!heart.state.rotate); syncView(); },
+  wire: () => { userWireframe = !userWireframe; syncView(); },
+  cut: () => { heart.setCutaway(!heart.state.cutaway); syncView(); },
+  reset: () => { heart.resetView(); syncView(); },
+};
+for (const [name, b] of Object.entries(viewButtons)) b.addEventListener('click', () => { view[name](); b.blur(); });
+
 window.addEventListener('keydown', (e) => {
   if (e.target instanceof HTMLInputElement) return;
   const k = e.key.toLowerCase();
   if (k === 't') toggleTheme();
-  else if (k === 'r') heart.setRotate(!heart.state.rotate);
-  else if (k === 'w') userWireframe = !userWireframe;
-  else if (k === 'c') heart.setCutaway(!heart.state.cutaway);
+  else if (k === 'r') view.rotate();
+  else if (k === 'w') view.wire();
+  else if (k === 'c') view.cut();
+  else if (k === '0') view.reset();
 });

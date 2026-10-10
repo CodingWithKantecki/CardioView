@@ -125,6 +125,12 @@ body.lost .bpm { opacity: 0.35; }
 .opacity input::-moz-range-thumb { width: 14px; height: 14px; background: var(--accent); border: 0; border-radius: 0; }
 .opacity input:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(43, 212, 189, 0.4); }
 
+/* view tray: Rotate, Wire, Cut, Reset at the bottom right of the stage, on the opacity slider's line.
+   The three toggles mirror the R, W and C keys; Reset is the 0 key. All off by default. */
+.view-tray { position: absolute; right: var(--gutter); bottom: 20px; z-index: 3; }
+.view-tray button[disabled] { opacity: 0.45; cursor: default; }
+.view-tray button[disabled]:hover { color: var(--ink-2); }
+
 /* chat: one Ask pill at the top right of the stage, a flat box dropping down from it on the column
    surface. That corner is the one part of the stage the heart and its labels never reach at 1920 by
    1080 (the LA label starts about 395 px below the header, the box ends at 358). No radius, no
@@ -196,6 +202,7 @@ body.lost .bpm { opacity: 0.35; }
   .column { display: flex; flex-direction: column; padding-bottom: 24px; }
   .instrument.ecg, .instrument.chambers { height: 260px; flex: 0 0 auto; }
   .bpm { font-size: 72px; }
+  .view-tray { bottom: 58px; }   /* one row above the opacity slider, which needs the whole width */
   .chat { position: fixed; top: auto; left: var(--gutter); right: var(--gutter); bottom: 16px; flex-direction: column-reverse; }
   .chat-box { width: 100%; height: min(50vh, 420px); transform-origin: 100% 100%; }
 }
