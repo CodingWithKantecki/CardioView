@@ -292,8 +292,9 @@ for (const b of sourceCells) {
     if (session.busy() && s !== 'exercise') { session.flash('Stop the session first'); return; }
     exerciseMode = s === 'exercise';
     const want = s === 'demo' ? 'demo' : 'live';   // the Exercise tab is the strap too
-    const onLive = !!status && status.source === 'live';
-    if ((want === 'live') !== onLive && ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'source', name: want }));
+    // Demo also brings a simulated rhythm back to the recording; Strap and Exercise only switch when not live
+    const already = want === 'live' ? (!!status && status.source === 'live') : (!!status && status.source === 'recorded');
+    if (!already && ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'source', name: want }));
   });
 }
 panel.start.addEventListener('click', () => session.start(strapReady()));
