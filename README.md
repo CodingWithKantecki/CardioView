@@ -2,7 +2,7 @@
 
 See your own heart beat, live in 3D. A Polar H10 chest strap streams ECG over Bluetooth, Python finds every beat, and a browser shows a heart model squeezing chamber by chamber in time with it, next to the live trace, the heart rate and the chamber timing.
 
-Status: simulated ECG, CSV replay and the live Polar H10 all run end to end (trace, heart rate, chamber lanes). `data/h10_ecg_thomas.csv` is a real 84 s recording. The heart model is next.
+Status: the core works. Simulated ECG, CSV replay and the live Polar H10 all drive the trace, heart rate, chamber lanes and the 3D heart, with rotate, zoom, wireframe, opacity and cutaway. `data/h10_ecg_thomas.csv` is a real 84 s recording.
 
 ## Setup
 
@@ -50,6 +50,10 @@ Options: `--bpm 72` sets the simulated rate, `--invert` flips a strap worn upsid
 
 ECG is personal data. Only commit your own recording, never a visitor's.
 
+## The heart model
+
+`frontend/assets/heart.json` holds the four chamber centers and radii in the normalized model space (model centered at the origin, 1.8 units tall) plus the camera. Open the viewer with `?debug=1` to see the bounding box, axes and a marker per chamber while adjusting them; `?act=1` holds every chamber squeezed and `?act=0` relaxed.
+
 ## Tests and checks
 
 ```
@@ -64,6 +68,6 @@ Headless screenshot of the running viewer (needs Node and Google Chrome): `cd to
 - IBM Plex fonts 5.3.0 via Fontsource, SIL Open Font License 1.1, vendored in `frontend/vendor/fonts/`.
 - NeuroKit2 for ECG cleaning, peak detection and delineation, MIT license.
 - bleak (MIT license) and bleakheart (Mozilla Public License 2.0) for the Polar H10 link.
-- Heart model: to be added with its author, link and license once it is in the repo.
+- Heart model: this work is based on "Realistic Human Heart" (https://sketchfab.com/3d-models/realistic-human-heart-3f8072336ce94d18b3d0d055a1ece089) by neshallads (https://sketchfab.com/neshallads) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/). Files in `frontend/assets/heart/` with the license text. The chambers are animated by a vertex shader; the model itself is unchanged.
 
 This is a visualization, not a medical device. It shows no diagnosis.

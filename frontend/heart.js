@@ -8,6 +8,7 @@ export const CHAMBERS = ['ra', 'la', 'rv', 'lv'];
 const GLOW = { ra: 0x5B9BFF, la: 0xFF5C83, rv: 0x5B9BFF, lv: 0xFF5C83 };
 const STRENGTH = { ra: 0.08, la: 0.08, rv: 0.12, lv: 0.12 };
 const OPACITY_STEPS = [1, 0.55, 0.25];
+const DEBUG = new URLSearchParams(location.search).has('debug');
 
 const VERTEX_HEAD = `
 uniform vec3 uCenters[4];
@@ -20,7 +21,7 @@ const VERTEX_BODY = `
 vec4 cardioW = vec4(0.0);
 for (int i = 0; i < 4; i++) {
   float d = distance(position, uCenters[i]);
-  float wi = 1.0 - smoothstep(0.0, uRadii[i], d);
+  float wi = 1.0 - smoothstep(uRadii[i], uRadii[i] * 1.6, d);   // full inside the radius, gone at 1.6 radii
   cardioW[i] = wi * uAct[i];
   transformed += (uCenters[i] - position) * wi * uStrength[i] * uAct[i];
 }
@@ -33,7 +34,7 @@ varying vec4 vChamber;
 const FRAGMENT_BODY = `
 vec3 cardioGlow = vec3(0.0);
 for (int i = 0; i < 4; i++) cardioGlow += uGlow[i] * vChamber[i];
-gl_FragColor.rgb += cardioGlow * 0.18;
+gl_FragColor.rgb += cardioGlow * 0.12;
 `;
 
 export class Heart {
@@ -45,7 +46,7 @@ export class Heart {
     this.model = null;
     this.config = null;
     this.materials = [];
-    this.meshes = [];
+    this.markers = [];
     this.state = { rotate: false, wireframe: false, opacityStep: 0, cutaway: false };
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -58,7 +59,7 @@ export class Heart {
 
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(30, 1, 0.01, 100);
-    this.camera.position.set(0, 0.15, 4.2);
+    this.camera.position.set(0, 0.1, 4.4);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.enablePan = false;
@@ -68,19 +69,19 @@ export class Heart {
 
     const pmrem = new THREE.PMREMGenerator(this.renderer);
     this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-    const key = new THREE.DirectionalLight(0xffffff, 1.6);
+    const key = new THREE.DirectionalLight(0xffffff, 1.4);
     key.position.set(2, 3, 4);
-    const rim = new THREE.DirectionalLight(0x5B9BFF, 0.8);
+    const rim = new THREE.DirectionalLight(0x5B9BFF, 0.7);
     rim.position.set(-3, 1, -3);
-    this.scene.add(key, rim, new THREE.AmbientLight(0xffffff, 0.25));
+    this.scene.add(key, rim, new THREE.AmbientLight(0xffffff, 0.2));
 
-    // shared uniforms (one set per chamber index: ra, la, rv, lv)
+    // shared per chamber index (ra, la, rv, lv); centers and radii are per material, in its local units
     this.uAct = { value: [0, 0, 0, 0] };
-    this.uRadii = { value: [0.5, 0.5, 0.7, 0.7] };
     this.uStrength = { value: CHAMBERS.map((c) => STRENGTH[c]) };
     this.uGlow = { value: CHAMBERS.map((c) => new THREE.Color(GLOW[c])) };
     this.centersWorld = CHAMBERS.map(() => new THREE.Vector3());
-    this.clipPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0.12);
+    this.radiiWorld = [0.45, 0.45, 0.6, 0.6];
+    this.clipPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0.1);
 
     this.resize();
     new ResizeObserver(() => this.resize()).observe(container);
@@ -115,21 +116,42 @@ export class Heart {
     const height = this.config?.height ?? 1.8;
     const s = height / Math.max(size.x, size.y, size.z);
     const holder = new THREE.Group();
-    holder.add(root);
+    const inner = new THREE.Group();
+    inner.add(root);
     root.position.sub(center);
-    holder.scale.setScalar(s);
+    inner.scale.setScalar(s);
+    holder.add(inner);
     if (this.config?.rotation) holder.rotation.set(...this.config.rotation.map((d) => (d * Math.PI) / 180));
     this.scene.add(holder);
     this.model = holder;
     holder.updateMatrixWorld(true);
-    console.log('heart model bounding box (model units)', box.min.toArray(), box.max.toArray(), 'scale', s);
+    const wb = new THREE.Box3().setFromObject(holder);
+    const f = (v) => v.toArray().map((x) => x.toFixed(2)).join(',');
+    console.log(`heart model: raw size ${f(size)}; normalized bounds ${f(wb.min)} to ${f(wb.max)}`);
+
+    if (this.config?.camera) {
+      if (this.config.camera.position) this.camera.position.fromArray(this.config.camera.position);
+      if (this.config.camera.target) this.controls.target.fromArray(this.config.camera.target);
+      this.controls.update();
+    }
 
     root.traverse((obj) => {
       if (!obj.isMesh) return;
-      this.meshes.push(obj);
       const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
       for (const mat of mats) this.patch(mat, obj);
     });
+
+    if (DEBUG) {
+      this.scene.add(new THREE.Box3Helper(wb, 0xffff00));
+      this.scene.add(new THREE.AxesHelper(1.2));
+      this.markers = CHAMBERS.map((c) => {
+        const m = new THREE.Mesh(new THREE.SphereGeometry(0.05, 16, 12),
+          new THREE.MeshBasicMaterial({ color: GLOW[c], depthTest: false }));
+        m.renderOrder = 10;
+        this.scene.add(m);
+        return m;
+      });
+    }
     this.applyConfig();
     for (const el of Object.values(this.labels)) el.hidden = false;
     if (this.missingEl) this.missingEl.hidden = true;
@@ -138,12 +160,14 @@ export class Heart {
 
   patch(mat, mesh) {
     const uCenters = { value: CHAMBERS.map(() => new THREE.Vector3()) };
+    const uRadii = { value: [1, 1, 1, 1] };
     mat.userData.uCenters = uCenters;
+    mat.userData.uRadii = uRadii;
     mat.userData.mesh = mesh;
     mat.side = THREE.DoubleSide;
     mat.onBeforeCompile = (shader) => {
       shader.uniforms.uCenters = uCenters;
-      shader.uniforms.uRadii = this.uRadii;
+      shader.uniforms.uRadii = uRadii;
       shader.uniforms.uAct = this.uAct;
       shader.uniforms.uStrength = this.uStrength;
       shader.uniforms.uGlow = this.uGlow;
@@ -159,22 +183,27 @@ export class Heart {
     this.materials.push(mat);
   }
 
-  // Chamber centers come from heart.json in world space of the normalized model.
+  // Chamber centers and radii come from heart.json, in world units of the normalized model.
   applyConfig() {
     const cfg = this.config?.chambers || {};
     CHAMBERS.forEach((c, i) => {
       const ch = cfg[c] || {};
-      this.centersWorld[i].fromArray(ch.center || [0, 0, 0]);
-      this.uRadii.value[i] = ch.radius ?? this.uRadii.value[i];
+      if (ch.center) this.centersWorld[i].fromArray(ch.center);
+      if (ch.radius != null) this.radiiWorld[i] = ch.radius;
     });
+    const scaleVec = new THREE.Vector3();
     for (const mat of this.materials) {
       const mesh = mat.userData.mesh;
       mesh.updateMatrixWorld(true);
+      mesh.matrixWorld.decompose(new THREE.Vector3(), new THREE.Quaternion(), scaleVec);
+      const worldPerLocal = Math.max(scaleVec.x, scaleVec.y, scaleVec.z) || 1;
       this.centersWorld.forEach((cw, i) => {
         mat.userData.uCenters.value[i].copy(cw);
         mesh.worldToLocal(mat.userData.uCenters.value[i]);
+        mat.userData.uRadii.value[i] = this.radiiWorld[i] / worldPerLocal;
       });
     }
+    this.markers.forEach((m, i) => m.position.copy(this.centersWorld[i]));
   }
 
   setActivation({ ra = 0, la = 0, rv = 0, lv = 0 }) {

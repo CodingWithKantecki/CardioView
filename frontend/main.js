@@ -14,6 +14,10 @@ for (const el of document.querySelectorAll('.label')) labels[el.dataset.chamber]
 const heart = new Heart($('heart-view'), { labels, leaders: $('leaders'), missing: $('heart-missing') });
 heart.load();
 
+// Debug: ?act=1 holds every chamber at full squeeze, ?act=0 relaxes them (screenshot checks).
+const actParam = new URLSearchParams(location.search).get('act');
+const FORCED_ACT = actParam === null ? null : { ra: +actParam, la: +actParam, rv: +actParam, lv: +actParam };
+
 const SOURCE_TEXT = { live: 'LIVE', recorded: 'RECORDED', simulated: 'SIMULATED' };
 let lastSampleT = null;
 let shownBeat = null;
@@ -65,7 +69,7 @@ function frame() {
   trace.draw(t);
   lanes.draw(t);
   if (t !== null) {
-    heart.setActivation(lanes.activation(t));
+    heart.setActivation(FORCED_ACT === null ? lanes.activation(t) : FORCED_ACT);
     showBeat(lanes.latestBefore(t));
   }
   heart.render();
