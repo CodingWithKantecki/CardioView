@@ -35,8 +35,9 @@ ATRIA_S = 0.12        # how long the atria squeeze (used by the viewer)
 CLIP_UV = 19000       # the strap pins samples near 19930 uV when the pads lose skin
 QUALITY_WINDOW_S = 2.0
 FLAT_UV = 40          # peak to peak below this is no contact
+CLIP_WINDOW_S = 0.5   # clipping is judged on the newest half second so recovery is quick
 LOST_AFTER_S = 0.5    # bad for this long (about two packets) before reporting lost
-OK_AFTER_S = 1.0      # signal back for this long before reporting ok again
+OK_AFTER_S = 0.6      # signal back for this long (about one packet) before reporting ok again
 
 
 @dataclass
@@ -201,7 +202,7 @@ class SignalMonitor:
         self._t_end = packet.t_end
         now = packet.t_last
 
-        clipped = float(np.mean(np.abs(self._buf) >= CLIP_UV))
+        clipped = float(np.mean(np.abs(self._buf[-int(CLIP_WINDOW_S * self.fs):]) >= CLIP_UV))
         p2p = float(self._buf.max() - self._buf.min())
         bad = clipped > 0.05 or p2p < FLAT_UV
         if DEBUG_QUALITY:
