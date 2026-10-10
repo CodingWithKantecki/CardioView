@@ -61,3 +61,13 @@ def test_invert_flips_the_signal():
     a = take(SimSource(bpm=72, invert=True, sleep=FakeClock().sleep, now=FakeClock().now), 1)[0].uv
     b = take(SimSource(bpm=72, sleep=FakeClock().sleep, now=FakeClock().now), 1)[0].uv
     assert a == [-v for v in b]
+
+
+def test_seed_continues_the_stream_clock():
+    clk = FakeClock()
+    src = SimSource(bpm=72, sleep=clk.sleep, now=clk.now)
+    src.seed(1300, clk.now() - 0.2)      # the previous source sent sample 1299 a fifth of a second ago
+    pk = take(src, 2)
+    assert pk[0].t == pytest.approx(1300 / FS)
+    assert pk[1].t == pytest.approx(1300 / FS + PACKET_S)
+    assert clk.sleeps[0] == pytest.approx(PACKET_S - 0.2, abs=1e-6), "the next packet is due one packet after the last one"

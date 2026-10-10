@@ -1,6 +1,6 @@
 // Canvas colors come from CSS variables on :root, so a theme is a stylesheet swap.
 // Each --c-* value must be a six-digit hex; alpha() derives the translucent variants.
-const KEYS = ['paper', 'ink', 'trace', 'grid', 'rule', 'dim', 'right', 'left', 'alert', 'now'];
+const KEYS = ['stage', 'paper', 'ink', 'trace', 'grid', 'rule', 'dim', 'right', 'left', 'alert', 'now'];
 let cache = null;
 
 export function colors() {

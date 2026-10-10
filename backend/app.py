@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from collections import deque
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
@@ -40,10 +41,8 @@ class Hub:
         self.signal = {"type": "signal", "source": source_kind, "ok": True, "reason": ""}
 
     def reset(self, source_kind: str) -> None:
-        """A new source is starting: forget the old backlog and signal state."""
+        """A new source is starting on the same stream clock: keep the backlog, reset the signal state."""
         self.source_kind = source_kind
-        self.samples.clear()
-        self.beats.clear()
         self.signal = {"type": "signal", "source": source_kind, "ok": True, "reason": ""}
 
     def set_status(self, status: Status) -> None:
@@ -105,6 +104,10 @@ class Runner:
         self.source: Source | None = None
         self.task: asyncio.Task | None = None
         self._lock = asyncio.Lock()
+        self.detector = BeatDetector()      # shared across sources: the stream clock continues
+        self.monitor = SignalMonitor()
+        self._index = 0                     # next stream sample index, carried to the next source
+        self._last_wall: float | None = None
 
     async def start(self, name: str) -> None:
         if name not in self.factories:
@@ -114,6 +117,8 @@ class Runner:
                 return
             await self._stop()
             source = self.factories[name]()
+            source.seed(self._index, self._last_wall)
+            self.detector.forget_rhythm()
             self.name = name
             self.source = source
             self.hub.reset(source.kind)
@@ -137,10 +142,11 @@ class Runner:
             await self._stop()
 
     async def _pump(self, source: Source) -> None:
-        detector = BeatDetector()
-        monitor = SignalMonitor()
+        detector, monitor = self.detector, self.monitor
         try:
             async for packet in source.packets():
+                self._index = round(packet.t_end * FS)
+                self._last_wall = time.monotonic()
                 self.hub.push_samples(packet)
                 beats = await asyncio.to_thread(detector.feed, packet)
                 for beat in beats:

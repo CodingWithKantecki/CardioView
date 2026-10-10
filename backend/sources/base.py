@@ -55,6 +55,10 @@ class Source:
     def _oriented(self, uv: Iterable[int]) -> list[int]:
         return [-v for v in uv] if self.invert else list(uv)
 
+    def seed(self, index: int, last_wall: float | None) -> None:
+        """Continue another source's stream clock: the next packet starts at sample `index`,
+        due one packet after `last_wall` (monotonic time of the previous packet)."""
+
     async def packets(self) -> AsyncIterator[Packet]:
         raise NotImplementedError
         yield  # pragma: no cover
@@ -82,9 +86,14 @@ class PacedSource(Source):
         self._sleep = sleep
         self._now = now
         self.index = 0   # stream index of the next sample
+        self._start_hint: float | None = None
+
+    def seed(self, index: int, last_wall: float | None) -> None:
+        self.index = index
+        self._start_hint = last_wall
 
     async def packets(self) -> AsyncIterator[Packet]:
-        start = self._now()
+        start = (self._start_hint if self._start_hint is not None else self._now()) - self.index / FS
         self.set_status("streaming")
         while True:
             uv = [next(self._samples) for _ in range(PACKET)]

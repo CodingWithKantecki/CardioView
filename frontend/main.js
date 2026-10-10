@@ -17,14 +17,15 @@ const params = new URLSearchParams(location.search);
 const actParam = params.get('act');
 const FORCED_ACT = actParam === null ? null : { ra: +actParam, la: +actParam, rv: +actParam, lv: +actParam };
 const FORCED_LOST = params.get('signal') === 'lost';
-// theme: ?theme=dark, or the T key, remembered per browser
+// theme: navy by default; ?theme=light or the T key, remembered per browser
 const savedTheme = (() => { try { return localStorage.getItem('cardioview-theme'); } catch { return null; } })();
 if (params.get('theme') || savedTheme) document.documentElement.dataset.theme = params.get('theme') || savedTheme;
 function toggleTheme() {
-  const next = document.documentElement.dataset.theme === 'dark' ? '' : 'dark';
+  const next = document.documentElement.dataset.theme === 'light' ? '' : 'light';
   document.documentElement.dataset.theme = next;
   try { localStorage.setItem('cardioview-theme', next); } catch {}
   invalidateTheme();
+  heart.applyTheme();
 }
 const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;   // lost state without the glitch pass
 
@@ -86,10 +87,7 @@ function setStatus(msg) {
 
 function handle(msg) {
   if (msg.type === 'status') {
-    if (status && status.source !== msg.source) {   // the server switched sources: start clean
-      trace.clear(); lanes.clear(); clock.reset(); shownBeat = null; lastSampleT = null; lastSampleWall = null;
-      signal = { ok: true, reason: '' };
-    }
+    if (status && status.source !== msg.source) signal = { ok: true, reason: '' };   // sources continue on one stream clock
     status = msg;
     setStatus(msg);
     for (const b of document.querySelectorAll('#source-mode button')) {

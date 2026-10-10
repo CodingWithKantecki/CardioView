@@ -1,7 +1,7 @@
 /* CardioView in Statura's Swiss language: Helvetica for everything, JetBrains Mono for data and
    labels, navy on cream with gold as the only accent, square corners, no shadows, hairline rules,
    visible navy borders between regions, gold-in-a-tray segmented controls. Tokens follow Statura's
-   brand kit. Press T to switch between the cream and the navy theme. */
+   brand kit. Navy is the default; press T for the cream theme. */
 @font-face { font-family: "JetBrains Mono"; font-weight: 400; font-style: normal; font-display: swap; src: url(vendor/fonts/jetbrains-mono-latin-400-normal.woff2) format("woff2"); }
 @font-face { font-family: "JetBrains Mono"; font-weight: 600; font-style: normal; font-display: swap; src: url(vendor/fonts/jetbrains-mono-latin-600-normal.woff2) format("woff2"); }
 
@@ -11,34 +11,34 @@
   --gold: #C9954A; --gold-80: #B7853F; --gold-60: #E8C485;
   --danger: #A8423D;
 
-  --paper: var(--cream);            /* the stage */
-  --card: #FFFFFF;                  /* the instrument column */
-  --ink: var(--navy);
-  --ink-2: var(--navy-70);
-  --muted: #6B7A94;
-  --line: rgba(20, 35, 62, 0.12);
-  --line-2: rgba(20, 35, 62, 0.2);
-  --line-navy: rgba(20, 35, 62, 0.5);
-  --tray: rgba(20, 35, 62, 0.08);
-  --accent: var(--gold);
+  --paper: var(--navy);             /* the stage */
+  --card: var(--navy-90);           /* the instrument column */
+  --ink: var(--cream);
+  --ink-2: var(--cream-90);
+  --muted: #A8B1C2;
+  --line: rgba(245, 241, 232, 0.12);
+  --line-2: rgba(245, 241, 232, 0.2);
+  --line-navy: rgba(245, 241, 232, 0.4);
+  --tray: rgba(245, 241, 232, 0.1);
+  --accent: var(--gold-60);
   --on-accent: var(--navy);
 
   --sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
   --gutter: clamp(16px, 1.6vw, 28px);
 
-  /* canvas colors (six-digit hex only; the scripts derive their alphas) */
-  --c-paper: #FFFFFF; --c-ink: #14233E; --c-trace: #14233E; --c-grid: #14233E; --c-rule: #14233E;
-  --c-dim: #6B7A94; --c-right: #41506C; --c-left: #A8423D; --c-alert: #A8423D; --c-now: #C9954A;
-}
-html[data-theme="dark"] {
-  --paper: var(--navy); --card: var(--navy-90);
-  --ink: var(--cream); --ink-2: var(--cream-90); --muted: #A8B1C2;
-  --line: rgba(245, 241, 232, 0.12); --line-2: rgba(245, 241, 232, 0.2); --line-navy: rgba(245, 241, 232, 0.4);
-  --tray: rgba(245, 241, 232, 0.1);
-  --accent: var(--gold-60); --on-accent: var(--navy);
-  --c-paper: #1F2D49; --c-ink: #F5F1E8; --c-trace: #F5F1E8; --c-grid: #F5F1E8; --c-rule: #F5F1E8;
+  /* canvas and scene colors (six-digit hex only; the scripts derive their alphas) */
+  --c-stage: #14233E; --c-paper: #1F2D49; --c-ink: #F5F1E8; --c-trace: #F5F1E8; --c-grid: #F5F1E8; --c-rule: #F5F1E8;
   --c-dim: #A8B1C2; --c-right: #9FB0D1; --c-left: #E0796F; --c-alert: #E0796F; --c-now: #E8C485;
+}
+html[data-theme="light"] {
+  --paper: var(--cream); --card: #FFFFFF;
+  --ink: var(--navy); --ink-2: var(--navy-70); --muted: #6B7A94;
+  --line: rgba(20, 35, 62, 0.12); --line-2: rgba(20, 35, 62, 0.2); --line-navy: rgba(20, 35, 62, 0.5);
+  --tray: rgba(20, 35, 62, 0.08);
+  --accent: var(--gold); --on-accent: var(--navy);
+  --c-stage: #F5F1E8; --c-paper: #FFFFFF; --c-ink: #14233E; --c-trace: #14233E; --c-grid: #14233E; --c-rule: #14233E;
+  --c-dim: #6B7A94; --c-right: #41506C; --c-left: #A8423D; --c-alert: #A8423D; --c-now: #C9954A;
 }
 
 * { box-sizing: border-box; border-radius: 0; box-shadow: none; }
@@ -74,7 +74,6 @@ body {
 /* screen: a ruled grid, stage on paper, instruments on a lifted white column */
 .screen { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 3fr 2fr; }
 .stage { position: relative; overflow: hidden; border-right: 1px solid var(--line-navy); }
-.stage::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(55% 50% at 50% 46%, rgba(20, 35, 62, 0.05), transparent 72%); }
 #heart-view { position: absolute; inset: 0; z-index: 1; }
 #heart-view canvas { display: block; width: 100%; height: 100%; }
 .missing { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); z-index: 2; margin: 0; text-align: center; color: var(--muted); font-size: 14px; }
@@ -97,18 +96,18 @@ body {
 .alert {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 5;
   display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; pointer-events: none;
-  padding: 28px 56px; background: radial-gradient(closest-side, rgba(245, 241, 232, 0.95), rgba(245, 241, 232, 0.8) 60%, rgba(245, 241, 232, 0));
+  padding: 28px 56px; background: radial-gradient(closest-side, rgba(20, 35, 62, 0.95), rgba(20, 35, 62, 0.8) 60%, rgba(20, 35, 62, 0));
 }
-html[data-theme="dark"] .alert { background: radial-gradient(closest-side, rgba(20, 35, 62, 0.95), rgba(20, 35, 62, 0.8) 60%, rgba(20, 35, 62, 0)); }
-.alert b { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; color: var(--danger); }
-html[data-theme="dark"] .alert b { color: #E0796F; }
+html[data-theme="light"] .alert { background: radial-gradient(closest-side, rgba(245, 241, 232, 0.95), rgba(245, 241, 232, 0.8) 60%, rgba(245, 241, 232, 0)); }
+.alert b { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; color: #E0796F; }
+html[data-theme="light"] .alert b { color: var(--danger); }
 .alert span { color: var(--ink-2); font-size: 13px; }
 .alert span:empty { display: none; }
 body.lost #heart-view { opacity: 0; }
 .glitch { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 4; pointer-events: none; display: none; }
 body.lost .glitch { display: block; }
-body.lost .stage { background: #F1E2DF; }
-html[data-theme="dark"] body.lost .stage { background: #2C1F33; }
+body.lost .stage { background: #2C1F33; }
+html[data-theme="light"] body.lost .stage { background: #F1E2DF; }
 body.lost .label, body.lost .leaders { opacity: 0.3; }
 body.lost #trace { opacity: 0.5; }
 body.lost .bpm { opacity: 0.35; }

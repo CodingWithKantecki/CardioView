@@ -53,6 +53,10 @@ class H10Source(Source):
         self.battery: int | None = None
         self._last_wall: float | None = None
 
+    def seed(self, index: int, last_wall: float | None) -> None:
+        self.index = index
+        self._last_wall = last_wall   # the gap until the strap streams again is added on resume
+
     async def packets(self) -> AsyncIterator[Packet]:
         scans = 0
         first = True

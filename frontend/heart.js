@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { colors } from './theme.js';
 
 export const CHAMBERS = ['ra', 'la', 'rv', 'lv'];
 const GLOW = { ra: 0x5B9BFF, la: 0xFF5C83, rv: 0x5B9BFF, lv: 0xFF5C83 };
@@ -57,6 +58,7 @@ export class Heart {
     container.appendChild(this.renderer.domElement);
 
     this.scene = new THREE.Scene();
+    this.scene.fog = new THREE.Fog(0x14233E, 5.5, 11);
     this.camera = new THREE.PerspectiveCamera(30, 1, 0.01, 100);
     this.camera.position.set(0, 0.1, 4.4);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
@@ -151,6 +153,7 @@ export class Heart {
     holder.updateMatrixWorld(true);
     const wb = new THREE.Box3().setFromObject(holder);
     this.bounds = wb;
+    this.buildGrid(wb);
     const f = (v) => v.toArray().map((x) => x.toFixed(2)).join(',');
     console.log(`heart model: raw size ${f(size)}; normalized bounds ${f(wb.min)} to ${f(wb.max)}`);
 
@@ -198,6 +201,42 @@ export class Heart {
     for (const el of Object.values(this.labels)) el.hidden = false;
     if (this.missingEl) this.missingEl.hidden = true;
     return true;
+  }
+
+  // A room for the heart to float in: a floor grid under it and a wall grid behind it, both
+  // fading into fog, so the space reads as a volume and turns with the camera.
+  buildGrid(wb) {
+    if (this.grid) this.scene.remove(this.grid);
+    const g = new THREE.Group();
+    const floor = new THREE.GridHelper(12, 48);
+    floor.position.y = wb.min.y - 0.35;
+    const wall = new THREE.GridHelper(12, 48);
+    wall.rotation.x = Math.PI / 2;
+    wall.position.set(0, wb.min.y - 0.35 + 6, -2.4);
+    for (const h of [floor, wall]) {
+      h.material.transparent = true;
+      h.material.depthWrite = false;
+      g.add(h);
+    }
+    floor.material.opacity = 0.28;
+    wall.material.opacity = 0.16;
+    this.grid = g;
+    this.scene.add(g);
+    this.applyTheme();
+  }
+
+  applyTheme() {
+    const T = colors();
+    const stage = new THREE.Color(T.stage);
+    const rule = new THREE.Color(T.rule);
+    this.scene.fog.color.copy(stage);
+    if (!this.grid) return;
+    for (const h of this.grid.children) {
+      // GridHelper carries vertex colors; recolor every vertex to the theme's rule color
+      const attr = h.geometry.getAttribute('color');
+      for (let i = 0; i < attr.count; i++) attr.setXYZ(i, rule.r, rule.g, rule.b);
+      attr.needsUpdate = true;
+    }
   }
 
   patch(mat, mesh) {
