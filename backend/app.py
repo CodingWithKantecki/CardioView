@@ -294,10 +294,11 @@ class Runner:
 
 def create_app(factories: dict[str, Callable[[], Source]], initial: str, http: httpx.AsyncClient | None = None, *,
                sessions_dir: Path | None = None, keep_until: datetime | None = None, public_host: str | None = None,
-               port: int = 8000, cloud=None) -> FastAPI:
+               port: int = 8000, cloud=None, strap_only: bool = True) -> FastAPI:
     """`factories` maps a name (live, demo) to a function that builds that source. `http` is the
     client the chat uses to reach Gemini; tests pass one with a mock transport. `cloud` is an object
-    with publish, unpublish and run(manager), or None to keep saved sessions on the laptop."""
+    with publish, unpublish and run(manager), or None to keep saved sessions on the laptop. With
+    `strap_only` a session starts only while the strap streams (Thomas: never on demo data)."""
     hub = Hub("simulated")
     store = SessionStore(sessions_dir or SESSIONS)
     host = public_host or lan_address()
@@ -417,6 +418,8 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, http: h
 
     @app.post("/api/session/start")
     async def session_start():
+        if strap_only and (hub.status["source"] != "live" or hub.status["state"] != "streaming"):
+            return JSONResponse({"reason": "Exercise needs the strap on and streaming."}, status_code=409)
         sessions.set_source(hub.status["source"], hub.status["device"])
         try:
             return {"id": sessions.start()}

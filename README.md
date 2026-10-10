@@ -38,7 +38,7 @@ python -m backend --source data/<file>.csv      # replay a recording
 python -m backend --source h10                  # live from the Polar H10
 ```
 
-Options: `--bpm 72` sets the simulated rate, `--invert` flips a strap worn upside down, `--host` and `--port` change where it listens (default 0.0.0.0:8000). Whatever you start with, the Strap / Demo toggle at the top right of the viewer switches between the live strap and demo data without a restart; `--demo data/<file>.csv` or `--demo sim` picks the demo source (default: the first recording in `data/`). In Demo, the Simulated rhythm tray beside the heart rate plays synthesized rhythms (normal, bradycardia, atrial fibrillation, extra beats, ventricular tachycardia, heart attack) for showing the screen without a strap; they are simulations and are never offered beside strap data. Hover the blue ! in a cell to read what that rhythm is. Press T to switch between the dark theme and the cream one. The 0 key resets the view, like the dock's Reset view.
+Options: `--bpm 72` sets the simulated rate, `--invert` flips a strap worn upside down, `--host` and `--port` change where it listens (default 0.0.0.0:8000). Whatever you start with, the Strap / Demo / Exercise toggle at the top right of the viewer switches between the live strap and demo data without a restart; `--demo data/<file>.csv` or `--demo sim` picks the demo source (default: the first recording in `data/`). In Demo, the Simulated rhythm tray beside the heart rate plays synthesized rhythms (normal, bradycardia, atrial fibrillation, extra beats, ventricular tachycardia, heart attack) for showing the screen without a strap; they are simulations and are never offered beside strap data. Hover the blue ! in a cell to read what that rhythm is. Press T to switch between the dark theme and the cream one. The 0 key resets the view, like the dock's Reset view.
 
 ### Chat (optional, the only part that needs internet)
 
@@ -76,7 +76,7 @@ A visitor can save a two minute session and take a summary of it home.
 2. If they agree, press S, then S again. The stage walks them through it: hold still, rest, slow breathing with the ring, squats, recovery.
 3. The big screen then shows their summary with a QR code. Esc goes back to the live view, and so does three minutes without a key.
 
-Esc twice during a session stops it and deletes it. V turns the voice on or off. While a session runs, the Strap / Demo and rhythm buttons wait: stop the session first.
+The Exercise cell in the header starts a session with two clicks (the consent) and stops one with two clicks; it only works while the real strap is streaming, never on demo data. S twice and Esc twice do the same from the keyboard, and V turns the voice on or off. While a session runs, the Strap / Demo and rhythm buttons wait: stop the session first. The report opens over the live view and Back returns to it.
 
 The summary shows effort and recovery, breathing, heart rate variability, their average heartbeat and their beat timing. A section says what it could not measure when the signal was not good enough. A session run on demo data says so at the top. It is a visualization, not a diagnosis.
 

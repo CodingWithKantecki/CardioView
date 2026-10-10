@@ -11,9 +11,12 @@ const STEP_NAME = { rest: 'REST', breathe: 'BREATHE', squats: 'SQUATS', recover:
 const IDLE_MS = 180000;   // the big screen goes back to live after 3 minutes
 const GONE = 'This session is no longer available.';
 
-// the booth's theme (the T key on the viewer) carries over to its summary; elsewhere the default
-const savedTheme = (() => { try { return localStorage.getItem('cardioview-theme'); } catch { return null; } })();
-if (params.get('theme') || savedTheme) document.documentElement.dataset.theme = params.get('theme') || savedTheme;
+// embedded: the booth shows this page in an overlay over the live view; leaving means closing it
+const embedded = params.has('embed') && window.parent !== window;
+function leave() {
+  if (embedded) window.parent.postMessage({ type: 'cardioview-report', action: 'back' }, location.origin);
+  else location.assign('/');
+}
 
 let summary = null;
 if (screenMode) document.body.classList.add('screen');
@@ -273,7 +276,7 @@ window.addEventListener('resize', () => { if (summary) draw(summary); });
 
 // big screen: the QR, back to live on Esc or after a while, and follow the booth's session state
 function backToLive() {
-  fetch('/api/session/dismiss', { method: 'POST' }).catch(() => {}).finally(() => location.assign('/'));
+  fetch('/api/session/dismiss', { method: 'POST' }).catch(() => {}).finally(leave);
 }
 
 // the big screen and the demo page get a way back to the live view (Thomas: there was none)
@@ -297,7 +300,7 @@ if (screenMode) {
       $('qr').src = `/api/s/${encodeURIComponent(sid)}/qr.svg?v=${Date.now()}`;
       $('qr-text').textContent = msg.online ? 'Scan to keep this on your phone' : 'Scan on the booth Wi-Fi to keep this on your phone';
     } else if (msg.state === 'running' || (ours && msg.state === 'idle')) {
-      location.assign('/');
+      leave();
     }
   };
 }

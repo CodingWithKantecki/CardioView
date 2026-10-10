@@ -45,6 +45,25 @@ export class SessionOverlay {
     this.lastIndex = -1;
     this.lastBreath = '';
     this.analyzingAt = 0;
+    this.onDone = null;       // set by the viewer: opens the report in place
+  }
+
+  // a first click or S is pending its second
+  armed() {
+    return this.armedS > 0 && performance.now() - this.armedS < ARM_MS;
+  }
+
+  // the Exercise cell: two clicks start (the consent, like S twice), two clicks stop (like Esc twice)
+  exercise(ready) {
+    const now = performance.now();
+    if (this.busy()) {
+      if (now - this.armedEsc < ARM_MS) { this.armedEsc = 0; this.post('/api/session/cancel'); }
+      else { this.armedEsc = now; this.flash('Click Exercise again to stop the session'); }
+      return;
+    }
+    if (!ready) { this.armedS = 0; this.flash('Exercise needs the strap on and streaming'); return; }
+    if (now - this.armedS < ARM_MS) { this.armedS = 0; this.post('/api/session/start'); }
+    else { this.armedS = now; this.flash('Click Exercise again to start the two minute session'); }
   }
 
   // a session is recording or being measured: the source and rhythm switches wait until it stops
@@ -75,7 +94,7 @@ export class SessionOverlay {
     }
     if (msg.state === 'done') {
       const wait = this.analyzingAt ? Math.max(0, MIN_DONE_MS - (performance.now() - this.analyzingAt)) : 0;
-      setTimeout(() => location.assign(`/s/${encodeURIComponent(msg.id)}?screen=1`), wait);
+      setTimeout(() => { if (this.onDone) this.onDone(msg.id); else location.assign(`/s/${encodeURIComponent(msg.id)}?screen=1`); }, wait);
     }
   }
 

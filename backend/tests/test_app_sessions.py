@@ -55,7 +55,7 @@ def wait_for(cond, seconds=30.0):
 @pytest.fixture
 def client(tmp_path):
     src = FastSource()
-    app = create_app({"demo": lambda: src, "live": Quiet}, "demo",
+    app = create_app({"demo": lambda: src, "live": Quiet}, "demo", strap_only=False,
                      sessions_dir=tmp_path / "sessions", public_host="booth.local", port=8000)
     src.go = lambda: app.state.sessions.state == "running"
     with TestClient(app) as c:
@@ -110,9 +110,17 @@ def test_unknown_bad_and_demo_ids(client):
 
 
 def test_start_without_signal_is_refused(tmp_path):
-    with TestClient(create_app({"demo": Quiet}, "demo", sessions_dir=tmp_path)) as c:
+    with TestClient(create_app({"demo": Quiet}, "demo", sessions_dir=tmp_path, strap_only=False)) as c:
         r = c.post("/api/session/start")
         assert r.status_code == 409 and r.json() == {"reason": "No signal yet."}
+
+
+def test_start_needs_the_strap_streaming_by_default(tmp_path):
+    """The booth policy (Thomas): a session never runs on demo data, whatever the signal."""
+    src = FastSource()
+    with TestClient(create_app({"demo": lambda: src, "live": Quiet}, "demo", sessions_dir=tmp_path)) as c:
+        r = c.post("/api/session/start")
+        assert r.status_code == 409 and r.json() == {"reason": "Exercise needs the strap on and streaming."}
 
 
 def test_keep_until_reads_zones_and_local_time():
@@ -126,7 +134,7 @@ def test_source_and_rhythm_switches_wait_for_the_session(tmp_path):
     """A running session records one source, so Strap / Demo and rhythm switches are refused until it stops."""
     src = FastSource(pause=0.05)   # slow enough that the session is still running when the switch arrives
     app = create_app({"demo": lambda: src, "live": Quiet, "rhythm": lambda pattern="sinus": Quiet()}, "demo",
-                     sessions_dir=tmp_path / "sessions")
+                     sessions_dir=tmp_path / "sessions", strap_only=False)
     sessions, runner = app.state.sessions, app.state.runner
     with TestClient(app) as c:
         assert wait_for(lambda: sessions._last_sample_at is not None)
@@ -176,7 +184,7 @@ def test_building_the_demo_summary_never_stalls_the_server(tmp_path, monkeypatch
         return {"version": 1, "id": "demo", "demo": True}
 
     monkeypatch.setattr(app_module, "demo_summary", slow_demo)
-    with TestClient(create_app({"demo": FastSource}, "demo", sessions_dir=tmp_path)) as c:
+    with TestClient(create_app({"demo": FastSource}, "demo", sessions_dir=tmp_path, strap_only=False)) as c:
         slow = threading.Thread(target=lambda: c.get("/api/s/demo"))
         slow.start()
         time.sleep(0.2)                    # the slow build is under way

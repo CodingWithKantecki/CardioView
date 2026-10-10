@@ -1,8 +1,7 @@
 /* The summary of a saved session: the big screen (?screen=1), a phone on the booth Wi-Fi, and the public link.
    The viewer's look: JetBrains Mono 700 in uppercase for titles, status and controls, 600 for readouts;
    Helvetica for sentences and the numeral; square corners, no shadows, thick rules between regions.
-   The tokens copy style.css, because this page also stands alone on Vercel; the booth's T theme is
-   applied by summary.js. */
+   The tokens copy style.css, because this page also stands alone on Vercel. */
 @font-face { font-family: "JetBrains Mono"; font-weight: 600; font-style: normal; font-display: swap; src: url(/vendor/fonts/jetbrains-mono-latin-600-normal.woff2) format("woff2"); }
 @font-face { font-family: "JetBrains Mono"; font-weight: 700; font-style: normal; font-display: swap; src: url(/vendor/fonts/jetbrains-mono-latin-700-normal.woff2) format("woff2"); }
 
@@ -17,12 +16,6 @@
   --cell-w: 3px;
   /* chart colors (six-digit hex, like the viewer's --c-* variables) */
   --c-ink: #E8F1F2; --c-dim: #7F969B; --c-rule: #E8F1F2; --c-trace: #37E07E;
-}
-html[data-theme="light"] {
-  --paper: #F5F1E8; --card: #FFFFFF; --header: #14233E;
-  --ink: #14233E; --ink-2: #41506C; --muted: #6B7A94;
-  --line: rgba(20, 35, 62, 0.12); --line-2: rgba(20, 35, 62, 0.28); --line-strong: rgba(20, 35, 62, 0.5);
-  --c-ink: #14233E; --c-dim: #6B7A94; --c-rule: #14233E; --c-trace: #14233E;
 }
 
 * { box-sizing: border-box; border-radius: 0; box-shadow: none; }

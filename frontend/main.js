@@ -6,7 +6,6 @@ import { Glitch } from './glitch.js';
 import { Timeline } from './timeline.js';
 import { Dock } from './dock.js';
 import { drawRhythmTips } from './tips.js';
-import { invalidate as invalidateTheme } from './theme.js';
 import { initChat } from './chat.js';
 import { SessionOverlay } from './session.js';
 
@@ -22,17 +21,6 @@ const params = new URLSearchParams(location.search);
 const actParam = params.get('act');
 const FORCED_ACT = actParam === null ? null : { ra: +actParam, la: +actParam, rv: +actParam, lv: +actParam };
 const FORCED_LOST = params.get('signal') === 'lost';
-// theme: navy by default; ?theme=light or the T key, remembered per browser
-const savedTheme = (() => { try { return localStorage.getItem('cardioview-theme'); } catch { return null; } })();
-if (params.get('theme') || savedTheme) document.documentElement.dataset.theme = params.get('theme') || savedTheme;
-function toggleTheme() {
-  const next = document.documentElement.dataset.theme === 'light' ? '' : 'light';
-  document.documentElement.dataset.theme = next;
-  try { localStorage.setItem('cardioview-theme', next); } catch {}
-  invalidateTheme();
-  heart.applyTheme();
-  drawRhythmTips();
-}
 const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;   // lost state without the glitch pass
 
 const RHYTHM_LABELS = {
@@ -60,6 +48,47 @@ const session = new SessionOverlay(
   { box: $('session'), prompt: $('session-prompt'), sub: $('session-sub'), ring: $('session-ring') },
   { reducedMotion: REDUCED_MOTION },
 );
+
+// The session report opens in an overlay over the live view (an iframe of the summary page in
+// embed mode), so the app never reloads: Back, Esc or three idle minutes in the report close it.
+const report = {
+  el: $('report'), frame: $('report-frame'),
+  open(id) {
+    this.frame.src = `/s/${encodeURIComponent(id)}?screen=1&embed=1`;
+    this.el.hidden = false;
+    this.frame.focus();
+  },
+  close() {
+    if (this.el.hidden) return;
+    this.el.hidden = true;
+    this.frame.src = 'about:blank';
+  },
+};
+session.onDone = (id) => report.open(id);
+window.addEventListener('message', (e) => {
+  if (e.origin === location.origin && e.data?.type === 'cardioview-report' && e.data.action === 'back') report.close();
+});
+
+// Exercise needs the real strap, streaming, with a signal
+function strapReady() {
+  return !!status && status.source === 'live' && status.state === 'streaming' && signal.ok;
+}
+
+// the header cells: Strap or Demo for the source, Exercise pressed while a session runs or is armed
+const sourceCells = [...document.querySelectorAll('#source-mode button')];
+function syncSourceCells() {
+  const live = !!status && status.source === 'live';
+  const busy = session.busy() || session.armed();
+  for (const b of sourceCells) {
+    const s = b.dataset.source;
+    const pressed = s === 'live' ? (live && !busy) : s === 'demo' ? (!!status && !live) : busy;
+    if (b.getAttribute('aria-pressed') !== String(pressed)) b.setAttribute('aria-pressed', String(pressed));
+    if (s === 'exercise') {
+      const off = !busy && !strapReady();
+      if (b.getAttribute('aria-disabled') !== String(off)) b.setAttribute('aria-disabled', String(off));
+    }
+  }
+}
 
 let lastSampleT = null;
 let lastSampleWall = null;
@@ -118,9 +147,6 @@ function handle(msg) {
     }
     status = msg;
     setStatus(msg);
-    for (const b of document.querySelectorAll('#source-mode button')) {
-      b.setAttribute('aria-pressed', String((b.dataset.source === 'live') === (msg.source === 'live')));
-    }
     // simulated rhythms exist in demo only, never beside strap data
     const rhythms = document.getElementById('rhythms');
     rhythms.hidden = msg.source === 'live';
@@ -143,6 +169,7 @@ function handle(msg) {
     lanes.push(msg);
   } else if (msg.type === 'session') {
     session.handle(msg);
+    if (msg.state === 'running' || msg.state === 'analyzing') report.close();
   }
 }
 
@@ -230,6 +257,7 @@ function drawFrame() {
   dock.setPressed('wireframe', userWireframe);
   dock.setPressed('open', heart.state.cutaway);
   session.frame(performance.now());
+  syncSourceCells();
 }
 
 // the transport tray shows the clock's mode; a replay that catches up flips back to live by itself
@@ -248,16 +276,17 @@ function frame() {
 }
 requestAnimationFrame(frame);
 
-for (const b of document.querySelectorAll('#source-mode button')) {
+for (const b of sourceCells) {
   b.addEventListener('click', () => {
-    if (session.busy()) { session.flash('Press Esc twice to stop the session first'); return; }
+    if (b.dataset.source === 'exercise') { session.exercise(strapReady()); return; }
+    if (session.busy()) { session.flash('Click Exercise twice to stop the session first'); return; }
     if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'source', name: b.dataset.source }));
   });
 }
 
 for (const b of document.querySelectorAll('#rhythms button')) {
   b.addEventListener('click', () => {
-    if (session.busy()) { session.flash('Press Esc twice to stop the session first'); return; }
+    if (session.busy()) { session.flash('Click Exercise twice to stop the session first'); return; }
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     const name = b.dataset.rhythm;
     ws.send(JSON.stringify({ type: 'rhythm', name }));
@@ -297,8 +326,7 @@ window.addEventListener('keydown', (e) => {
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
   if (session.key(e)) return;   // S, Esc, V: saved sessions
   const k = e.key.toLowerCase();
-  if (k === 't') toggleTheme();
-  else if (k === 'r') view.rotate();
+  if (k === 'r') view.rotate();
   else if (k === 'w') view.wire();
   else if (k === 'c') view.cut();
   else if (k === '0') view.reset();

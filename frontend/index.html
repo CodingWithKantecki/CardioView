@@ -22,7 +22,7 @@
     <button type="button" data-mode="live" aria-pressed="true">Live</button>
     <canvas id="timeline-strip" aria-label="The last 30 seconds of ECG, drag to scrub"></canvas>
   </div>
-  <span class="toggle source-toggle" id="source-mode"><button type="button" data-source="live" aria-pressed="false">Strap</button><button type="button" data-source="demo" aria-pressed="false">Demo</button></span>
+  <span class="toggle source-toggle" id="source-mode"><button type="button" data-source="live" aria-pressed="false">Strap</button><button type="button" data-source="demo" aria-pressed="false">Demo</button><button type="button" data-source="exercise" aria-pressed="false" aria-disabled="true">Exercise</button></span>
 </header>
 
 <main class="screen">
@@ -85,6 +85,7 @@
     <div class="nowline" id="nowline-lanes" aria-hidden="true"></div>
   </aside>
 </main>
+<div class="report" id="report" hidden><iframe id="report-frame" title="Session summary"></iframe></div>
 <script type="module" src="main.js"></script>
 </body>
 </html>
