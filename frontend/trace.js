@@ -39,6 +39,7 @@ export class Trace {
     this.ys = [];
     this.scale = 200;
     this.mode = '2d';
+    this.fs = FS_DEFAULT;
     this.beats = [];      // shared with the chamber lanes, newest last
     this.amp3d = 0;
     this.resetFilter();
@@ -54,7 +55,18 @@ export class Trace {
 
   clear() { this.ts.length = 0; this.ys.length = 0; this.resetFilter(); this.scale = 200; }
 
+  // the sample rate, small, in the graph's top-left corner
+  drawRate(ctx, gutter, dpr) {
+    ctx.save();
+    ctx.font = `600 ${11 * dpr}px "JetBrains Mono", monospace`;
+    ctx.fillStyle = colors().dim;
+    ctx.textBaseline = 'top';
+    ctx.fillText(`${this.fs} HZ`, gutter + 4 * dpr, 4 * dpr);
+    ctx.restore();
+  }
+
   push(t0, uv, fs = FS_DEFAULT) {
+    this.fs = fs;
     for (let i = 0; i < uv.length; i++) {
       const x = uv[i];
       if (!this.primed) { this.prevX = x; this.prevY = 0; this.primed = true; }
@@ -83,6 +95,7 @@ export class Trace {
     const { w, h, dpr } = fitCanvas(this.canvas);
     const ctx = this.ctx;
     ctx.clearRect(0, 0, w, h);
+    this.drawRate(ctx, GUTTER * dpr, dpr);
     if (tDisplay === null || this.ts.length === 0) return;
     const T = colors();
     const all = this.beats.filter((b) => b.r - PRE_S >= this.ts[0]);
@@ -184,6 +197,7 @@ export class Trace {
     for (let y = baseline + stepPx; y <= h; y += stepPx) { ctx.beginPath(); ctx.moveTo(gutter, y); ctx.lineTo(w, y); ctx.stroke(); }
     ctx.restore();
 
+    this.drawRate(ctx, gutter, dpr);
     if (tDisplay === null || this.ts.length === 0) return;
 
     // scale follows the recent peak, floor 200 uV

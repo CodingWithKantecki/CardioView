@@ -58,14 +58,15 @@ export class Heart {
     container.appendChild(this.renderer.domElement);
 
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.Fog(0x14233E, 5.5, 11);
+    this.scene.fog = new THREE.Fog(0x0A1115, 6, 16);   // color follows the theme; the far walls fade into it
     this.camera = new THREE.PerspectiveCamera(30, 1, 0.01, 100);
     this.camera.position.set(0, 0.1, 4.4);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.enablePan = false;
     this.controls.minDistance = 1.5;
-    this.controls.maxDistance = 9;
+    this.controls.maxDistance = 6.5;                 // stays inside the grid room (half size 8)
+    this.controls.maxPolarAngle = Math.PI * 0.53;    // never dips under the floor
     this.controls.autoRotateSpeed = 1.5;
 
     const pmrem = new THREE.PMREMGenerator(this.renderer);
@@ -203,23 +204,29 @@ export class Heart {
     return true;
   }
 
-  // A room for the heart to float in: a floor grid under it and a wall grid behind it, both
-  // fading into fog, so the space reads as a volume and turns with the camera.
+  // A room for the heart to float in: a floor grid under it and four wall grids that meet the
+  // floor's edges, fading into fog. The orbit limits keep the camera inside, so nothing clips.
   buildGrid(wb) {
     if (this.grid) this.scene.remove(this.grid);
     const g = new THREE.Group();
-    const floor = new THREE.GridHelper(12, 48);
-    floor.position.y = wb.min.y - 0.35;
-    const wall = new THREE.GridHelper(12, 48);
-    wall.rotation.x = Math.PI / 2;
-    wall.position.set(0, wb.min.y - 0.35 + 6, -2.4);
-    for (const h of [floor, wall]) {
+    const HALF = 8;
+    const DIV = 64;                       // 0.25 units per cell on floor and walls alike, so lines meet
+    const floorY = wb.min.y - 0.35;
+    const floor = new THREE.GridHelper(HALF * 2, DIV);
+    floor.position.y = floorY;
+    floor.material.opacity = 0.28;
+    g.add(floor);
+    for (const [x, z, axis] of [[0, -HALF, 'x'], [0, HALF, 'x'], [-HALF, 0, 'z'], [HALF, 0, 'z']]) {
+      const wall = new THREE.GridHelper(HALF * 2, DIV);
+      if (axis === 'x') wall.rotation.x = Math.PI / 2; else wall.rotation.z = Math.PI / 2;
+      wall.position.set(x, floorY + HALF, z);
+      wall.material.opacity = 0.14;
+      g.add(wall);
+    }
+    for (const h of g.children) {
       h.material.transparent = true;
       h.material.depthWrite = false;
-      g.add(h);
     }
-    floor.material.opacity = 0.28;
-    wall.material.opacity = 0.16;
     this.grid = g;
     this.scene.add(g);
     this.applyTheme();
