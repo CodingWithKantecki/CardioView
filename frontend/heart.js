@@ -7,7 +7,6 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 export const CHAMBERS = ['ra', 'la', 'rv', 'lv'];
 const GLOW = { ra: 0x5B9BFF, la: 0xFF5C83, rv: 0x5B9BFF, lv: 0xFF5C83 };
 const STRENGTH = { ra: 0.08, la: 0.08, rv: 0.12, lv: 0.12 };
-const OPACITY_STEPS = [1, 0.55, 0.25];
 const DEBUG = new URLSearchParams(location.search).has('debug');
 
 const VERTEX_HEAD = `
@@ -47,7 +46,7 @@ export class Heart {
     this.config = null;
     this.materials = [];
     this.markers = [];
-    this.state = { rotate: false, wireframe: false, opacityStep: 0, cutaway: false };
+    this.state = { rotate: false, wireframe: false, opacity: 1, cutaway: false };
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -244,16 +243,16 @@ export class Heart {
     for (const m of this.materials) m.wireframe = on;
   }
 
-  cycleOpacity() {
-    this.state.opacityStep = (this.state.opacityStep + 1) % OPACITY_STEPS.length;
-    const o = OPACITY_STEPS[this.state.opacityStep];
+  setOpacity(o) {
+    o = Math.min(1, Math.max(0.05, o));
+    const wasTransparent = this.state.opacity < 1;
+    this.state.opacity = o;
     for (const m of this.materials) {
       m.transparent = o < 1;
       m.opacity = o;
       m.depthWrite = o >= 1;
-      m.needsUpdate = true;
+      if ((o < 1) !== wasTransparent) m.needsUpdate = true;
     }
-    return o < 1;
   }
 
   setCutaway(on) {

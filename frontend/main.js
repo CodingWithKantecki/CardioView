@@ -123,14 +123,14 @@ function frame() {
 }
 requestAnimationFrame(frame);
 
-for (const btn of document.querySelectorAll('.controls button')) {
-  btn.addEventListener('click', () => {
-    const on = btn.getAttribute('aria-pressed') !== 'true';
-    switch (btn.dataset.action) {
-      case 'rotate': heart.setRotate(on); btn.setAttribute('aria-pressed', String(on)); break;
-      case 'wireframe': heart.setWireframe(on); btn.setAttribute('aria-pressed', String(on)); break;
-      case 'opacity': btn.setAttribute('aria-pressed', String(heart.cycleOpacity())); break;
-      case 'cutaway': heart.setCutaway(on); btn.setAttribute('aria-pressed', String(on)); break;
-    }
-  });
-}
+const opacity = $('opacity');
+opacity.addEventListener('input', () => heart.setOpacity(Number(opacity.value) / 100));
+
+// Keys keep the other views reachable without chrome: R spins, W wireframe, C cutaway.
+window.addEventListener('keydown', (e) => {
+  if (e.target instanceof HTMLInputElement) return;
+  const k = e.key.toLowerCase();
+  if (k === 'r') heart.setRotate(!heart.state.rotate);
+  else if (k === 'w') heart.setWireframe(!heart.state.wireframe);
+  else if (k === 'c') heart.setCutaway(!heart.state.cutaway);
+});

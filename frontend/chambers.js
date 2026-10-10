@@ -143,6 +143,8 @@ export class Chambers {
     ctx.restore();
   }
 
+  // Lanes: each chamber's activation curve over the 6 s window, brighter toward now, a faint
+  // tick on every beat across all lanes, and a pen dot at the leading edge.
   draw(tDisplay) {
     const { w, h, dpr } = fitCanvas(this.canvas);
     const ctx = this.ctx;
@@ -154,34 +156,76 @@ export class Chambers {
     const tLeft = tDisplay === null ? 0 : tDisplay - WINDOW_S * NOW_FRAC;
     const rows = ORDER.length;
     const rowH = h / rows;
-    const barH = Math.min(12 * dpr, rowH * 0.5);
+    const pad = Math.min(8 * dpr, rowH * 0.16);
+    const step = Math.max(1, Math.round(dpr));
+
+    if (tDisplay !== null) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(232,236,243,0.09)';
+      ctx.lineWidth = 1 * dpr;
+      for (const b of this.beats) {
+        if (b.r < tLeft || b.r > tDisplay) continue;
+        const x = gutter + (b.r - tLeft) * pxPerS;
+        ctx.beginPath(); ctx.moveTo(x, pad); ctx.lineTo(x, h - pad); ctx.stroke();
+      }
+      ctx.restore();
+    }
 
     for (let r = 0; r < rows; r++) {
       const c = ORDER[r];
-      const yMid = rowH * (r + 0.5);
+      const base = rowH * (r + 1) - pad;
+      const top = rowH * r + pad * 1.5;
+      const amp = base - top;
       ctx.save();
       ctx.font = `${14 * dpr}px "IBM Plex Sans", sans-serif`;
       ctx.fillStyle = '#7F8AA0';
       ctx.textBaseline = 'middle';
-      ctx.fillText(c.toUpperCase(), 0, yMid);
-      ctx.fillStyle = 'rgba(232,236,243,0.06)';
-      ctx.beginPath();
-      ctx.roundRect(gutter, yMid - barH / 2, drawable, barH, barH / 2);
-      ctx.fill();
+      ctx.fillText(c.toUpperCase(), 0, (top + base) / 2);
+      ctx.strokeStyle = 'rgba(232,236,243,0.10)';
+      ctx.lineWidth = 1 * dpr;
+      ctx.beginPath(); ctx.moveTo(gutter, base); ctx.lineTo(w, base); ctx.stroke();
       ctx.restore();
       if (tDisplay === null) continue;
+
+      const fill = ctx.createLinearGradient(gutter, 0, xNow, 0);
+      fill.addColorStop(0, COLOR[c] + '1F');
+      fill.addColorStop(1, COLOR[c] + '8C');
+      const line = ctx.createLinearGradient(gutter, 0, xNow, 0);
+      line.addColorStop(0, COLOR[c] + '4D');
+      line.addColorStop(1, COLOR[c]);
+
       ctx.save();
       ctx.beginPath(); ctx.rect(gutter, 0, xNow - gutter, h); ctx.clip();
-      ctx.fillStyle = COLOR[c] + 'D9';
-      for (const b of this.beats) {
-        const [on, off] = intervals(b)[c];
-        if (off < tLeft || on > tDisplay) continue;
-        const x0 = gutter + (on - tLeft) * pxPerS;
-        const x1 = gutter + (Math.min(off, tDisplay) - tLeft) * pxPerS;
-        ctx.beginPath();
-        ctx.roundRect(x0, yMid - barH / 2, Math.max(x1 - x0, 3 * dpr), barH, barH / 2);
-        ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(gutter, base);
+      let last = 0;
+      for (let x = gutter; x <= xNow; x += step) {
+        last = this.activationOf(c, tLeft + (x - gutter) / pxPerS);
+        ctx.lineTo(x, base - last * amp);
       }
+      ctx.lineTo(xNow, base);
+      ctx.closePath();
+      ctx.fillStyle = fill;
+      ctx.fill();
+      ctx.beginPath();
+      for (let x = gutter; x <= xNow; x += step) {
+        const y = base - this.activationOf(c, tLeft + (x - gutter) / pxPerS) * amp;
+        if (x === gutter) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = line;
+      ctx.lineWidth = 1.5 * dpr;
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+      ctx.restore();
+
+      // pen dot at the leading edge
+      ctx.save();
+      ctx.fillStyle = COLOR[c];
+      ctx.shadowColor = COLOR[c];
+      ctx.shadowBlur = 8 * dpr;
+      ctx.beginPath();
+      ctx.arc(xNow, base - last * amp, 3 * dpr, 0, Math.PI * 2);
+      ctx.fill();
       ctx.restore();
     }
   }

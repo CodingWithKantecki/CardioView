@@ -26,13 +26,7 @@
     <div class="label side-right" data-chamber="la" hidden><b>LA</b><span>left atrium</span><canvas class="spark" data-spark="la"></canvas></div>
     <div class="label side-left" data-chamber="rv" hidden><b>RV</b><span>right ventricle</span><canvas class="spark" data-spark="rv"></canvas></div>
     <div class="label side-right" data-chamber="lv" hidden><b>LV</b><span>left ventricle</span><canvas class="spark" data-spark="lv"></canvas></div>
-    <div class="controls" role="group" aria-label="View">
-      <button type="button" data-action="rotate" aria-pressed="false">Rotate</button>
-      <button type="button" data-action="wireframe" aria-pressed="false">Wireframe</button>
-      <button type="button" data-action="opacity" aria-pressed="false">Opacity</button>
-      <button type="button" data-action="cutaway" aria-pressed="false">Cutaway</button>
-    </div>
-    <div class="footnote"><span>Anatomy: 3D model</span><span>Chamber waves: modeled</span></div>
+    <label class="opacity"><span>Opacity</span><input id="opacity" type="range" min="15" max="100" value="100" aria-label="Heart opacity"></label>
   </section>
 
   <aside class="column" id="column">
