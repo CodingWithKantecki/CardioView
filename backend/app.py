@@ -326,6 +326,7 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, *, sess
                 with suppress(asyncio.CancelledError, Exception):
                     await task
             await runner.stop()
+            await sessions.close()   # after the runner, so no packet can start another analysis
 
     app = FastAPI(title="CardioView", lifespan=lifespan)
     app.state.hub = hub

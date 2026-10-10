@@ -1,6 +1,7 @@
 """The session manager: steps by samples, pauses, consent, cancel, the store on disk."""
 import asyncio
 import json
+import threading
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -187,6 +188,48 @@ def test_cancel_during_analysis_drops_the_result(tmp_path):
 
     m, sid = asyncio.run(run())
     assert m.state == "idle" and not (tmp_path / "sessions" / sid).exists()
+
+
+def test_a_cancel_while_the_recording_is_read_still_stops_and_cleans_up(tmp_path):
+    """On Windows an open file cannot be deleted: a cancel during the read must still stop the session."""
+    reading, release = threading.Event(), threading.Event()
+    measured = []
+
+    class LockedWhileRead(SessionStore):
+        def read_recording(self, sid):
+            reading.set()
+            release.wait(10)
+            try:
+                return super().read_recording(sid)
+            finally:
+                reading.clear()
+
+        def delete(self, sid):
+            if reading.is_set():
+                raise PermissionError("the recording is open")   # what Windows says
+            return super().delete(sid)
+
+    async def run():
+        m, clock, sent = make(tmp_path, analyze=lambda *a: measured.append(a) or {})
+        m.store = LockedWhileRead(tmp_path / "sessions")
+        items = packets_and_beats(synth_session(seed=1, tail_s=10))
+        feed(m, clock, items[:2])
+        sid = m.start()
+        try:
+            feed(m, clock, items[2:])
+            assert await asyncio.to_thread(reading.wait, 5), "the analysis reads the recording"
+            await m.cancel()
+            stopped, kept = sent[-1], (tmp_path / "sessions" / sid).exists()
+        finally:
+            release.set()
+        await m.finishing
+        return m, sid, stopped, kept
+
+    m, sid, stopped, kept = asyncio.run(run())
+    assert stopped == {"type": "session", "state": "idle", "note": "stopped"}, "every screen hears the cancel"
+    assert kept, "the open recording could not go yet"
+    assert m.state == "idle" and not (tmp_path / "sessions" / sid).exists(), "it goes once the read is done"
+    assert not measured, "a cancelled session is not measured"
 
 
 def test_a_public_link_wins_and_a_failed_publish_falls_back(tmp_path):

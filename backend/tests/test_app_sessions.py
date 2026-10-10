@@ -115,6 +115,18 @@ def test_start_without_signal_is_refused(tmp_path):
         assert r.status_code == 409 and r.json() == {"reason": "No signal yet."}
 
 
+def test_shutdown_stops_an_analysis_in_flight(tmp_path):
+    app = create_app({"demo": Quiet}, "demo", sessions_dir=tmp_path)
+    sessions = app.state.sessions
+
+    async def run():
+        async with app.router.lifespan_context(app):
+            sessions.finishing = asyncio.create_task(asyncio.sleep(3600))   # an analysis in flight
+        return sessions.finishing.done()
+
+    assert asyncio.run(run()), "nothing writes or publishes after shutdown"
+
+
 def test_keep_until_reads_zones_and_local_time():
     assert parse_keep_until(None) is None
     assert parse_keep_until("2026-10-11T12:00+00:00") == datetime(2026, 10, 11, 12, 0, tzinfo=timezone.utc)
