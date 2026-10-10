@@ -10,12 +10,22 @@ const GLOW = { ra: 0x4D8BFF, rv: 0x7FE24B, la: 0xFF4F4F, lv: 0xFFC93C };   // th
 const STRENGTH = { ra: 0.08, la: 0.08, rv: 0.12, lv: 0.12 };
 const DEBUG = new URLSearchParams(location.search).has('debug');
 const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;   // no auto-rotate
+if (DEBUG) window.THREE = THREE;   // for headless picking of model points
+export const VALVES = ['tri', 'mit', 'pul', 'ao'];   // tricuspid, mitral (AV, hang open, shut in systole); pulmonary, aortic (semilunar, shut, open in ejection)
+const FORCED_VALVES = (() => { const v = new URLSearchParams(location.search).get('valves'); return v === null ? null : Number(v); })();
+const VALVE_AMP = 0.045;   // world units the leaflets travel
 
 const VERTEX_HEAD = `
 uniform vec3 uCenters[4];
 uniform float uRadii[4];
 uniform float uAct[4];
 uniform float uStrength[4];
+uniform vec3 uValveC[4];
+uniform float uValveR[4];
+uniform vec3 uValveUp[4];
+uniform float uValveOpen[4];
+uniform float uValveKind[4];
+uniform float uValveAmp;
 varying vec4 vChamber;
 `;
 const VERTEX_BODY = `
@@ -27,6 +37,33 @@ for (int i = 0; i < 4; i++) {
   transformed += (uCenters[i] - position) * wi * uStrength[i] * uAct[i];
 }
 vChamber = cardioW;
+// valves in the opened heart (radii are zero elsewhere). A leaflet is a hinge: every vertex inside
+// the ring's cylinder rotates about the ring point nearest to it, around the ring's tangent, so the
+// ring and the wall never move. AV leaflets are modeled hanging open and swing up to meet at the
+// center while their ventricle squeezes; semilunar cusps are modeled shut and swing out to the wall
+// while it ejects.
+for (int i = 0; i < 4; i++) {
+  float R = uValveR[i];
+  if (R <= 0.0) continue;
+  vec3 rel = position - uValveC[i];
+  float s = dot(rel, uValveUp[i]);
+  vec3 radial = rel - uValveUp[i] * s;
+  float r = length(radial);
+  float L = R * 1.2;
+  float wr = 1.0 - smoothstep(R * ((uValveKind[i] < 0.5) ? 0.85 : 0.65), R * ((uValveKind[i] < 0.5) ? 1.05 : 0.85), r);
+  float wa = (uValveKind[i] < 0.5)
+    ? smoothstep(-L - R * 0.3, -L, s) * (1.0 - smoothstep(R * 0.1, R * 0.4, s))
+    : smoothstep(-R * 0.4, -R * 0.1, s) * (1.0 - smoothstep(L, L + R * 0.3, s));
+  float w = wr * wa;
+  if (w <= 0.0) continue;
+  vec3 rd = radial / max(r, 1e-5);
+  vec3 t = normalize(cross(uValveUp[i], rd));
+  vec3 q = position - (uValveC[i] + rd * R);
+  float amount = (uValveKind[i] < 0.5) ? (1.0 - uValveOpen[i]) : uValveOpen[i];
+  float ang = amount * ((uValveKind[i] < 0.5) ? 1.0 : 0.55);   // leaflets rise to the ring; cusps lean to the wall
+  vec3 q2 = q * cos(ang) + cross(t, q) * sin(ang) + t * dot(t, q) * (1.0 - cos(ang));
+  transformed += (q2 - q) * w;
+}
 `;
 const FRAGMENT_HEAD = `
 uniform vec3 uGlow[4];
@@ -78,6 +115,9 @@ export class Heart {
 
     // shared per chamber index (ra, la, rv, lv); centers and radii are per material, in its local units
     this.uAct = { value: [0, 0, 0, 0] };
+    this.uValveOpen = { value: [1, 1, 0, 0] };   // tri, mit, pul, ao: the modeled poses
+    this.uValveKind = { value: [0, 0, 1, 1] };
+    this.valvesWorld = VALVES.map(() => null);   // {center, radius, up} per valve, from the set's config
     this.uStrength = { value: CHAMBERS.map((c) => STRENGTH[c]) };
     this.uGlow = { value: CHAMBERS.map((c) => new THREE.Color(GLOW[c])) };
     this.centersWorld = CHAMBERS.map(() => new THREE.Vector3());
@@ -220,6 +260,14 @@ export class Heart {
         this.scene.add(m);
         return m;
       });
+      const VCOL = [0x4D8BFF, 0xFF4F4F, 0x7FE24B, 0xFFC93C];   // tri blue, mit red, pul green, ao yellow
+      this.valveMarkers = VALVES.map((v, i) => {
+        const m = new THREE.Mesh(new THREE.SphereGeometry(0.03, 12, 8),
+          new THREE.MeshBasicMaterial({ color: VCOL[i], depthTest: false }));
+        m.renderOrder = 12;
+        this.scene.add(m);
+        return m;
+      });
     }
     this.applyConfig();
     for (const el of Object.values(this.labels)) el.hidden = false;
@@ -274,6 +322,10 @@ export class Heart {
     const uRadii = { value: [1, 1, 1, 1] };
     mat.userData.uCenters = uCenters;
     mat.userData.uRadii = uRadii;
+    mat.userData.uValveC = { value: VALVES.map(() => new THREE.Vector3()) };
+    mat.userData.uValveR = { value: [0, 0, 0, 0] };
+    mat.userData.uValveUp = { value: VALVES.map(() => new THREE.Vector3(0, 1, 0)) };
+    mat.userData.uValveAmp = { value: 0 };
     mat.userData.mesh = mesh;
     mat.side = THREE.DoubleSide;
     mat.onBeforeCompile = (shader) => {
@@ -282,6 +334,12 @@ export class Heart {
       shader.uniforms.uAct = this.uAct;
       shader.uniforms.uStrength = this.uStrength;
       shader.uniforms.uGlow = this.uGlow;
+      shader.uniforms.uValveC = mat.userData.uValveC;
+      shader.uniforms.uValveR = mat.userData.uValveR;
+      shader.uniforms.uValveUp = mat.userData.uValveUp;
+      shader.uniforms.uValveOpen = this.uValveOpen;
+      shader.uniforms.uValveKind = this.uValveKind;
+      shader.uniforms.uValveAmp = mat.userData.uValveAmp;
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', '#include <common>\n' + VERTEX_HEAD)
         .replace('#include <begin_vertex>', '#include <begin_vertex>\n' + VERTEX_BODY);
@@ -305,7 +363,13 @@ export class Heart {
       if (ch.normal) this.normalsWorld[i].fromArray(ch.normal).normalize();
       else this.normalsWorld[i].copy(this.anchorsWorld[i]).normalize();
     });
+    const vcfg = this.config?.valves || {};
+    VALVES.forEach((v, i) => {
+      const d = vcfg[v];
+      this.valvesWorld[i] = d?.center ? { center: new THREE.Vector3().fromArray(d.center), radius: d.radius ?? 0.1, up: new THREE.Vector3().fromArray(d.up || [0, 1, 0]).normalize() } : null;
+    });
     const scaleVec = new THREE.Vector3();
+    const inv = new THREE.Matrix4();
     for (const mat of this.materials) {
       const mesh = mat.userData.mesh;
       mesh.updateMatrixWorld(true);
@@ -316,7 +380,19 @@ export class Heart {
         mesh.worldToLocal(mat.userData.uCenters.value[i]);
         mat.userData.uRadii.value[i] = this.radiiWorld[i] / worldPerLocal;
       });
+      // valves move only in the opened model
+      const opened = !!this.insideRoot && !!this.insideRoot.getObjectById(mesh.id);
+      inv.copy(mesh.matrixWorld).invert();
+      this.valvesWorld.forEach((vw, i) => {
+        if (!vw || !opened) { mat.userData.uValveR.value[i] = 0; return; }
+        mat.userData.uValveC.value[i].copy(vw.center);
+        mesh.worldToLocal(mat.userData.uValveC.value[i]);
+        mat.userData.uValveR.value[i] = vw.radius / worldPerLocal;
+        mat.userData.uValveUp.value[i].copy(vw.up).transformDirection(inv);
+      });
+      mat.userData.uValveAmp.value = VALVE_AMP / worldPerLocal;
     }
+    (this.valveMarkers || []).forEach((m, i) => { const vw = this.valvesWorld[i]; m.visible = !!vw; if (vw) m.position.copy(vw.center); });
     this.markers.forEach((m, i) => m.position.copy(this.centersWorld[i]));
     (this.anchorMarkers || []).forEach((m, i) => m.position.copy(this.anchorsWorld[i]));
   }
@@ -324,6 +400,14 @@ export class Heart {
   setActivation({ ra = 0, la = 0, rv = 0, lv = 0 }) {
     const v = this.uAct.value;
     v[0] = ra; v[1] = la; v[2] = rv; v[3] = lv;
+    // valves follow the ventricles: AV shut while a ventricle squeezes, semilunar open while it does
+    const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+    const o = this.uValveOpen.value;
+    if (FORCED_VALVES !== null) { o[0] = o[1] = o[2] = o[3] = FORCED_VALVES; return; }
+    o[0] = 1 - smooth(0.05, 0.4, rv);   // tricuspid
+    o[1] = 1 - smooth(0.05, 0.4, lv);   // mitral
+    o[2] = smooth(0.35, 0.9, rv);       // pulmonary
+    o[3] = smooth(0.35, 0.9, lv);       // aortic
   }
 
   setRotate(on) {
