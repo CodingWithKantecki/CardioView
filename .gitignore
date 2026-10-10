@@ -11,3 +11,7 @@ sessions/
 .venv-voice/
 cloud/static/
 cloud/.vercel/
+.venv-research/
+research/rhythm/data/
+research/rhythm/runs/
+research/rhythm/mlruns/

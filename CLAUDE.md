@@ -50,6 +50,7 @@ frontend/   index.html, main.js, clock.js, chambers.js, heart.js, trace.js, chat
 tools/      h10_record.py (strap to CSV, no server), trim_csv.py, screenshot.mjs (headless check),
             sessions.py (list, delete, wipe, cloud-init, deploy), make_voice.py (voice clips, own venv)
 cloud/      public summary pages on Vercel (app.py reads Neon), deployed with tools/sessions.py deploy
+research/   rhythm/ (rhythm feasibility test, its own .venv-research, never part of the booth)
 data/       ECG fixtures: CSV with header time_s,ecg_uv at 130 Hz, in microvolts
 sessions/   saved visitor sessions, never committed (see Saved sessions)
 ```
@@ -154,6 +155,13 @@ Spec: `docs/superpowers/specs/2026-10-10-visitor-sessions-design.md`. Opt-in per
 - Voice: `tools/make_voice.py` renders the step lines once with Kokoro 82M from Hugging Face (Python 3.12, its own `.venv-voice`); the WAVs in `frontend/assets/voice/` are committed, so the booth needs neither the model nor the internet.
 - Cloud is optional: with `NEON_DATABASE_URL` and `CARDIOVIEW_PUBLIC_URL` in `.env`, the anonymous summary (never the ECG) goes to Neon and the QR opens the Vercel page in `cloud/`. Offline or without them, the QR is the LAN link; a sync loop retries every 30 s and applies deletes made on phones. `cloud/vercel.json` pins the FastAPI preset: a project made with `vercel project add` starts as Other and deploys `cloud/` as plain files with no app.
 - `python tools/sessions.py wipe` after the event deletes every local session and every Neon row; `list` and `delete <id>` are there for the operator.
+
+## Rhythm feasibility test
+
+Spec: `docs/superpowers/specs/2026-10-10-rhythm-feasibility-design.md`. Research only: nothing here reaches the booth or a visitor yet.
+
+- `research/rhythm/` tests a lightweight detector (uncorrected NeuroKit2 beats, six rhythm features, two tiny logistic models saved as JSON) on PTB-XL, PhysioNet 2017 and MIT-BIH, at each dataset's own rate and at the strap's 130 Hz integer microvolts, against a pass bar fixed in advance (`scoring.py`). Verdicts land in `research/rhythm/RESULTS.md`; item 11 may show only conditions that pass there.
+- No neural network and no torch, because the backend runs on Render. Its own environment, `.venv-research`, adds only what the booth lacks (wfdb); `signals.py`, `labels.py`, `scoring.py` and `detector.py` use only the booth's packages and are tested with the main suite. Downloads stay out of git.
 
 ## Milestones
 

@@ -1,0 +1,8 @@
+# The rhythm feasibility test's own environment, .venv-research. Never the booth's.
+# Only what the booth lacks; the detector itself runs on the booth's packages.
+neurokit2==0.2.13
+numpy
+scipy
+pandas
+wfdb>=4.1
+pytest>=8
