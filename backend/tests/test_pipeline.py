@@ -67,3 +67,21 @@ def test_jump_restamps_beats():
     for p, b in after:
         assert b.r >= first_index / FS
         assert p.t_last - 1.0 <= b.r <= p.t_last
+
+
+@pytest.mark.parametrize("bpm", [60, 140])
+def test_prime_then_feed_finds_every_beat_once(bpm):
+    values = list(simulate(bpm, seconds=40))
+    det = BeatDetector()
+    n = 17 * PACKET                     # a 10 s preroll, as the runner builds it
+    beats = det.prime(Packet(0.0, values[:n]))
+    assert len(beats) >= 8, "the preroll carries its beats"
+    for p in packets(values[n:], first_index=n):
+        beats += det.feed(p)
+    got = np.array([b.r for b in beats])
+    assert np.all(np.diff(got) > 0.25), "no beat emitted twice across the preroll boundary"
+    ref = reference_peaks(values)
+    ref = ref[(ref >= got[0] - 0.05) & (ref <= got[-1] + 0.05)]
+    for r in ref:
+        assert int(np.sum(np.abs(got - r) <= 0.05)) == 1, f"reference peak at {r:.3f} s matched wrong"
+    assert len(got) == len(ref)

@@ -59,7 +59,7 @@ class Hub:
             self.samples.clear()
             self.beats.clear()
         self.samples.append(msg)
-        while self.samples and self.samples[0]["t"] < packet.t_end - BACKLOG_S:
+        while self.samples and self.samples[0]["t"] + len(self.samples[0]["uv"]) / FS < packet.t_end - BACKLOG_S:
             self.samples.popleft()
         self.broadcast(msg)
 
@@ -140,8 +140,23 @@ class Runner:
     async def _pump(self, source: Source) -> None:
         detector = BeatDetector()
         monitor = SignalMonitor()
+        preroll = float(getattr(source, "preroll_s", 0.0) or 0.0)
+        pending: list[Packet] = []
         try:
             async for packet in source.packets():
+                if preroll > 0 and packet.t_end <= preroll + 1e-6:
+                    pending.append(packet)        # the history a source starts with: sent all at once below
+                    continue
+                if pending:
+                    history = Packet(pending[0].t, [v for p in pending for v in p.uv])
+                    pending = []
+                    self.hub.push_samples(history)
+                    beats = await asyncio.to_thread(detector.prime, history)
+                    for beat in beats:
+                        self.hub.push_beat(beat.message(source.kind))
+                    changed = monitor.update(history, beats)
+                    if changed is not None:
+                        self.hub.push_signal(changed.message(source.kind))
                 self.hub.push_samples(packet)
                 beats = await asyncio.to_thread(detector.feed, packet)
                 for beat in beats:

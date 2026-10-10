@@ -128,6 +128,49 @@ class BeatDetector:
             self._refine_p(clean, idx, emitted)
         return [b for _, b in emitted]
 
+    def prime(self, packet: Packet) -> list[Beat]:
+        """Process a long first packet (a source's preroll) in one pass. Every R peak in it
+        becomes a beat, and the detector continues from its end as if it had arrived in pieces."""
+        self.reset()
+        self._t0 = packet.t
+        uv = np.asarray(packet.uv, dtype=np.float64)
+        self._t_end = packet.t + len(uv) / self.fs
+        self._data_s = len(uv) / self.fs
+        t_newest = self._t_end - 1 / self.fs
+        clean = None
+        idx = np.zeros(0, dtype=int)
+        if len(uv) >= int(WARMUP_S * self.fs):
+            try:
+                clean = nk.ecg_clean(uv, sampling_rate=self.fs)
+                _, info = nk.ecg_peaks(clean, sampling_rate=self.fs)
+                idx = np.asarray(info["ECG_R_Peaks"], dtype=int)
+            except Exception:
+                clean = None
+        emitted: list[tuple[int, Beat]] = []
+        for i in idx:
+            r = packet.t + int(i) / self.fs
+            if r > t_newest - CONFIRM_S:
+                continue
+            if self._peaks and r <= self._peaks[-1] + REFRACTORY_S:
+                continue
+            rr = r - self._peaks[-1] if self._peaks else None
+            self._peaks.append(r)
+            if len(self._peaks) > 16:
+                del self._peaks[:-16]
+            if rr is not None:
+                self._rr.append(rr)
+            emitted.append((int(i), self._make_beat(r, rr)))
+        if emitted and self.delineate and clean is not None and len(idx) >= 4:
+            self._refine_p(clean, idx, emitted)
+        max_n = int(WINDOW_S * self.fs)
+        if len(uv) > max_n:
+            drop = len(uv) - max_n
+            self._buf = uv[drop:].copy()
+            self._t0 = packet.t + drop / self.fs
+        else:
+            self._buf = uv.copy()
+        return [b for _, b in emitted]
+
     def _make_beat(self, r: float, rr: float | None) -> Beat:
         v_off = v_off_for(rr)
         ra_on = RA_ON

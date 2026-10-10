@@ -87,9 +87,12 @@ function setStatus(msg) {
 
 function handle(msg) {
   if (msg.type === 'status') {
-    if (!status || status.source !== msg.source || status.device !== msg.device) {   // a new source: everything restarts from zero
-      trace.clear(); lanes.clear(); clock.reset(); shownBeat = null; lastSampleT = null; lastSampleWall = null;
+    if (!status || status.source !== msg.source || status.device !== msg.device) {   // a new source
       signal = { ok: true, reason: '' };
+      lastSampleWall = null;
+      // the strap has no history: clear now. Other sources send their history in one message,
+      // and the stream-time jump in it swaps the whole screen in a single frame.
+      if (msg.source === 'live') { trace.clear(); lanes.clear(); clock.reset(); shownBeat = null; lastSampleT = null; }
     }
     status = msg;
     setStatus(msg);
@@ -99,6 +102,7 @@ function handle(msg) {
     // simulated rhythms exist in demo only, never beside strap data
     const rhythms = document.getElementById('rhythms');
     rhythms.hidden = msg.source === 'live';
+    document.getElementById('rhythm-kicker').hidden = rhythms.hidden;
     for (const b of rhythms.querySelectorAll('button')) {
       const name = b.dataset.rhythm;
       const on = name === 'recording' ? msg.source === 'recorded' : msg.device === 'Simulated: ' + RHYTHM_LABELS[name];

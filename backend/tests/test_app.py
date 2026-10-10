@@ -125,6 +125,10 @@ def test_a_switch_starts_the_new_source_from_zero():
         assert msgs[0]["type"] == "status" and msgs[0]["source"] == "simulated"
         samples = [m for m in msgs if m["type"] == "samples"]
         assert samples[0]["t"] == 0.0, "the new source starts its clock at zero"
-        assert len(samples) >= 5, "a preroll fills the screen at once"
+        assert len(samples[0]["uv"]) >= 300, "the preroll arrives as one message"
+        beats = [m for m in msgs if m["type"] == "beat"]
+        assert beats and beats[0]["r"] < 3.0, "the preroll's beats come with it"
+        first_beat = msgs.index(beats[0])
+        assert msgs.index(samples[0]) < first_beat, "samples before beats, so the viewer keeps them"
         await runner.stop()
     asyncio.run(run())
