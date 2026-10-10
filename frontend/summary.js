@@ -5,9 +5,9 @@ const $ = (id) => document.getElementById(id);
 const sid = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || '');
 const params = new URLSearchParams(location.search);
 const screenMode = params.has('screen');
-const FONT = '14px "Helvetica Neue", Helvetica, Arial, sans-serif';
-const STAMP = '400 12px "JetBrains Mono", monospace';   // a data stamp, like the 130 Hz corner on the live ECG
-const STEP_NAME = { rest: 'Rest', breathe: 'Breathe', squats: 'Squats', recover: 'Recover' };
+const FONT = '600 12px "JetBrains Mono", monospace';   // chart readouts, in capitals like the 130 HZ corner on the live ECG
+const WAVE = '700 15px "Helvetica Neue", Helvetica, Arial, sans-serif';   // P, QRS, T: the voice of the chamber letters
+const STEP_NAME = { rest: 'REST', breathe: 'BREATHE', squats: 'SQUATS', recover: 'RECOVER' };
 const IDLE_MS = 180000;   // the big screen goes back to live after 3 minutes
 const GONE = 'This session is no longer available.';
 
@@ -101,7 +101,7 @@ function effortChart(s) {
     const i = bpm.indexOf(Math.max(...vals));
     g.fillStyle = C.text;
     g.beginPath(); g.arc(x(i), y(bpm[i]), 4, 0, 2 * Math.PI); g.fill();
-    g.fillText(`Peak ${s.effort.peak_bpm}`, Math.min(x(i) + 8, w - 70), y(bpm[i]) + 4);
+    g.fillText(`PEAK ${s.effort.peak_bpm}`, Math.min(x(i) + 8, w - 70), y(bpm[i]) + 4);
   }
 }
 
@@ -122,8 +122,8 @@ function breathingChart(s) {
     g.strokeStyle = C.hair;
     vline(g, x(i), 4, h - pad.b);
     g.fillStyle = C.dim;
-    g.fillText('in', x(i) + 4, 14);
-    if (i + perBreath / 2 < bpm.length) g.fillText('out', x(i + perBreath / 2) + 4, 14);
+    g.fillText('IN', x(i) + 4, 14);
+    if (i + perBreath / 2 < bpm.length) g.fillText('OUT', x(i + perBreath / 2) + 4, 14);
   }
   trace(g, bpm, x, y, C.text, 2);
 }
@@ -142,10 +142,9 @@ function beatChart(s) {
   hline(g, pad.l, w - pad.r, y(0));
   const xi = (i) => x(t(i));
   trace(g, b.uv, xi, y, C.ecg, 2.2);
-  g.font = STAMP;
   g.fillStyle = C.dim;
-  g.fillText(`${b.fs} Hz`, pad.l, 12);
-  g.font = FONT;
+  g.fillText(`${b.fs} HZ`, pad.l, 12);
+  g.font = WAVE;
   g.fillStyle = C.text;
   g.textAlign = 'center';
   for (const [name, at] of [['P', b.waves.p], ['QRS', b.waves.qrs], ['T', b.waves.t]]) {
@@ -176,10 +175,10 @@ function timingChart(s) {
     for (const [a, b] of pts) { g.beginPath(); g.arc(x(a), y(b), 3, 0, 2 * Math.PI); g.fill(); }
   }
   g.fillStyle = C.dim;
-  g.fillText('gap before', x(lo), side - 4);
-  g.save(); g.translate(ox + 12, y(lo)); g.rotate(-Math.PI / 2); g.fillText('gap after', 0, 0); g.restore();
-  g.fillStyle = C.text; g.fillText('Rest', ox + 30, 16);   // top left stays empty: dots hug the diagonal
-  g.fillStyle = C.dim; g.fillText('Slow breathing', ox + 30, 32);
+  g.fillText('GAP BEFORE', x(lo), side - 4);
+  g.save(); g.translate(ox + 12, y(lo)); g.rotate(-Math.PI / 2); g.fillText('GAP AFTER', 0, 0); g.restore();
+  g.fillStyle = C.text; g.fillText('REST', ox + 30, 16);   // top left stays empty: dots hug the diagonal
+  g.fillStyle = C.dim; g.fillText('SLOW BREATHING', ox + 30, 32);
 }
 
 function refuse(block, reason) {
@@ -252,7 +251,7 @@ async function load() {
   try { res = await fetch(`/api/s/${encodeURIComponent(sid)}`, { cache: 'no-store' }); } catch { /* offline */ }
   if (!res || !res.ok) { gone(res ? GONE : 'Could not reach the booth. Try again on the same Wi-Fi.'); return; }
   summary = await res.json();
-  try { await document.fonts.load(STAMP); } catch { /* the stamp falls back to the system mono */ }
+  try { await document.fonts.load(FONT); } catch { /* the readouts fall back to the system mono */ }
   render(summary);
 }
 

@@ -1,11 +1,11 @@
-/* saved sessions on the stage: one prompt line, one caption line, and the breathing ring behind the heart.
-   Helvetica in sentence case and the theme's colors, flat like the rest of the console. */
+/* saved sessions on the stage: one prompt line, one status line, and the breathing ring behind the heart.
+   The prompt speaks in Helvetica like the alert; the status line is mono like the viewer's; theme colors only. */
 .session {
   position: absolute; left: 0; right: 0; top: clamp(18px, 3vh, 34px); z-index: 4; pointer-events: none;
   display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; padding: 0 var(--gutter);
 }
 .session-prompt { margin: 0; font-size: clamp(26px, 3.4vh, 36px); font-weight: 700; letter-spacing: -0.015em; line-height: 1.1; color: var(--ink); }
-.session-sub { margin: 0; font-size: clamp(15px, 1.9vh, 17px); font-weight: 500; color: var(--ink-2); }
+.session-sub { margin: 0; font-family: var(--mono); font-size: clamp(13px, 1.7vh, 16px); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
 .session-sub:empty { display: none; }
 .session-ring {
   position: absolute; left: 50%; top: 50%; z-index: 0; pointer-events: none;
