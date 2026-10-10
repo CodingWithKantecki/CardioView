@@ -8,6 +8,7 @@ from pathlib import Path
 import uvicorn
 
 from .app import create_app
+from .env import load_dotenv
 from .sources.base import PREROLL_S, Source
 from .sources.replay import ReplaySource
 from .sources.rhythm import RhythmSource
@@ -43,6 +44,7 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--host", default="0.0.0.0")
     ap.add_argument("--port", type=int, default=8000)
     args = ap.parse_args(argv)
+    load_dotenv()   # GEMINI_API_KEY and GEMINI_MODEL for the chat, from .env in the repo root
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     def rhythm(pattern: str = "sinus") -> RhythmSource:
         return RhythmSource(pattern, invert=args.invert, preroll_s=PREROLL_S)

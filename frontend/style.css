@@ -24,10 +24,10 @@
   --line-2: rgba(232, 241, 242, 0.28);
   --line-strong: rgba(232, 241, 242, 0.45);
   --tray: rgba(232, 241, 242, 0.08);
+  --rule-solid: #4A5A61;   /* the rule color with nothing showing through, for frames over the stage */
   --accent: var(--teal);
   --on-accent: var(--teal-deep);
   --alert: var(--red);
-  --info: #3B82F6;   /* the "!" badges in the rhythm tray */
 
   --sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
@@ -46,8 +46,8 @@ html[data-theme="light"] {
   --paper: var(--cream); --card: #FFFFFF; --header: var(--navy);
   --ink: var(--navy); --ink-2: #41506C; --muted: #6B7A94;
   --line: rgba(20, 35, 62, 0.12); --line-2: rgba(20, 35, 62, 0.28); --line-strong: rgba(20, 35, 62, 0.5);
-  --tray: rgba(20, 35, 62, 0.08);
-  --accent: var(--gold); --on-accent: var(--navy); --alert: var(--danger); --info: #2563EB;
+  --tray: rgba(20, 35, 62, 0.08); --rule-solid: #B7B1A4;
+  --accent: var(--gold); --on-accent: var(--navy); --alert: var(--danger);
   --c-stage: #F5F1E8; --c-paper: #FFFFFF; --c-ink: #14233E; --c-trace: #14233E; --c-grid: #14233E; --c-rule: #14233E;
   --c-dim: #6B7A94; --c-alert: #A8423D; --c-now: #C9954A;
   --c-ra: #2457C5; --c-rv: #3C8A1E; --c-la: #B8322F; --c-lv: #B5860B;
@@ -130,15 +130,71 @@ body.lost .label, body.lost .leaders { opacity: 0.3; }
 body.lost #trace { opacity: 0.5; }
 body.lost .bpm { opacity: 0.35; }
 
-/* opacity slider: square gold thumb, hairline track */
-.opacity { position: absolute; left: var(--gutter); bottom: 20px; z-index: 3; display: flex; align-items: center; gap: 12px; }
-.opacity span { font-family: var(--mono); font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2); }
-.opacity input { -webkit-appearance: none; appearance: none; width: 160px; height: 18px; margin: 0; background: transparent; cursor: pointer; }
-.opacity input::-webkit-slider-runnable-track { height: 2px; background: var(--line-2); }
-.opacity input::-moz-range-track { height: 2px; background: var(--line-2); }
-.opacity input::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; margin-top: -6px; background: var(--accent); border: 0; }
-.opacity input::-moz-range-thumb { width: 14px; height: 14px; background: var(--accent); border: 0; border-radius: 0; }
-.opacity input:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(43, 212, 189, 0.4); }
+/* the dock: the heart's view controls at the bottom of the stage, cells that grow toward the
+   pointer (dock.js), a mono label above the hovered one, toggles pressed in the accent */
+.dock { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 3; display: flex; align-items: flex-end; }
+.dock-item { position: relative; display: flex; align-items: flex-end; padding: var(--cell-w); background: var(--rule-solid); }   /* each cell frames itself, so a grown cell does not stretch the tray */
+.dock-item + .dock-item { margin-left: calc(-1 * var(--cell-w)); }
+.dock button { width: 48px; height: 48px; border: 0; margin: 0; padding: 0; background: var(--card); color: var(--ink-2); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.dock button:hover { color: var(--ink); }
+.dock button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+.dock button:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(43, 212, 189, 0.4); }
+.dock button svg { width: 46%; height: 46%; display: block; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: square; stroke-linejoin: miter; }
+.dock button::after { content: attr(data-label); position: absolute; left: 50%; bottom: calc(100% + 12px); transform: translateX(-50%); padding: 6px 10px; background: var(--card); border: 2px solid var(--line-2); font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; line-height: 1; color: var(--ink); white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.12s; }
+.dock-item:hover button::after, .dock button:focus-visible::after { opacity: 1; }
+.dock-item.has-pop button::after { display: none; }
+/* the opacity slider in a popover above its cell: square accent thumb, 2 px track */
+.opacity-pop { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); display: none; align-items: center; gap: 12px; padding: 12px 14px; background: var(--card); border: 2px solid var(--line-2); }
+.dock-item:hover .opacity-pop, .dock-item:focus-within .opacity-pop { display: flex; }
+.opacity-pop span { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2); }
+.opacity-pop input { -webkit-appearance: none; appearance: none; width: 160px; height: 18px; margin: 0; background: transparent; cursor: pointer; }
+.opacity-pop input::-webkit-slider-runnable-track { height: 2px; background: var(--line-2); }
+.opacity-pop input::-moz-range-track { height: 2px; background: var(--line-2); }
+.opacity-pop input::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; margin-top: -6px; background: var(--accent); border: 0; }
+.opacity-pop input::-moz-range-thumb { width: 14px; height: 14px; background: var(--accent); border: 0; border-radius: 0; }
+.opacity-pop input:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(43, 212, 189, 0.4); }
+
+.dock button[disabled] { opacity: 0.45; cursor: default; }   /* Rotate under reduced motion */
+
+/* chat: one Ask pill at the top right of the stage, a flat box dropping down from it on the column
+   surface. That corner is the one part of the stage the heart and its labels never reach at 1920 by
+   1080 (the LA label starts about 395 px below the header, the box ends at 358). No radius, no
+   shadow, no glow; the only color is the accent on the open pill and the send button. */
+.chat { position: absolute; right: var(--gutter); top: 12px; z-index: 6; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+/* motion: transform and opacity only. The pill grows a touch on hover and settles back slower than it
+   grew; the box scales out of the pill's corner and folds back into it a little quicker (chat.js keeps
+   the box in the DOM with .closing until chat-out ends); each new line rises a few pixels. All of it is
+   off under prefers-reduced-motion. */
+.chat-toggle { transform-origin: 100% 50%; transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
+.chat-toggle:hover { transform: scale(1.05); transition-duration: 0.32s; }
+.chat-toggle:active { transform: scale(0.97); transition-duration: 0.12s; }
+.chat-box {
+  width: min(280px, calc(100vw - 2 * var(--gutter))); height: min(30vh, 300px);
+  display: flex; flex-direction: column; background: var(--card); border: 2px solid var(--line-2);
+  transform-origin: 100% 0; animation: chat-in 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.chat-box.closing { animation: chat-out 0.24s cubic-bezier(0.4, 0, 0.6, 1) both; pointer-events: none; }
+@keyframes chat-in { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: none; } }
+@keyframes chat-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(0.92); } }
+.chat-box header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-bottom: 2px solid var(--line); }
+.chat-box header button { background: none; border: 0; margin: 0; padding: 2px 0; cursor: pointer; font-family: var(--mono); font-size: 11.5px; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted); }
+.chat-box header button:hover { color: var(--ink); }
+.chat-log { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.msg { margin: 0; font-size: 14px; line-height: 1.4; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+@keyframes msg-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.msg { animation: msg-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.msg.user { color: var(--ink-2); align-self: flex-end; text-align: right; max-width: 85%; }
+.msg.pending, .msg.error { color: var(--muted); }
+.msg.pending::after { content: "..."; }
+.chat-form { display: flex; align-items: stretch; gap: 10px; padding: 8px 14px 10px; border-top: 2px solid var(--line); }
+.chat-form input { flex: 1 1 auto; min-width: 0; background: none; border: 0; border-bottom: 2px solid var(--line-2); padding: 6px 0; font-family: var(--sans); font-size: 14px; color: var(--ink); }
+.chat-form input::placeholder { color: var(--muted); }
+.chat-form input:focus { outline: 0; border-bottom-color: var(--accent); }
+.chat-form button { background: var(--accent); color: var(--on-accent); border: 0; margin: 0; padding: 6px 14px; cursor: pointer; font-family: var(--mono); font-size: 11.5px; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; }
+.chat-form button:disabled, .chat-form input:disabled { opacity: 0.6; cursor: default; }
+.chat-form button:focus-visible, .chat-box header button:focus-visible, .chat-toggle button:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(43, 212, 189, 0.4); }
+.chat-note { margin: 0; padding: 0 14px 10px; font-size: 11px; color: var(--muted); }
+.chat-toggle button[aria-expanded="true"] { background: var(--accent); color: var(--on-accent); }
 
 /* instrument column: white card with navy rules, three instruments sharing the height */
 .column { position: relative; min-height: 0; background: var(--card); padding: 0; display: grid; grid-template-rows: auto minmax(0, 1.15fr) minmax(0, 1fr); }
@@ -171,16 +227,20 @@ body.lost .bpm { opacity: 0.35; }
 .rhythm-tray .info {
   --badge: clamp(12px, 1.5vh, 18px);
   position: absolute; top: calc(var(--badge) / 8); right: calc(var(--badge) / 8); width: var(--badge); height: var(--badge);
-  display: grid; place-items: center; border-radius: 50%; background: var(--info); color: #FFFFFF;
-  font-family: var(--sans); font-size: clamp(11px, 1.1vh, 12px); font-weight: 700; letter-spacing: 0; line-height: 1; cursor: help;
+  display: grid; place-items: center; background: var(--rule-solid); color: var(--ink);
+  font-family: var(--mono); font-size: clamp(10px, 1.1vh, 12px); font-weight: 700; letter-spacing: 0; line-height: 1; cursor: help;
 }
+.rhythm-tray .info:hover { background: var(--accent); color: var(--on-accent); }
+.rhythm-tray button[aria-pressed="true"] .info { background: var(--on-accent); color: var(--accent); }
+.rhythm-tray button[aria-pressed="true"] .info:hover { background: var(--card); color: var(--ink); }
 .rhythm-tray .tip {
   display: none; position: absolute; top: calc(100% + var(--cell-w)); right: 0; z-index: 10; width: clamp(220px, 15vw, 300px);
-  padding: 10px 12px 12px; background: var(--card); border: 2px solid var(--info); pointer-events: none;
+  padding: 10px 12px 12px; background: var(--card); border: 2px solid var(--accent); pointer-events: none;
   font-family: var(--sans); font-size: 14px; font-weight: 400; line-height: 1.4; letter-spacing: 0; text-align: left; text-transform: none; color: var(--ink-2);
 }
 .rhythm-tray .tip b { display: block; margin-bottom: 6px; font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); }
 .rhythm-tray .info:hover + .tip { display: block; }
+.tip-ecg { display: block; width: 100%; height: 60px; margin: 2px 0 10px; background: var(--paper); }   /* 4 s of that rhythm, drawn by tips.js */
 .instrument canvas { flex: 1 1 auto; min-height: 0; width: 100%; display: block; margin-top: 10px; }
 .nowline { position: absolute; width: 0; border-left: 2px dashed var(--accent); pointer-events: none; z-index: 2; }
 
@@ -193,9 +253,14 @@ body.lost .bpm { opacity: 0.35; }
   .column { display: flex; flex-direction: column; padding-bottom: 24px; }
   .instrument.ecg, .instrument.chambers { height: 260px; flex: 0 0 auto; }
   :root { --numeral: 72px; }
+  .chat { position: fixed; top: auto; left: var(--gutter); right: var(--gutter); bottom: 16px; flex-direction: column-reverse; }
+  .chat-box { width: 100%; height: min(50vh, 420px); transform-origin: 100% 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
   .label { transition: none; }
+  .chat-box, .chat-box.closing, .msg { animation: none; }
+  .chat-toggle { transition: none; }
+  .chat-toggle:hover, .chat-toggle:active { transform: none; }
   body.lost #heart-view { opacity: 1; filter: grayscale(1) sepia(1) saturate(6) hue-rotate(-64deg) contrast(1.35) brightness(0.66); }
   body.lost .glitch { display: none; }
 }
