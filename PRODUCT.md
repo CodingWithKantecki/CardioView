@@ -34,7 +34,7 @@ A real person's measured ECG drives a real anatomical model in real time, with h
 
 ## Capabilities and Constraints
 
-- Live ECG trace (2D sweep or a 3D beat waterfall of the last beats), heart rate, four chamber lanes sharing one now line with the trace, and a 3D heart (RA, LA, RV, LV) with orbit, zoom, an opacity slider, and R, W, C keys for auto-rotate, wireframe and cutaway.
+- Live ECG trace (2D sweep or a 3D beat waterfall of the last beats), heart rate, four chamber lanes sharing one now line with the trace, and a 3D heart (RA, LA, RV, LV) with orbit, zoom, an opacity slider, and a view tray (Rotate, Wire, Cut, Reset, also the R, W, C and 0 keys) for auto-rotate, wireframe, cutaway and reset view.
 - A signal monitor on the server reports pads off, noise or no beats. The viewer then shows a lost state: the heart stops, the stage glitches red, and a plain-words alert says what is wrong and what to do. The first half minute on a live strap reads "Settling in".
 - The header shows the strap id only for strap data; otherwise the recording name or "Simulated <bpm> bpm", or the link state.
 - Plain ES modules and Three.js, no bundler, no framework, no build step, everything vendored.
