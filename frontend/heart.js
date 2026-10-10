@@ -428,9 +428,17 @@ export class Heart {
     this.setRotate(false);
   }
 
+  // Wireframe draws lines, and a normal map needs the screen-space derivatives a line lacks on
+  // Apple GPUs (Metal): the lighting came out NaN and the opened heart's lines went black (Thomas,
+  // 2026-10-10). So the normal map is set aside while wireframe is on and put back after.
   setWireframe(on) {
     this.state.wireframe = on;
-    for (const m of this.materials) m.wireframe = on;
+    for (const m of this.materials) {
+      if (on && m.normalMap) { m.userData.normalMap = m.normalMap; m.normalMap = null; }
+      else if (!on && m.userData.normalMap) { m.normalMap = m.userData.normalMap; m.userData.normalMap = null; }
+      m.wireframe = on;
+      m.needsUpdate = true;
+    }
   }
 
   setOpacity(o) {
