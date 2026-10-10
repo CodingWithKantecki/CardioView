@@ -48,7 +48,7 @@ export class Heart {
     this.markers = [];
     this.state = { rotate: false, wireframe: false, opacity: 1, cutaway: false };
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.localClippingEnabled = true;

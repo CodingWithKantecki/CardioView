@@ -2,6 +2,7 @@ import { StreamClock } from './clock.js';
 import { Trace, GUTTER, NOW_FRAC } from './trace.js';
 import { Chambers } from './chambers.js';
 import { Heart } from './heart.js';
+import { Glitch } from './glitch.js';
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -28,6 +29,7 @@ for (const el of document.querySelectorAll('.label')) {
 }
 const heart = new Heart($('heart-view'), { labels, leaders: $('leaders'), missing: $('heart-missing') });
 heart.load();
+const glitch = new Glitch($('glitch'), heart.renderer.domElement);
 
 let lastSampleT = null;
 let lastSampleWall = null;
@@ -169,6 +171,7 @@ function frame() {
   }
   applyLost(lost);
   heart.render();
+  if (lost) glitch.draw(performance.now());
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
