@@ -83,7 +83,8 @@ export class Heart {
     this.anchorsWorld = CHAMBERS.map(() => new THREE.Vector3());
     this.normalsWorld = CHAMBERS.map(() => new THREE.Vector3(0, 0, 1));
     this.radiiWorld = [0.45, 0.45, 0.6, 0.6];
-    this.sideOf = {};
+    this.backView = false;   // true while the camera looks at the back of the heart
+    this.bounds = null;
     this.clipPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0.1);
 
     this.resize();
@@ -129,6 +130,7 @@ export class Heart {
     this.model = holder;
     holder.updateMatrixWorld(true);
     const wb = new THREE.Box3().setFromObject(holder);
+    this.bounds = wb;
     const f = (v) => v.toArray().map((x) => x.toFixed(2)).join(',');
     console.log(`heart model: raw size ${f(size)}; normalized bounds ${f(wb.min)} to ${f(wb.max)}`);
 
@@ -261,31 +263,47 @@ export class Heart {
     }
   }
 
+  // Labels live in fixed slots beside the heart: RA and RV on one side, LA and LV on the other.
+  // The slots hug the heart's projected outline, swap sides once when the camera goes behind the
+  // heart, and ease into place with CSS. Leaders run from the label's real position to the anchor.
   placeLabels() {
-    if (!this.model) return;
+    if (!this.model || !this.bounds) return;
     const w = this.container.clientWidth;
     const h = this.container.clientHeight;
     const p = new THREE.Vector3();
     const toCam = new THREE.Vector3();
-    p.set(0, 0, 0).project(this.camera);
-    const cx = (p.x * 0.5 + 0.5) * w;
+
+    // which side of the heart is the camera on (with hysteresis)
+    const v = this.camera.position.clone().sub(this.controls.target);
+    const yaw = Math.abs(Math.atan2(v.x, v.z)) * (180 / Math.PI);
+    if (!this.backView && yaw > 100) this.backView = true;
+    else if (this.backView && yaw < 80) this.backView = false;
+
+    // projected extents of the heart
+    let minX = Infinity, maxX = -Infinity;
+    const { min, max } = this.bounds;
+    for (const x of [min.x, max.x]) for (const y of [min.y, max.y]) for (const z of [min.z, max.z]) {
+      p.set(x, y, z).project(this.camera);
+      const sx = (p.x * 0.5 + 0.5) * w;
+      if (sx < minX) minX = sx;
+      if (sx > maxX) maxX = sx;
+    }
+
     const items = CHAMBERS.map((c, i) => {
       const el = this.labels[c];
+      if (!el) return null;
       p.copy(this.anchorsWorld[i]).project(this.camera);
       const ax = (p.x * 0.5 + 0.5) * w;
       const ay = (-p.y * 0.5 + 0.5) * h;
       toCam.copy(this.camera.position).sub(this.anchorsWorld[i]);
       const facing = this.normalsWorld[i].dot(toCam) > 0;
-      // hysteresis: only switch sides once the anchor is clearly past the middle
-      const margin = w * 0.04;
-      const prev = this.sideOf[c];
-      const side = !prev ? (ax < cx ? 'left' : 'right')
-        : ax < cx - margin ? 'left' : ax > cx + margin ? 'right' : prev;
-      this.sideOf[c] = side;
-      return { c, i, el, ax, ay, facing, side, y: ay };
-    }).filter((it) => it.el);
-    for (const side of ['left', 'right']) {
-      const group = items.filter((it) => it.side === side).sort((a, b) => a.ay - b.ay);
+      const naturalLeft = c === 'ra' || c === 'rv';
+      const left = naturalLeft !== this.backView;
+      return { c, el, ax, ay, facing, left, y: ay };
+    }).filter(Boolean);
+
+    for (const left of [true, false]) {
+      const group = items.filter((it) => it.left === left).sort((a, b) => a.ay - b.ay);
       for (let k = 1; k < group.length; k++) {
         const gap = group[k - 1].el.offsetHeight + 16;
         if (group[k].y < group[k - 1].y + gap) group[k].y = group[k - 1].y + gap;
@@ -296,22 +314,35 @@ export class Heart {
         if (over > 0) for (const it of group) it.y -= over;
       }
     }
-    let svg = '';
+
+    const margin = 28;
     for (const it of items) {
       const { el } = it;
-      const left = it.side === 'left';
-      el.classList.toggle('side-left', left);
-      el.classList.toggle('side-right', !left);
+      el.classList.toggle('side-left', it.left);
+      el.classList.toggle('side-right', !it.left);
       el.classList.toggle('dim', !it.facing);
       const title = el.querySelector('b');
       const titleMid = title ? title.offsetTop + title.offsetHeight / 2 : 20;
-      const lx = left ? w * 0.19 : w * 0.81;
-      el.style.left = left ? `${Math.round(lx - el.offsetWidth)}px` : `${Math.round(lx)}px`;
+      const lw = el.offsetWidth;
+      let x;
+      if (it.left) x = Math.max(12, Math.min(minX - margin, w * 0.42) - lw);
+      else x = Math.min(w - 12 - lw, Math.max(maxX + margin, w * 0.58));
+      el.style.left = `${Math.round(x)}px`;
       el.style.top = `${Math.round(it.y - titleMid)}px`;
-      const ly = it.y;
-      const knee = left ? lx + 36 : lx - 36;
+    }
+
+    // leaders start where the label really is (CSS may still be easing it)
+    const box = this.container.getBoundingClientRect();
+    let svg = '';
+    for (const it of items) {
+      const r = it.el.getBoundingClientRect();
+      const title = it.el.querySelector('b');
+      const titleMid = title ? title.offsetTop + title.offsetHeight / 2 : 20;
+      const sx = (it.left ? r.right : r.left) - box.left;
+      const sy = r.top - box.top + titleMid;
+      const knee = it.left ? sx + 26 : sx - 26;
       const cls = it.facing ? '' : ' class="dim"';
-      svg += `<polyline${cls} fill="none" points="${lx.toFixed(1)},${ly.toFixed(1)} ${knee.toFixed(1)},${ly.toFixed(1)} ${it.ax.toFixed(1)},${it.ay.toFixed(1)}"></polyline>`;
+      svg += `<polyline${cls} fill="none" points="${sx.toFixed(1)},${sy.toFixed(1)} ${knee.toFixed(1)},${sy.toFixed(1)} ${it.ax.toFixed(1)},${it.ay.toFixed(1)}"></polyline>`;
       svg += `<circle${cls} cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="4"></circle>`;
     }
     if (this.leaders) this.leaders.innerHTML = svg;

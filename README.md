@@ -52,7 +52,7 @@ ECG is personal data. Only commit your own recording, never a visitor's.
 
 ## The heart model
 
-`frontend/assets/heart.json` holds, per chamber, the contraction center and radius plus a surface anchor and outward normal for the label, all in the normalized model space (model centered at the origin, 1.8 units tall), plus the camera. Labels follow their anchors as the heart rotates and dim when the anchor faces away. Open the viewer with `?debug=1` to see the bounding box, axes and a marker per chamber while adjusting them; `?act=1` holds every chamber squeezed and `?act=0` relaxed.
+`frontend/assets/heart.json` holds, per chamber, the contraction center and radius plus a surface anchor and outward normal for the label, all in the normalized model space (model centered at the origin, 1.8 units tall), plus the camera. Labels keep fixed slots beside the heart, swap sides once when you look at it from behind, point at their anchors and dim when the anchor faces away. The small wave under each label is modeled from the beat timing (it is not a pressure measurement), which is why the heart card says WAVES: MODELED. Open the viewer with `?debug=1` to see the bounding box, axes and a marker per chamber while adjusting them; `?act=1` holds every chamber squeezed and `?act=0` relaxed.
 
 ## Tests and checks
 

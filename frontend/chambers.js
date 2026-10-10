@@ -21,6 +21,17 @@ export function intervals(beat) {
   };
 }
 
+// raised-cosine bump centered on `center`, zero beyond `half` seconds either side
+function bump(t, center, half) {
+  const x = (t - center) / half;
+  return x > -1 && x < 1 ? 0.5 + 0.5 * Math.cos(Math.PI * x) : 0;
+}
+
+function smooth(a, b, t) {
+  const x = Math.min(1, Math.max(0, (t - a) / (b - a)));
+  return x * x * (3 - 2 * x);
+}
+
 function envelope(t, on, off) {
   if (t < on) return 0;
   if (t < on + RISE_S) return (t - on) / RISE_S;
@@ -68,7 +79,33 @@ export class Chambers {
     return { ra: this.activationOf('ra', t), la: this.activationOf('la', t), rv: this.activationOf('rv', t), lv: this.activationOf('lv', t) };
   }
 
-  // small wave of one chamber's activation over the last SPARK_S seconds, newest at the right edge
+  // Modeled pressure-style wave for one chamber, from the beat timing alone (not a measurement).
+  // Atria: a bump at atrial contraction, then a slow rise while the ventricles squeeze and the atria fill.
+  // Ventricles: a dome from ventricles on to off, the left one tall, the right one low, plus a small
+  // end-diastolic bump from the atrial kick.
+  waveOf(c, t) {
+    let out = 0;
+    for (let i = this.beats.length - 1; i >= 0; i--) {
+      const b = this.beats[i];
+      if (b.r > t + 0.5) continue;
+      if (b.r < t - 2) break;
+      const aOn = b.r + (c === 'la' || c === 'lv' ? b.la_on : b.ra_on);
+      const vOn = b.r + b.v_on;
+      const vOff = b.r + b.v_off;
+      let v;
+      if (c === 'ra' || c === 'la') {
+        v = bump(t, aOn + 0.07, 0.09) + 0.55 * bump(t, vOff + 0.02, 0.24);
+      } else {
+        const up = smooth(vOn, vOn + 0.1, t);
+        const down = 1 - smooth(vOff - 0.05, vOff + 0.08, t);
+        v = (c === 'lv' ? 1.0 : 0.5) * up * down + 0.12 * bump(t, aOn + 0.08, 0.08);
+      }
+      if (v > out) out = v;
+    }
+    return Math.min(1, out);
+  }
+
+  // small wave of one chamber over the last SPARK_S seconds, newest at the right edge
   drawSpark(canvas, c, tDisplay) {
     const { w, h, dpr } = fitCanvas(canvas);
     const ctx = canvas.getContext('2d');
@@ -84,7 +121,7 @@ export class Chambers {
       ctx.moveTo(0, base);
       for (let x = 0; x < w; x++) {
         const t = tDisplay - ((w - 1 - x) / (w - 1)) * SPARK_S;
-        const a = this.activationOf(c, t);
+        const a = this.waveOf(c, t);
         ctx.lineTo(x, base - a * (base - top));
       }
       ctx.lineTo(w - 1, base);
@@ -94,7 +131,7 @@ export class Chambers {
       ctx.beginPath();
       for (let x = 0; x < w; x++) {
         const t = tDisplay - ((w - 1 - x) / (w - 1)) * SPARK_S;
-        const a = this.activationOf(c, t);
+        const a = this.waveOf(c, t);
         const y = base - a * (base - top);
         if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       }
