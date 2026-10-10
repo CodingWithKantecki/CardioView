@@ -1,7 +1,7 @@
 // ECG trace on a canvas. Samples are keyed by stream time; drawing follows t_display.
 import { colors, alpha } from './theme.js';
 const FS_DEFAULT = 130;
-export const KEEP_S = 40;       // the timeline reaches back 30 s, plus the 6 s window
+export const KEEP_S = 120;      // history kept while live: the timeline's 30 s window can pan back through it
 export const MAX_KEEP_S = 900;  // off live the history is held, but never more than this
 
 export const WINDOW_S = 6;       // seconds from the left edge to the now line

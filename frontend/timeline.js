@@ -1,10 +1,13 @@
 // The timeline in the header: the last HISTORY_S of ECG as a strip with a playhead, in one box with
-// the transport tray. Drag the strip to scrub; the tray plays backward, pauses, plays forward or
+// the transport tray. Drag the strip to scrub; the tray rewinds, plays, pauses, fast forwards or
 // returns to live. It only steers the clock: the trace, the lanes, the heart and the number all
 // follow displayTime(). Off live the strip's window is frozen (the clock's anchor).
 import { fitCanvas, WINDOW_S } from './trace.js';
 import { colors, alpha } from './theme.js';
 import { HISTORY_S } from './clock.js';
+
+const EDGE = 0.06;        // the strip's edge zone where a held drag scrolls the window
+const PAN_RATE_S = 10;    // seconds of history per second while scrolling at an edge
 
 export class Timeline {
   constructor(canvas, trace, lanes, clock) {
@@ -14,22 +17,48 @@ export class Timeline {
     this.lanes = lanes;
     this.clock = clock;
     this.dragging = false;
-    canvas.addEventListener('pointerdown', (e) => { canvas.setPointerCapture(e.pointerId); this.dragging = true; this.seekAt(e); });
-    canvas.addEventListener('pointermove', (e) => { if (this.dragging) this.seekAt(e); });
+    this.pointerF = 0;        // where the pointer is across the strip, 0 to 1 (beyond while dragging outside)
+    this.lastFrame = 0;
+    const at = (e) => { const r = canvas.getBoundingClientRect(); this.pointerF = (e.clientX - r.left) / r.width; };
+    canvas.addEventListener('pointerdown', (e) => { canvas.setPointerCapture(e.pointerId); this.dragging = true; at(e); this.seekAt(); });
+    canvas.addEventListener('pointermove', (e) => { if (this.dragging) { at(e); this.seekAt(); } });
     const up = () => { this.dragging = false; };
     canvas.addEventListener('pointerup', up);
     canvas.addEventListener('pointercancel', up);
+    // the wheel (a trackpad's two-finger scroll) pans the window and the playhead together
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const r = canvas.getBoundingClientRect();
+      const px = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      this.clock.pan(px * (HISTORY_S / r.width));
+    }, { passive: false });
   }
 
-  seekAt(e) {
+  // the playhead goes where the pointer is in the window
+  seekAt() {
     const end = this.clock.windowEnd();
     if (end === null) return;
-    const r = this.canvas.getBoundingClientRect();
-    const f = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+    const f = Math.min(1, Math.max(0, this.pointerF));
     this.clock.seek(end - HISTORY_S + f * HISTORY_S);
   }
 
+  // a drag held at an edge (or beyond it) scrolls the window through the history
+  scrollAtEdge() {
+    const now = performance.now() / 1000;
+    const dt = Math.min(0.1, now - this.lastFrame);
+    this.lastFrame = now;
+    if (!this.dragging) return;
+    const f = this.pointerF;
+    let pull = 0;
+    if (f < EDGE) pull = -Math.min(1, (EDGE - f) / EDGE);
+    else if (f > 1 - EDGE) pull = Math.min(1, (f - (1 - EDGE)) / EDGE);
+    if (pull === 0) return;
+    this.clock.pan(pull * PAN_RATE_S * dt);
+    this.seekAt();
+  }
+
   draw(tDisplay) {
+    this.scrollAtEdge();
     const { w, h, dpr } = fitCanvas(this.canvas);
     const ctx = this.ctx;
     ctx.clearRect(0, 0, w, h);

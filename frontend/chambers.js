@@ -63,17 +63,26 @@ export class Chambers {
     if (drop > 0) this.beats.splice(0, drop);
   }
 
+  // index of the latest beat at or before t (beats are in time order), or -1
+  indexBefore(t) {
+    let lo = 0, hi = this.beats.length - 1, found = -1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (this.beats[mid].r <= t) { found = mid; lo = mid + 1; } else hi = mid - 1;
+    }
+    return found;
+  }
+
   latestBefore(t) {
-    for (let i = this.beats.length - 1; i >= 0; i--) if (this.beats[i].r <= t) return this.beats[i];
-    return null;
+    const i = this.indexBefore(t);
+    return i < 0 ? null : this.beats[i];
   }
 
   // activation of one chamber at time t, 0 to 1
   activationOf(c, t) {
     let out = 0;
-    for (let i = this.beats.length - 1; i >= 0; i--) {
+    for (let i = this.indexBefore(t + 0.5); i >= 0; i--) {
       const b = this.beats[i];
-      if (b.r > t + 0.5) continue;
       if (b.r < t - 2) break;
       const [on, off] = intervals(b)[c];
       const a = envelope(t, on, off);

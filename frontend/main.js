@@ -207,12 +207,13 @@ function applyLost(lost) {
   if (want !== appliedWireframe) { heart.setWireframe(want); appliedWireframe = want; }
 }
 
+let heldFrom = null;   // off live, the buffers hold everything from here instead of rolling
 function drawFrame() {
+  clock.oldest = trace.ts.length ? trace.ts[0] : null;
   const t = clock.displayTime();
-  // off live the buffers hold the frozen window (and the 6 s before it) instead of rolling
-  const hold = clock.mode === 'live' ? null : clock.windowStart() - WINDOW_S;
-  trace.holdFrom = hold;
-  lanes.holdFrom = hold;
+  heldFrom = clock.mode === 'live' ? null : Math.min(heldFrom ?? Infinity, clock.windowStart() - WINDOW_S);
+  trace.holdFrom = heldFrom;
+  lanes.holdFrom = heldFrom;
   const lost = lostState();
   trace.draw(t);
   lanes.draw(t);

@@ -14,9 +14,10 @@
 <header class="top">
   <div class="brand">CardioView</div>
   <div class="toggle timeline" id="transport">
-    <button type="button" data-mode="backward" aria-label="Play backward" aria-pressed="false"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M11 1v10L2 6z"/></svg></button>
+    <button type="button" data-mode="rewind" aria-label="Rewind" aria-pressed="false"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1L0 6l6 5zM12 1L6 6l6 5z"/></svg></button>
+    <button type="button" data-mode="play" aria-label="Play" aria-pressed="false"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 1v10l9-5z"/></svg></button>
     <button type="button" data-mode="paused" aria-label="Pause" aria-pressed="false"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 1h3v10H2zM7 1h3v10H7z"/></svg></button>
-    <button type="button" data-mode="forward" aria-label="Play forward" aria-pressed="false"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1 1v10l9-5z"/></svg></button>
+    <button type="button" data-mode="forward" aria-label="Fast forward" aria-pressed="false"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M0 1l6 5-6 5zM6 1l6 5-6 5z"/></svg></button>
     <button type="button" data-mode="live" aria-pressed="true">Live</button>
     <canvas id="timeline-strip" aria-label="The last 30 seconds of ECG, drag to scrub"></canvas>
   </div>
