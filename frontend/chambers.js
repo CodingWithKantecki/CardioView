@@ -183,8 +183,8 @@ export class Chambers {
       ctx.fillStyle = T.dim;
       ctx.textBaseline = 'middle';
       ctx.fillText(c.toUpperCase(), 0, (top + base) / 2);
-      ctx.strokeStyle = alpha(T.rule, 0.12);
-      ctx.lineWidth = 1 * dpr;
+      ctx.strokeStyle = alpha(T.rule, 0.22);
+      ctx.lineWidth = 1.5 * dpr;
       ctx.beginPath(); ctx.moveTo(gutter, base); ctx.lineTo(w, base); ctx.stroke();
       ctx.restore();
       if (tDisplay === null) continue;

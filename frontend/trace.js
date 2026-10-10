@@ -172,7 +172,7 @@ export class Trace {
     // grid
     ctx.save();
     const T = colors();
-    ctx.strokeStyle = alpha(T.grid, 0.08);
+    ctx.strokeStyle = alpha(T.grid, 0.12);
     ctx.lineWidth = 1 * dpr;
     const stepPx = pxPerS * 0.2;
     const phase = tDisplay === null ? 0 : ((tLeft % 0.2) + 0.2) % 0.2;
