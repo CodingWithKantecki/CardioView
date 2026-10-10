@@ -17,6 +17,7 @@ const params = new URLSearchParams(location.search);
 const actParam = params.get('act');
 const FORCED_ACT = actParam === null ? null : { ra: +actParam, la: +actParam, rv: +actParam, lv: +actParam };
 const FORCED_LOST = params.get('signal') === 'lost';
+const FORCED_CONNECTING = params.get('signal') === 'connecting';
 // theme: navy by default; ?theme=light or the T key, remembered per browser
 const savedTheme = (() => { try { return localStorage.getItem('cardioview-theme'); } catch { return null; } })();
 if (params.get('theme') || savedTheme) document.documentElement.dataset.theme = params.get('theme') || savedTheme;
@@ -52,6 +53,7 @@ let lastSampleT = null;
 let lastSampleWall = null;
 let shownBeat = null;
 let status = null;                       // last status message
+let liveSince = null;                    // wall time the strap was chosen
 let signal = { ok: true, reason: '' };   // last signal message
 let wsOpen = false;
 let ws = null;
@@ -61,13 +63,19 @@ let flickerUntil = 0;
 
 // It is either working or not connected: one message for every strap problem.
 const NOT_CONNECTED = ['Not connected', 'Wet the pads and wear the strap snug on the chest'];
+const CONNECTING = ['Connecting to the strap', 'Wear it snug on the chest', true];   // calm: a chosen strap connecting is not a fault
+const CONNECT_GRACE_MS = 8000;
 
 // Why the screen cannot follow a heart right now, or null when it can.
 function lostState() {
   if (FORCED_LOST) return NOT_CONNECTED;
+  if (FORCED_CONNECTING) return CONNECTING;
   if (!status) return null;
   if (!wsOpen) return ['Server offline', 'Retrying'];
-  if (status.source === 'live' && status.state !== 'streaming') return NOT_CONNECTED;
+  if (status.source === 'live' && status.state !== 'streaming') {
+    const fresh = liveSince !== null && performance.now() - liveSince < CONNECT_GRACE_MS;
+    return status.state === 'connecting' && fresh ? CONNECTING : NOT_CONNECTED;
+  }
   if (lastSampleWall !== null && performance.now() - lastSampleWall > 3000) return NOT_CONNECTED;
   if (!signal.ok) return NOT_CONNECTED;
   return null;
@@ -87,7 +95,11 @@ function setStatus(msg) {
 
 function handle(msg) {
   if (msg.type === 'status') {
-    if (status && status.source !== msg.source) signal = { ok: true, reason: '' };   // sources continue on one stream clock
+    if (!status || status.source !== msg.source) {   // a source switch: fresh signal state and sample clock
+      signal = { ok: true, reason: '' };
+      lastSampleWall = null;
+      if (msg.source === 'live') liveSince = performance.now();
+    }
     status = msg;
     setStatus(msg);
     for (const b of document.querySelectorAll('#source-mode button')) {
@@ -158,12 +170,16 @@ placeNowLine();
 function showBeat(b) {
   if (b === shownBeat) return;
   shownBeat = b;
-  els.bpm.textContent = b && b.bpm != null ? String(b.bpm) : '--';
-  els.rr.textContent = b && b.rr != null ? `${b.rr.toFixed(2)} s between beats` : '-- s between beats';
+  if (!b) { els.bpm.textContent = '--'; els.rr.textContent = '-- s between beats'; return; }
+  // the first beat after a source switch carries no interval yet: keep the last numbers until one does
+  if (b.bpm != null) els.bpm.textContent = String(b.bpm);
+  if (b.rr != null) els.rr.textContent = `${b.rr.toFixed(2)} s between beats`;
 }
 
 function applyLost(lost) {
-  document.body.classList.toggle('lost', !!lost);
+  const calm = !!lost && lost[2] === true;
+  document.body.classList.toggle('lost', !!lost && !calm);
+  els.alert.classList.toggle('calm', calm);
   els.alert.hidden = !lost;
   if (lost) {
     if (els.alertTitle.textContent !== lost[0]) els.alertTitle.textContent = lost[0];
@@ -172,7 +188,7 @@ function applyLost(lost) {
   // wireframe flicker while lost, on top of whatever the W key set
   const now = performance.now();
   if (lost && !REDUCED_MOTION && now > flickerUntil && Math.random() < 0.04) flickerUntil = now + 50 + Math.random() * 120;
-  const want = userWireframe || (!!lost && now < flickerUntil);
+  const want = userWireframe || (!!lost && !calm && now < flickerUntil);
   if (want !== appliedWireframe) { heart.setWireframe(want); appliedWireframe = want; }
 }
 
@@ -191,7 +207,7 @@ function frame() {
   }
   applyLost(lost);
   heart.render();
-  if (lost && !REDUCED_MOTION) glitch.draw(performance.now());
+  if (lost && !lost[2] && !REDUCED_MOTION) glitch.draw(performance.now());
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

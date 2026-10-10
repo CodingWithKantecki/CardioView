@@ -157,7 +157,7 @@ export class Chambers {
     const tLeft = tDisplay === null ? 0 : tDisplay - WINDOW_S * NOW_FRAC;
     const rows = ORDER.length;
     const rowH = h / rows;
-    const pad = Math.min(8 * dpr, rowH * 0.16);
+    const pad = rowH * 0.2;
     const step = Math.max(1, Math.round(dpr));
 
     const T = colors();
@@ -176,7 +176,7 @@ export class Chambers {
     for (let r = 0; r < rows; r++) {
       const c = ORDER[r];
       const base = rowH * (r + 1) - pad;
-      const top = rowH * r + pad * 1.5;
+      const top = rowH * r + pad;
       const amp = base - top;
       ctx.save();
       ctx.font = `${14 * dpr}px "IBM Plex Sans", sans-serif`;
