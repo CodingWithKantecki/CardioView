@@ -5,8 +5,10 @@ import { Heart } from './heart.js';
 import { Glitch } from './glitch.js';
 import { Timeline } from './timeline.js';
 import { Dock } from './dock.js';
+import { drawRhythmTips } from './tips.js';
 import { invalidate as invalidateTheme } from './theme.js';
 import { SessionOverlay } from './session.js';
+import { initChat } from './chat.js';
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -29,6 +31,7 @@ function toggleTheme() {
   try { localStorage.setItem('cardioview-theme', next); } catch {}
   invalidateTheme();
   heart.applyTheme();
+  drawRhythmTips();
 }
 const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;   // lost state without the glitch pass
 
@@ -51,6 +54,7 @@ for (const el of document.querySelectorAll('.label')) {
 const heart = new Heart($('heart-view'), { labels, leaders: $('leaders'), missing: $('heart-missing') });
 if (new URLSearchParams(location.search).has('debug')) { window.heart = heart; window.clock = clock; window.trace = trace; }   // for headless checks
 heart.load();
+drawRhythmTips();
 const glitch = new Glitch($('glitch'), heart.renderer.domElement);
 const session = new SessionOverlay(
   { box: $('session'), prompt: $('session-prompt'), sub: $('session-sub'), ring: $('session-ring') },
@@ -277,17 +281,31 @@ for (const b of document.querySelectorAll('#rhythms button')) {
   });
 }
 
+initChat();
+
 const opacity = $('opacity');
 opacity.addEventListener('input', () => heart.setOpacity(Number(opacity.value) / 100));
 
-// the dock: the same actions as the keys
-const dock = new Dock($('dock'), {
+// The dock and the keys share these: R or Rotate spins, W or Wireframe, C or Open (the cutaway),
+// 0 or Reset view. The dock reads its pressed state from the heart every frame.
+const view = {
   rotate: () => heart.setRotate(!heart.state.rotate),
-  wireframe: () => { userWireframe = !userWireframe; },
-  open: () => heart.setCutaway(!heart.state.cutaway),
-  opacity: () => opacity.focus(),
+  wire: () => { userWireframe = !userWireframe; },
+  cut: () => heart.setCutaway(!heart.state.cutaway),
   reset: () => heart.resetView(),
+};
+const dock = new Dock($('dock'), {
+  rotate: view.rotate,
+  wireframe: view.wire,
+  open: view.cut,
+  opacity: () => opacity.focus(),
+  reset: view.reset,
 });
+if (REDUCED_MOTION) {   // auto-rotate is off under reduced motion; the dock's cell says so
+  const b = $('dock').querySelector('[data-action="rotate"]');
+  b.disabled = true;
+  b.dataset.label = 'Auto-rotate is off under reduced motion';
+}
 
 // Keys keep the other views reachable without chrome: R spins, W wireframe, C cutaway. Plain keys only:
 // Cmd+C to copy text or Cmd+R to reload must not touch the heart (Cmd+C used to cut it open).
@@ -297,7 +315,8 @@ window.addEventListener('keydown', (e) => {
   if (session.key(e)) return;   // S, Esc, V: saved sessions
   const k = e.key.toLowerCase();
   if (k === 't') toggleTheme();
-  else if (k === 'r') heart.setRotate(!heart.state.rotate);
-  else if (k === 'w') userWireframe = !userWireframe;
-  else if (k === 'c') heart.setCutaway(!heart.state.cutaway);
+  else if (k === 'r') view.rotate();
+  else if (k === 'w') view.wire();
+  else if (k === 'c') view.cut();
+  else if (k === '0') view.reset();
 });

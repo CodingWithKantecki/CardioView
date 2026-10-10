@@ -10,6 +10,7 @@ import uvicorn
 
 from .app import create_app
 from .cloud import Cloud, load_env
+from .env import load_dotenv
 from .sources.base import PREROLL_S, Source
 from .sources.replay import ReplaySource
 from .sources.rhythm import RhythmSource
@@ -54,6 +55,7 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--keep-until", help="when saved sessions expire, e.g. 2026-10-11T12:00 (default: 24 hours from now)")
     ap.add_argument("--public-host", help="the address phones use for the LAN link (default: this machine's)")
     args = ap.parse_args(argv)
+    load_dotenv()   # GEMINI_API_KEY and GEMINI_MODEL for the chat, from .env in the repo root
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     load_env(DATA.parent / ".env")   # the cloud settings live in a local .env, never in git
     cloud = Cloud.from_env()

@@ -38,7 +38,17 @@ python -m backend --source data/<file>.csv      # replay a recording
 python -m backend --source h10                  # live from the Polar H10
 ```
 
-Options: `--bpm 72` sets the simulated rate, `--invert` flips a strap worn upside down, `--host` and `--port` change where it listens (default 0.0.0.0:8000). Whatever you start with, the Strap / Demo toggle at the top right of the viewer switches between the live strap and demo data without a restart; `--demo data/<file>.csv` or `--demo sim` picks the demo source (default: the first recording in `data/`). In Demo, the Simulated rhythm tray beside the heart rate plays synthesized rhythms (normal, bradycardia, atrial fibrillation, extra beats, ventricular tachycardia) for showing the screen without a strap; they are simulations and are never offered beside strap data. Hover the blue ! in a cell to read what that rhythm is. Press T to switch between the dark theme and the cream one.
+Options: `--bpm 72` sets the simulated rate, `--invert` flips a strap worn upside down, `--host` and `--port` change where it listens (default 0.0.0.0:8000). Whatever you start with, the Strap / Demo toggle at the top right of the viewer switches between the live strap and demo data without a restart; `--demo data/<file>.csv` or `--demo sim` picks the demo source (default: the first recording in `data/`). In Demo, the Simulated rhythm tray beside the heart rate plays synthesized rhythms (normal, bradycardia, atrial fibrillation, extra beats, ventricular tachycardia) for showing the screen without a strap; they are simulations and are never offered beside strap data. Hover the blue ! in a cell to read what that rhythm is. Press T to switch between the dark theme and the cream one. The 0 key resets the view, like the dock's Reset view.
+
+### Chat (optional, the only part that needs internet)
+
+The Ask button at the top right of the stage opens a small chat that answers questions about what is on screen (heart rate, ECG, chamber timing, signal, source) through Google's Gemini API. To turn it on, create a file named `.env` in the repo root (next to this README, on any OS) with one line:
+
+```
+GEMINI_API_KEY=your-key-here
+```
+
+Get a free key at https://aistudio.google.com/apikey. The server reads the file at startup, the key never leaves the server and `.env` is ignored by git. Without a key the chat says "Chat is not set up on this server"; without internet it says so too, and everything else keeps working. `GEMINI_MODEL=<name>` in the same file changes the model (default `gemini-3.5-flash`). The answers come from an AI and can be wrong. The chat only talks about the data on screen, never diagnoses, and says which numbers are measured (the ECG), derived (beats, rate, chamber timing) or modeled (the heart and the label waves).
 
 ## The strap
 
@@ -54,7 +64,7 @@ ECG is personal data. Only commit your own recording, never a visitor's.
 
 ## The heart model
 
-The viewer uses the CGTrader pack "Human Heart with Cross section" by devden (purchased under its royalty-free license by Thomas Kantecki; the files are in `frontend/assets/heart-pro/` so the whole team runs the same heart): a whole heart (`exterior-2.glb`; `exterior-1.glb` is the other texture variation, switchable in `frontend/assets/heart-pro.json`) plus the same heart opened along the four-chamber plane (`inside.glb`), which the Open control in the dock swaps in. If that folder is missing the viewer falls back to the free Sketchfab model credited below.
+The viewer uses the CGTrader pack "Human Heart with Cross section" by devden (purchased under its royalty-free license by Thomas Kantecki; the files are in `frontend/assets/heart-pro/` so the whole team runs the same heart): a whole heart (`exterior-2.glb`; `exterior-1.glb` is the other texture variation, switchable in `frontend/assets/heart-pro.json`) plus the same heart opened along the four-chamber plane (`inside.glb`), which the Open control in the dock swaps in; its valves open and close with the beat. If that folder is missing the viewer falls back to the free Sketchfab model credited below.
 
 `frontend/assets/heart.json` (and `heart-pro.json` for the purchased set) holds, per chamber, the contraction center and radius plus a surface anchor and outward normal for the label, all in the normalized model space (model centered at the origin, 1.8 units tall), plus the camera. Labels keep fixed slots beside the heart, swap sides once when you look at it from behind, point at their anchors and dim when the anchor faces away. The small wave under each label is modeled from the beat timing (it is not a pressure measurement), which is why the heart card says WAVES: MODELED. Open the viewer with `?debug=1` to see the bounding box, axes and a marker per chamber while adjusting them; `?act=1` holds every chamber squeezed and `?act=0` relaxed.
 

@@ -15,12 +15,13 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Callable
 
+import httpx
 import segno
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from . import analysis
+from . import analysis, chat
 from .pipeline import REFRACTORY_S, BeatDetector, SignalMonitor
 from .session import SessionError, SessionManager, SessionStore, utcnow
 from .sources.base import FS, PACKET, PACKET_S, PacedSource, Packet, Source, Status
@@ -246,6 +247,10 @@ class Runner:
                 with suppress(asyncio.CancelledError, Exception):
                     await t
 
+    def last_packet_age(self) -> float | None:
+        """Seconds since the running source delivered a packet, or None before the first."""
+        return None if self._last_wall is None else time.monotonic() - self._last_wall
+
     async def _pump(self, source: Source, detector: BeatDetector, monitor: SignalMonitor,
                     takeover: bool = False) -> None:
         preroll = 0.0 if takeover else float(getattr(source, "preroll_s", 0.0) or 0.0)
@@ -289,9 +294,10 @@ class Runner:
 
 def create_app(factories: dict[str, Callable[[], Source]], initial: str, *, sessions_dir: Path | None = None,
                keep_until: datetime | None = None, public_host: str | None = None, port: int = 8000,
-               cloud=None) -> FastAPI:
+               cloud=None, http: httpx.AsyncClient | None = None) -> FastAPI:
     """`factories` maps a name (live, demo) to a function that builds that source.
-    cloud: an object with publish, unpublish and run(manager), or None to keep sessions on the laptop."""
+    cloud: an object with publish, unpublish and run(manager), or None to keep sessions on the laptop.
+    `http` is the client the chat uses to reach Gemini; tests pass one with a mock transport."""
     hub = Hub("simulated")
     store = SessionStore(sessions_dir or SESSIONS)
     host = public_host or lan_address()
@@ -313,6 +319,7 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, *, sess
         gone = store.clean_up(utcnow())
         if gone:
             log.info("removed %d unfinished or expired sessions", gone)
+        app.state.http = http or httpx.AsyncClient()
         await runner.start(initial)
         tasks = [asyncio.create_task(ticker(), name="ticker")]
         if cloud is not None:
@@ -327,6 +334,7 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, *, sess
                     await task
             await runner.stop()
             await sessions.close()   # after the runner, so no packet can start another analysis
+            await app.state.http.aclose()
 
     app = FastAPI(title="CardioView", lifespan=lifespan)
     app.state.hub = hub
@@ -438,6 +446,22 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, *, sess
     @app.get("/s/{sid}")
     async def summary_page(sid: str):
         return FileResponse(FRONTEND / "summary.html")
+    @app.post("/api/chat")
+    async def chat_endpoint(request: Request) -> JSONResponse:
+        """One question about the data on screen. Body: {"question": str, "history": [{"role", "text"}]}.
+        The answer is {"reply", "error"}; `reply` is always words to show, `error` is null or a reason."""
+        try:
+            body = await request.json()
+        except ValueError:
+            body = None
+        if not isinstance(body, dict):
+            body = {}
+        question = body.get("question")
+        if not isinstance(question, str):
+            question = ""
+        snap = chat.snapshot(hub, runner.last_packet_age())
+        result = await chat.ask(question, body.get("history"), snap, app.state.http)
+        return JSONResponse(result.body(), status_code=result.status)
 
     app.mount(f"/a/{version}", StaticFiles(directory=FRONTEND), name="assets")
     app.mount("/", StaticFiles(directory=FRONTEND, html=True), name="viewer")

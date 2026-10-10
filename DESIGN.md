@@ -188,7 +188,7 @@ There are almost no shapes. Dividers are 1 px hairlines. The now line is a 2 px 
 
 ### Opacity Slider
 - **Style:** "Opacity" at 14 px Instrument Gray, then a 160 px range input with a 1.5 px track at 22 percent white and a 12 px Readout White thumb with a 4 px ink ring.
-- **Focus:** a 1 px Instrument Gray outline at 6 px offset. The other views (rotate, wireframe, cutaway) are on the R, W and C keys with no chrome.
+- **Focus:** a 1 px Instrument Gray outline at 6 px offset. The other views are a tray at the bottom right of the stage: Rotate, Wire, Cut and Reset as mono pills with the accent fill when on, mirroring the R, W, C and 0 keys. All off by default.
 
 ### ECG Trace (signature)
 A 2 px Trace Green rounded line with a 5 px glow over a 7 percent grid, sweeping right to the now line. In 3D the last eight beats stack as a waterfall: the newest in front, older ones receding up and back, each ridge filled with ink so it hides what is behind it, the front ridge lit green beneath.
