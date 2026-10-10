@@ -47,7 +47,8 @@ export class Glitch {
         this.bands.push({ y: Math.random() * h, hgt: (4 + Math.random() * 40) * (w / 1200), dx: (Math.random() - 0.5) * w * 0.06, bright: Math.random() < 0.4 });
       }
       this.nextBands = now + 60 + Math.random() * 180;
-      if (Math.random() < 0.12) this.flashUntil = now + 40 + Math.random() * 60;
+      // at most two flashes a second, under the three-per-second photosensitivity line
+      if (Math.random() < 0.12 && now > this.flashUntil + 500) this.flashUntil = now + 40 + Math.random() * 60;
     }
     for (const b of this.bands) {
       ctx.filter = b.bright ? RED + ' brightness(1.9)' : RED;

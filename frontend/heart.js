@@ -96,6 +96,10 @@ export class Heart {
     const h = Math.max(1, this.container.clientHeight);
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
+    // Portrait stages (phones): keep at least 34 degrees of horizontal view so the heart leaves
+    // room for the labels beside it instead of filling the width. Landscape stays at 30 vertical.
+    const halfH = THREE.MathUtils.degToRad(34) / 2;
+    this.camera.fov = Math.max(30, 2 * Math.atan(Math.tan(halfH) / this.camera.aspect) * (180 / Math.PI));
     this.camera.updateProjectionMatrix();
   }
 

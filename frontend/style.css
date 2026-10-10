@@ -10,7 +10,7 @@
   --hair: rgba(232, 236, 243, 0.10);
   --text: #E8ECF3;
   --dim: #7F8AA0;
-  --dimmer: #5A6478;
+  --dimmer: #6F7A94;   /* 4.6:1 on ink, the floor for 13 px text */
   --ecg: #43E0A0;
   --right: #5B9BFF;
   --left: #FF5C83;
@@ -138,5 +138,28 @@ body.lost .alert b { color: #FF6B8B; }
 }
 @media (prefers-reduced-motion: reduce) {
   .label { transition: none; }
+  /* lost signal without the glitch pass: the heart stays, tinted red, with the wash and the alert */
+  body.lost #heart-view { opacity: 1; filter: grayscale(1) sepia(1) saturate(6) hue-rotate(-64deg) contrast(1.35) brightness(0.66); }
+  body.lost .glitch { display: none; }
+}
+
+/* phones on the same Wi-Fi: stage on top, instruments below, the page scrolls */
+@media (max-width: 760px) {
+  :root { --gutter: 20px; }
+  body { height: auto; min-height: 100vh; overflow: auto; }
+  .top { flex-basis: 56px; gap: 20px; }
+  .brand { font-size: 19px; }
+  .screen { display: flex; flex-direction: column; }
+  .stage { height: 72vh; min-height: 480px; border-right: 0; border-bottom: 1px solid var(--hair); }
+  .label b { font-size: 26px; }
+  .label span { font-size: 13px; }
+  .label .spark { width: 96px; height: 20px; }
+  .alert { padding: 24px 28px; width: calc(100% - 40px); }
+  .alert b { font-size: 22px; }
+  .opacity { bottom: 20px; }
+  .column { display: flex; flex-direction: column; padding-bottom: 24px; }
+  .instrument.ecg, .instrument.chambers { height: 260px; flex: 0 0 auto; }
+  .bpm { font-size: 88px; }
+  .extras { display: none; }
 }
 [hidden] { display: none !important; }

@@ -16,6 +16,7 @@ const params = new URLSearchParams(location.search);
 const actParam = params.get('act');
 const FORCED_ACT = actParam === null ? null : { ra: +actParam, la: +actParam, rv: +actParam, lv: +actParam };
 const FORCED_LOST = params.get('signal') === 'lost';
+const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;   // lost state without the glitch pass
 
 const clock = new StreamClock();
 const trace = new Trace(els.trace);
@@ -149,7 +150,7 @@ function applyLost(lost) {
   }
   // wireframe flicker while lost, on top of whatever the W key set
   const now = performance.now();
-  if (lost && now > flickerUntil && Math.random() < 0.04) flickerUntil = now + 50 + Math.random() * 120;
+  if (lost && !REDUCED_MOTION && now > flickerUntil && Math.random() < 0.04) flickerUntil = now + 50 + Math.random() * 120;
   const want = userWireframe || (!!lost && now < flickerUntil);
   if (want !== appliedWireframe) { heart.setWireframe(want); appliedWireframe = want; }
 }
@@ -169,7 +170,7 @@ function frame() {
   }
   applyLost(lost);
   heart.render();
-  if (lost) glitch.draw(performance.now());
+  if (lost && !REDUCED_MOTION) glitch.draw(performance.now());
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
