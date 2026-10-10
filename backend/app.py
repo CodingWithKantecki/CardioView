@@ -228,6 +228,14 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str) -> Fast
     app.state.hub = hub
     app.state.runner = runner
 
+    @app.middleware("http")
+    async def revalidate(request, call_next):
+        # the viewer's modules import each other by path, so a reload must never mix an old file
+        # with new ones: every file is revalidated (a 304 when unchanged)
+        response = await call_next(request)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
     @app.websocket("/ws")
     async def ws(websocket: WebSocket) -> None:
         await websocket.accept()

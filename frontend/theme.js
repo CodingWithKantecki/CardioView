@@ -14,6 +14,7 @@ export function colors() {
 export function invalidate() { cache = null; }
 
 export function alpha(hex, a) {
+  if (typeof hex !== 'string' || hex.length !== 7) hex = '#ff00ff';   // a missing token shows magenta instead of killing the frame loop
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 }
