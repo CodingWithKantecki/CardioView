@@ -63,7 +63,7 @@ let cid = null;   // this viewer's id from the server's hello; the chat sends it
 // The visitor's own Polar H10, through Web Bluetooth, sent down this socket as the live source.
 // ?fake=1 plays the recording as if it were a strap, for checks on a machine without a radio.
 const strap = new (params.has('fake') ? FakeStrap : Strap)(sendWs, () => syncSourceCells());
-const strapPanel = { el: $('strap-panel'), note: $('strap-note'), connect: $('strap-connect'), disconnect: $('strap-disconnect') };
+const strapPanel = { el: $('strap-panel'), note: $('strap-note'), tray: $('strap-tray'), connect: $('strap-connect'), disconnect: $('strap-disconnect') };
 
 // The session report opens in an overlay over the live view (an iframe of the summary page in
 // embed mode), so the app never reloads: Back or three idle minutes in the report close it.
@@ -113,12 +113,15 @@ function syncSourceCells() {
     let note;
     if (!strapSupported && !params.has('fake')) note = 'Connecting a strap needs Chrome or Edge on a computer or an Android phone';
     else if (strap.state === 'streaming') note = `${strap.name} connected`;
+    else if (strap.state === 'choosing') note = 'Pick your strap in the list. Listed twice? Pick the one with the signal icon';
     else if (strap.state === 'connecting') note = 'Connecting to the strap';
-    else note = 'Wet the pads, wear the strap snug, then connect it';
+    else note = strap.reason || 'Wet the pads, wear the strap snug, then connect it';
     if (strapPanel.note.textContent !== note) strapPanel.note.textContent = note;
-    strapPanel.connect.hidden = strap.state === 'streaming' || (!strapSupported && !params.has('fake'));
-    strapPanel.disconnect.hidden = strap.state !== 'streaming';
-    setAttr(strapPanel.connect, 'aria-disabled', strap.state === 'connecting');
+    strapPanel.connect.hidden = strap.state !== 'off' || (!strapSupported && !params.has('fake'));
+    strapPanel.disconnect.hidden = strap.state === 'off' || strap.state === 'choosing';   // Cancel while connecting, Disconnect while streaming
+    const stop = strap.state === 'streaming' ? 'Disconnect' : 'Cancel';
+    if (strapPanel.disconnect.textContent !== stop) strapPanel.disconnect.textContent = stop;
+    strapPanel.tray.hidden = strapPanel.connect.hidden && strapPanel.disconnect.hidden;
   }
   panel.el.hidden = !(ex && streaming);
   if (!(ex && streaming)) return;
