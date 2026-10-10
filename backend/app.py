@@ -430,7 +430,7 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, *, sess
             return Response(status_code=404)
         link = sessions.done_link if sid == sessions.sid and sessions.done_link else sessions.link(sid)
         buf = io.BytesIO()
-        segno.make(link, error="m").save(buf, kind="svg", scale=8, border=3, dark="#070A12", light="#E8ECF3")
+        segno.make(link, error="m").save(buf, kind="svg", scale=8, border=3, dark="#0A1115", light="#E8F1F2")
         return Response(buf.getvalue(), media_type="image/svg+xml")
 
     @app.get("/s/{sid}")

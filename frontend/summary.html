@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your heart, CardioView</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/summary.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">CardioView</div>
+  <span class="meta" id="meta"></span>
+</header>
+
+<main class="sheet" id="sheet" hidden>
+  <section class="block effort" id="effort">
+    <h2>Effort and recovery</h2>
+    <p class="text" id="effort-text"></p>
+    <canvas class="chart" id="effort-chart"></canvas>
+  </section>
+  <section class="block breathing" id="breathing">
+    <h2>Breathing</h2>
+    <p class="text" id="breathing-text"></p>
+    <canvas class="chart" id="breathing-chart"></canvas>
+  </section>
+  <section class="block hrv" id="hrv">
+    <h2>Heart rate variability</h2>
+    <p class="figure" id="hrv-figure"></p>
+    <p class="text" id="hrv-text"></p>
+  </section>
+  <section class="block beat" id="beat">
+    <h2>Your average heartbeat</h2>
+    <canvas class="chart" id="beat-chart"></canvas>
+    <p class="text" id="beat-text"></p>
+  </section>
+  <section class="block timing" id="timing">
+    <h2>Beat timing</h2>
+    <canvas class="chart" id="timing-chart"></canvas>
+    <p class="text" id="timing-text"></p>
+  </section>
+  <aside class="take" id="take" hidden>
+    <img id="qr" alt="QR code that opens this summary">
+    <p id="qr-text">Scan to keep this on your phone</p>
+    <p class="dim" id="until"></p>
+  </aside>
+  <footer class="foot">
+    <p>A visualization, not a medical device. It does not diagnose anything.</p>
+    <button type="button" id="delete" hidden>Delete my session</button>
+  </footer>
+</main>
+<p class="gone" id="gone" hidden></p>
+<script type="module" src="/summary.js"></script>
+</body>
+</html>

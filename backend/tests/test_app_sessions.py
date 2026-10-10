@@ -157,3 +157,10 @@ def test_a_failing_session_hook_never_stops_the_live_view():
         return len(seen)
 
     assert asyncio.run(run()) >= 3
+
+
+def test_summary_page_is_served_for_any_id(client):
+    c, _, _ = client
+    r = c.get("/s/demo")
+    assert r.status_code == 200 and "/summary.js" in r.text
+    assert c.get("/summary.css").status_code == 200
