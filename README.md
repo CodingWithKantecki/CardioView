@@ -48,6 +48,8 @@ Options: `--bpm 72` sets the simulated rate, `--invert` flips a strap worn upsid
 - macOS: the terminal app needs Bluetooth permission (System Settings > Privacy & Security > Bluetooth). macOS asks the first time.
 - Record a fixture without the server: `python tools/h10_record.py --seconds 90 --out data/h10_ecg_<name>_raw.csv`, then trim the settling lead-in with `python tools/trim_csv.py data/h10_ecg_<name>_raw.csv data/h10_ecg_<name>.csv --start 30`.
 
+If the pads lose contact, the signal gets too noisy, or the strap drops, the screen says so and the heart glitches until a clean signal is back. Add `?signal=lost` to the URL to rehearse that state.
+
 ECG is personal data. Only commit your own recording, never a visitor's.
 
 ## The heart model

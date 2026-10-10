@@ -4,12 +4,12 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from backend.pipeline import BeatDetector
+from backend.pipeline import BeatDetector, SignalMonitor
 from backend.sources.base import FS, PACKET, Packet
 from backend.sources.replay import load_csv
 
 DATA = Path(__file__).resolve().parents[2] / "data"
-FIXTURES = sorted(DATA.glob("h10_ecg_*.csv"))
+FIXTURES = sorted(f for f in DATA.glob("h10_ecg_*.csv") if not f.stem.endswith("_raw"))
 
 
 @pytest.mark.parametrize("path", FIXTURES, ids=[p.name for p in FIXTURES])
@@ -18,9 +18,13 @@ def test_recording_replays_without_gaps(path):
     assert len(values) >= 30 * FS, "recording shorter than 30 s"
     assert max(abs(v) for v in values) < 19000, "clipped samples: trim the settling lead-in"
     det = BeatDetector()
+    monitor = SignalMonitor()
     beats = []
     for k in range(0, len(values) - PACKET + 1, PACKET):
-        beats += det.feed(Packet(k / FS, values[k:k + PACKET]))
+        p = Packet(k / FS, values[k:k + PACKET])
+        new = det.feed(p)
+        beats += new
+        assert monitor.update(p, new) is None, f"signal reported lost at {p.t:.1f} s"
     assert beats, "no beats found"
     rs = np.array([b.r for b in beats])
     gaps = np.diff(rs)

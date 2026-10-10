@@ -7,11 +7,14 @@ const $ = (id) => document.getElementById(id);
 const els = {
   device: $('conn'), bpm: $('bpm'), rr: $('rr'),
   trace: $('trace'), lanes: $('lanes'), column: $('column'), nowline: $('nowline'),
+  alert: $('alert'), alertTitle: $('alert-title'), alertHint: $('alert-hint'),
 };
 
-// Debug: ?act=1 holds every chamber at full squeeze, ?act=0 relaxes them (screenshot checks).
-const actParam = new URLSearchParams(location.search).get('act');
+// Debug: ?act=1 holds every chamber at full squeeze, ?act=0 relaxes them; ?signal=lost forces the lost state.
+const params = new URLSearchParams(location.search);
+const actParam = params.get('act');
 const FORCED_ACT = actParam === null ? null : { ra: +actParam, la: +actParam, rv: +actParam, lv: +actParam };
+const FORCED_LOST = params.get('signal') === 'lost';
 
 const clock = new StreamClock();
 const trace = new Trace(els.trace);
@@ -27,7 +30,35 @@ const heart = new Heart($('heart-view'), { labels, leaders: $('leaders'), missin
 heart.load();
 
 let lastSampleT = null;
+let lastSampleWall = null;
 let shownBeat = null;
+let status = null;                       // last status message
+let signal = { ok: true, reason: '' };   // last signal message
+let wsOpen = false;
+let userWireframe = false;
+let appliedWireframe = false;
+let flickerUntil = 0;
+
+const REASONS = {
+  pads: ['No signal from the strap', 'Wet the pads and wear it snug on the chest'],
+  noise: ['Signal too noisy to read', 'Hold still for a moment'],
+  no_beats: ['No heartbeat found in the signal', 'Check that the strap sits over the chest'],
+};
+
+// Why the screen cannot follow a heart right now, or null when it can.
+function lostState() {
+  if (FORCED_LOST) return REASONS.pads;
+  if (!status) return null;
+  if (!wsOpen) return ['Server offline', 'Retrying'];
+  if (status.source === 'live' && status.state !== 'streaming') {
+    return status.state === 'reconnecting'
+      ? ['Strap disconnected', 'Wet the pads and wear it snug on the chest']
+      : ['Waiting for the strap', 'Wet the pads and wear it snug on the chest'];
+  }
+  if (lastSampleWall !== null && performance.now() - lastSampleWall > 3000) return ['No data from the strap', ''];
+  if (!signal.ok) return REASONS[signal.reason] || ['No signal', ''];
+  return null;
+}
 
 // One quiet line in the header: the strap id while it streams, otherwise the mode or the link state.
 function setStatus(msg) {
@@ -43,12 +74,16 @@ function setStatus(msg) {
 
 function handle(msg) {
   if (msg.type === 'status') {
+    status = msg;
     setStatus(msg);
+  } else if (msg.type === 'signal') {
+    signal = { ok: !!msg.ok, reason: msg.reason || '' };
   } else if (msg.type === 'samples') {
     if (lastSampleT !== null && msg.t < lastSampleT - 1) {
       trace.clear(); lanes.clear(); clock.reset(); shownBeat = null;
     }
     lastSampleT = msg.t;
+    lastSampleWall = performance.now();
     clock.update(msg.t + (msg.uv.length - 1) / msg.fs);
     trace.push(msg.t, msg.uv, msg.fs);
   } else if (msg.type === 'beat') {
@@ -59,8 +94,10 @@ function handle(msg) {
 function connect() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   const ws = new WebSocket(`${proto}://${location.host}/ws`);
+  ws.onopen = () => { wsOpen = true; };
   ws.onmessage = (ev) => handle(JSON.parse(ev.data));
   ws.onclose = () => {
+    wsOpen = false;
     els.device.textContent = 'Server offline, retrying';
     setTimeout(connect, 1000);
   };
@@ -97,15 +134,34 @@ function showBeat(b) {
   els.rr.textContent = b && b.rr != null ? `${b.rr.toFixed(2)} s between beats` : '-- s between beats';
 }
 
+function applyLost(lost) {
+  document.body.classList.toggle('lost', !!lost);
+  els.alert.hidden = !lost;
+  if (lost) {
+    if (els.alertTitle.textContent !== lost[0]) els.alertTitle.textContent = lost[0];
+    if (els.alertHint.textContent !== lost[1]) els.alertHint.textContent = lost[1];
+  }
+  // wireframe flicker while lost, on top of whatever the W key set
+  const now = performance.now();
+  if (lost && now > flickerUntil && Math.random() < 0.04) flickerUntil = now + 50 + Math.random() * 120;
+  const want = userWireframe || (!!lost && now < flickerUntil);
+  if (want !== appliedWireframe) { heart.setWireframe(want); appliedWireframe = want; }
+}
+
 function frame() {
   const t = clock.displayTime();
+  const lost = lostState();
   trace.draw(t);
   lanes.draw(t);
   for (const c in sparks) if (!labels[c].hidden) lanes.drawSpark(sparks[c], c, t);
-  if (t !== null) {
+  if (lost) {
+    heart.setActivation({ ra: 0, la: 0, rv: 0, lv: 0 });
+    showBeat(null);
+  } else if (t !== null) {
     heart.setActivation(FORCED_ACT === null ? lanes.activation(t) : FORCED_ACT);
     showBeat(lanes.latestBefore(t));
   }
+  applyLost(lost);
   heart.render();
   requestAnimationFrame(frame);
 }
@@ -119,6 +175,6 @@ window.addEventListener('keydown', (e) => {
   if (e.target instanceof HTMLInputElement) return;
   const k = e.key.toLowerCase();
   if (k === 'r') heart.setRotate(!heart.state.rotate);
-  else if (k === 'w') heart.setWireframe(!heart.state.wireframe);
+  else if (k === 'w') userWireframe = !userWireframe;
   else if (k === 'c') heart.setCutaway(!heart.state.cutaway);
 });

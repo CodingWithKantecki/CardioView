@@ -27,6 +27,14 @@ LA_ON = -0.17
 V_ON = -0.04
 ATRIA_S = 0.12        # how long the atria squeeze (used by the viewer)
 
+CLIP_UV = 19000       # the strap pins samples near 19930 uV when the pads lose skin
+QUALITY_WINDOW_S = 2.0
+FLAT_UV = 40          # peak to peak below this is no contact
+NOISE_UV = 6000       # peak to peak above this is motion or a settling contact
+NO_BEAT_S = 3.0       # no accepted beat for this long is not a usable signal
+LOST_AFTER_S = 0.5    # bad for this long (about two packets) before reporting lost
+OK_AFTER_S = 2.0      # clean for this long before reporting ok again
+
 
 @dataclass
 class Beat:
@@ -144,3 +152,79 @@ class BeatDetector:
                 beat.ra_on = round(-lead, 3)
                 beat.la_on = round(-lead + 0.03, 3)
                 beat.p_found = True
+
+
+@dataclass
+class Signal:
+    ok: bool
+    reason: str = ""   # "" when ok, else pads, noise or no_beats
+
+    def message(self, source: str) -> dict:
+        return {"type": "signal", "source": source, "ok": self.ok, "reason": self.reason}
+
+
+class SignalMonitor:
+    """Says whether the ECG can be trusted right now.
+
+    Looks at the last 2 s of raw samples for clipping, a flat line or huge swings,
+    and at the detector's beats for silence. Reports a change after a short hold
+    so a single bad packet does not flip the screen.
+    """
+
+    def __init__(self, fs: int = FS):
+        self.fs = fs
+        self.signal = Signal(True)
+        self._reset()
+
+    def _reset(self) -> None:
+        self._buf = np.zeros(0, dtype=np.float64)
+        self._t_end: float | None = None
+        self._data_s = 0.0
+        self._last_beat: float | None = None
+        self._bad_since: float | None = None
+        self._good_since: float | None = None
+
+    def update(self, packet: Packet, beats: list) -> Signal | None:
+        """Feed one packet and the beats it produced. Returns a Signal when the state changes."""
+        if self._t_end is not None and abs(packet.t - self._t_end) > JUMP_S:
+            self._reset()
+        uv = np.asarray(packet.uv, dtype=np.float64)
+        keep = int(QUALITY_WINDOW_S * self.fs)
+        self._buf = np.concatenate([self._buf, uv])[-keep:]
+        self._t_end = packet.t_end
+        self._data_s += len(uv) / self.fs
+        for b in beats:
+            self._last_beat = b.r
+        now = packet.t_last
+
+        clipped = float(np.mean(np.abs(self._buf) >= CLIP_UV))
+        p2p = float(self._buf.max() - self._buf.min())
+        if clipped > 0.05 or p2p < FLAT_UV:
+            reason = "pads"
+        elif p2p > NOISE_UV:
+            reason = "noise"
+        elif (self._last_beat is None and self._data_s > NO_BEAT_S + WARMUP_S) or \
+             (self._last_beat is not None and now - self._last_beat > NO_BEAT_S):
+            reason = "no_beats"
+        else:
+            reason = ""
+
+        changed = None
+        if reason:
+            self._good_since = None
+            if self._bad_since is None:
+                self._bad_since = now
+            if self.signal.ok and now - self._bad_since >= LOST_AFTER_S:
+                self.signal = Signal(False, reason)
+                changed = self.signal
+            elif not self.signal.ok and self.signal.reason != reason:
+                self.signal = Signal(False, reason)
+                changed = self.signal
+        else:
+            self._bad_since = None
+            if self._good_since is None:
+                self._good_since = now
+            if not self.signal.ok and now - self._good_since >= OK_AFTER_S:
+                self.signal = Signal(True)
+                changed = self.signal
+        return changed
