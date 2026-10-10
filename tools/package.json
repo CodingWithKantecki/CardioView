@@ -1,0 +1,9 @@
+{
+  "name": "cardioview-tools",
+  "private": true,
+  "type": "module",
+  "description": "Headless screenshot of the running viewer",
+  "dependencies": {
+    "puppeteer-core": "^25.13.0"
+  }
+}

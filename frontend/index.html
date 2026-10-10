@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CardioView</title>
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }
+</script>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="brand-dot"></span>CardioView</div>
+  <div class="pill" id="pill" data-source="none"><span class="pill-dot"></span><span id="pill-text">CONNECTING</span></div>
+  <div class="conn" id="conn">WAITING FOR SERVER</div>
+</header>
+
+<main class="grid">
+  <section class="card heart-card">
+    <div class="tag">ANATOMY: MODEL</div>
+    <div id="heart-view"></div>
+    <div id="heart-missing" class="missing" hidden>Heart model not installed, see README</div>
+    <svg id="leaders" class="leaders" aria-hidden="true"></svg>
+    <div class="label side-left" data-chamber="ra" hidden><b>RA</b><span>right atrium</span></div>
+    <div class="label side-right" data-chamber="la" hidden><b>LA</b><span>left atrium</span></div>
+    <div class="label side-left" data-chamber="rv" hidden><b>RV</b><span>right ventricle</span></div>
+    <div class="label side-right" data-chamber="lv" hidden><b>LV</b><span>left ventricle</span></div>
+    <div class="controls">
+      <button type="button" data-action="rotate" aria-pressed="false">Rotate</button>
+      <button type="button" data-action="wireframe" aria-pressed="false">Wireframe</button>
+      <button type="button" data-action="opacity" aria-pressed="false">Opacity</button>
+      <button type="button" data-action="cutaway" aria-pressed="false">Cutaway</button>
+    </div>
+  </section>
+
+  <section class="right">
+    <div class="card rate-card">
+      <div class="tag-plain">HEART RATE</div>
+      <div class="rate">
+        <span class="bpm" id="bpm">--</span><span class="unit">bpm</span>
+        <span class="rr" id="rr">-- S BETWEEN BEATS</span>
+      </div>
+    </div>
+    <div class="card trace-card">
+      <div class="card-head"><span class="tag-green">ECG · MEASURED</span></div>
+      <canvas id="trace"></canvas>
+    </div>
+    <div class="card lanes-card">
+      <div class="card-head"><span class="tag-plain">CHAMBERS · DERIVED FROM ECG</span></div>
+      <canvas id="lanes"></canvas>
+    </div>
+    <div class="extras" aria-hidden="true"></div>
+  </section>
+</main>
+<script type="module" src="main.js"></script>
+</body>
+</html>
