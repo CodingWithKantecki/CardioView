@@ -15,12 +15,17 @@ from typing import Any
 import httpx
 
 # The model, in one place. GEMINI_MODEL in the environment (or .env) overrides it.
-DEFAULT_MODEL = "gemini-2.5-flash"
+# Checked 2026-10-10: gemini-2.5-flash is retired for new keys, gemini-3.8-flash was overloaded
+# (503 and 20 s plus), gemini-3.5-flash answers in about 2 s with thinking off.
+DEFAULT_MODEL = "gemini-3.5-flash"
 API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 TIMEOUT_S = 20.0
 MAX_QUESTION_CHARS = 500
 MAX_HISTORY_TURNS = 6           # question and answer pairs the viewer may send back
-MAX_OUTPUT_TOKENS = 400
+MAX_OUTPUT_TOKENS = 1024        # a cap, not a target: the prompt asks for two or three sentences
+# Thinking off: a short factual answer needs none, and with it on the model can spend the whole
+# output budget thinking and return no text. Models that reject the field get one retry without it.
+THINKING = {"thinkingBudget": 0}
 ECG_SUMMARY_S = 2.0             # the stretch of recent ECG summarized for the model
 STALE_AFTER_S = 3.0             # no packet for this long counts as not streaming
 
@@ -29,12 +34,15 @@ REPLIES = {
     "missing_key": "Chat is not set up on this server",
     "rate_limit": "Busy right now, try again soon",
     "offline": "The chat needs an internet connection",
+    "timeout": "No answer in time, try again",
+    "model": "Chat model is not available on this server",
     "upstream": "Chat failed, try again",
     "empty": "Ask a question about the data on screen",
 }
-STATUS = {"missing_key": 503, "rate_limit": 429, "offline": 502, "upstream": 502, "empty": 400}
+STATUS = {"missing_key": 503, "rate_limit": 429, "offline": 502, "timeout": 504, "model": 502, "upstream": 502, "empty": 400}
 
 log = logging.getLogger("cardioview.chat")
+logging.getLogger("httpx").setLevel(logging.WARNING)   # no request line per question
 
 
 def model_name() -> str:
@@ -127,14 +135,26 @@ def clean_history(history: Any) -> list[dict]:
     return out[-MAX_HISTORY_TURNS * 2:]
 
 
-def build_request(question: str, history: Any, snap: dict) -> dict:
+def build_request(question: str, history: Any, snap: dict, thinking: dict | None = THINKING) -> dict:
     system = SYSTEM_PROMPT + "\nCurrent data (JSON):\n" + json.dumps(snap, separators=(",", ":"))
     contents = clean_history(history) + [{"role": "user", "parts": [{"text": question}]}]
+    config: dict[str, Any] = {"maxOutputTokens": MAX_OUTPUT_TOKENS, "temperature": 0.3}
+    if thinking:
+        config["thinkingConfig"] = dict(thinking)
     return {
         "systemInstruction": {"parts": [{"text": system}]},
         "contents": contents,
-        "generationConfig": {"maxOutputTokens": MAX_OUTPUT_TOKENS, "temperature": 0.3},
+        "generationConfig": config,
     }
+
+
+def error_message(resp: httpx.Response, key: str) -> str:
+    """Google's own one-line explanation of a failure, for the log: never the key, never the body."""
+    try:
+        msg = resp.json()["error"]["message"]
+    except (ValueError, KeyError, TypeError):
+        return ""
+    return str(msg).replace(key, "<key>")[:200]
 
 
 def extract_text(data: Any) -> str:
@@ -161,18 +181,24 @@ async def ask(question: str, history: Any, snap: dict, client: httpx.AsyncClient
     try:
         resp = await client.post(url, headers=headers, json=build_request(question, history, snap),
                                  timeout=TIMEOUT_S)
+        if resp.status_code == 400 and THINKING:   # this model does not take the thinking field
+            log.info("chat: retrying without thinkingConfig: %s", error_message(resp, key))
+            resp = await client.post(url, headers=headers,
+                                     json=build_request(question, history, snap, thinking=None),
+                                     timeout=TIMEOUT_S)
     except httpx.TimeoutException:
         log.warning("chat: gemini timed out after %.1fs", time.monotonic() - t0)
-        return ChatReply(REPLIES["offline"], "offline", STATUS["offline"])
+        return ChatReply(REPLIES["timeout"], "timeout", STATUS["timeout"])
     except httpx.HTTPError as e:
         log.warning("chat: no connection to gemini (%s)", type(e).__name__)
         return ChatReply(REPLIES["offline"], "offline", STATUS["offline"])
-    if resp.status_code == 429:
-        log.warning("chat: rate limited")
+    if resp.status_code in (429, 503):   # over quota, or the model is overloaded: same advice
+        log.warning("chat: gemini busy (%d): %s", resp.status_code, error_message(resp, key))
         return ChatReply(REPLIES["rate_limit"], "rate_limit", STATUS["rate_limit"])
     if resp.status_code != 200:
-        log.warning("chat: gemini answered %d", resp.status_code)   # the body may echo the request, so it stays out of the log
-        return ChatReply(REPLIES["upstream"], "upstream", STATUS["upstream"])
+        log.warning("chat: gemini answered %d: %s", resp.status_code, error_message(resp, key))
+        kind = "model" if resp.status_code == 404 else "upstream"
+        return ChatReply(REPLIES[kind], kind, STATUS[kind])
     try:
         text = extract_text(resp.json())
     except ValueError:
@@ -181,4 +207,4 @@ async def ask(question: str, history: Any, snap: dict, client: httpx.AsyncClient
         log.warning("chat: empty answer")
         return ChatReply(REPLIES["upstream"], "upstream", STATUS["upstream"])
     log.info("chat: answered in %.1fs", time.monotonic() - t0)
-    return ChatReply(text.replace("—", ", "))
+    return ChatReply(text.replace("\u2014", ", "))

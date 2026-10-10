@@ -4,6 +4,7 @@ import { Chambers } from './chambers.js';
 import { Heart } from './heart.js';
 import { Glitch } from './glitch.js';
 import { invalidate as invalidateTheme } from './theme.js';
+import { initChat } from './chat.js';
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -229,6 +230,8 @@ for (const b of document.querySelectorAll('#rhythms button')) {
     ws.send(JSON.stringify(name === 'recording' ? { type: 'source', name: 'demo' } : { type: 'rhythm', name }));
   });
 }
+
+initChat();
 
 const opacity = $('opacity');
 opacity.addEventListener('input', () => heart.setOpacity(Number(opacity.value) / 100));

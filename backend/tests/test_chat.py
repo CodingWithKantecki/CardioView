@@ -20,20 +20,22 @@ def gemini_reply(text: str) -> dict:
 
 
 class FakeGemini:
-    """Records the request and answers with a fixed status and body, or raises."""
+    """Records the requests and answers each with the next of `answers` (the last one repeats):
+    a (status, body) pair, or an exception to raise."""
 
-    def __init__(self, status=200, body=None, raise_exc=None):
-        self.status = status
-        self.body = body if body is not None else gemini_reply("The heart rate is 72 bpm.")
-        self.raise_exc = raise_exc
+    def __init__(self, status=200, body=None, raise_exc=None, answers=None):
+        body = body if body is not None else gemini_reply("The heart rate is 72 bpm.")
+        self.answers = list(answers) if answers else [raise_exc if raise_exc is not None else (status, body)]
         self.requests: list[httpx.Request] = []
 
     def transport(self) -> httpx.MockTransport:
         def handler(request: httpx.Request) -> httpx.Response:
             self.requests.append(request)
-            if self.raise_exc is not None:
-                raise self.raise_exc
-            return httpx.Response(self.status, json=self.body)
+            answer = self.answers[min(len(self.requests) - 1, len(self.answers) - 1)]
+            if isinstance(answer, BaseException):
+                raise answer
+            status, body = answer
+            return httpx.Response(status, json=body)
         return httpx.MockTransport(handler)
 
     def client(self) -> httpx.AsyncClient:
@@ -114,6 +116,19 @@ def test_reply_and_request_shape(monkeypatch):
     assert '"heart_rate_bpm":72' in system and '"source":"live"' in system
     assert [c["role"] for c in body["contents"]] == ["user", "model", "user"]
     assert body["contents"][-1]["parts"][0]["text"] == "What is my heart rate?"
+    assert body["generationConfig"]["thinkingConfig"] == {"thinkingBudget": 0}
+    assert len(fake.requests) == 1
+
+
+def test_model_that_rejects_thinking_gets_one_retry_without_it(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", KEY)
+    fake = FakeGemini(answers=[(400, {"error": {"code": 400, "message": "Request contains an invalid argument."}}),
+                               (200, gemini_reply("72 bpm."))])
+    result = run(chat.ask("rate?", [], {}, fake.client()))
+    assert result.error is None and result.reply == "72 bpm."
+    assert len(fake.requests) == 2
+    first, second = (json.loads(r.content)["generationConfig"] for r in fake.requests)
+    assert "thinkingConfig" in first and "thinkingConfig" not in second
 
 
 def test_model_name_is_configurable(monkeypatch):
@@ -132,7 +147,14 @@ def test_rate_limit_says_try_again_soon(monkeypatch):
     assert "try again soon" in result.reply
 
 
-@pytest.mark.parametrize("exc", [httpx.ConnectError("no route"), httpx.ReadTimeout("slow"), httpx.ConnectTimeout("slow")])
+def test_overloaded_model_also_says_try_again_soon(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", KEY)
+    fake = FakeGemini(status=503, body={"error": {"code": 503, "message": "high demand"}})
+    result = run(chat.ask("rate?", [], {}, fake.client()))
+    assert result.error == "rate_limit" and result.status == 429
+
+
+@pytest.mark.parametrize("exc", [httpx.ConnectError("no route"), httpx.RemoteProtocolError("cut")])
 def test_no_internet_is_calm(monkeypatch, exc):
     monkeypatch.setenv("GEMINI_API_KEY", KEY)
     fake = FakeGemini(raise_exc=exc)
@@ -141,7 +163,26 @@ def test_no_internet_is_calm(monkeypatch, exc):
     assert result.reply == "The chat needs an internet connection"
 
 
-@pytest.mark.parametrize("status,body", [(500, {"error": "boom"}), (400, {"error": "bad"}), (200, {"candidates": []}),
+@pytest.mark.parametrize("exc", [httpx.ReadTimeout("slow"), httpx.ConnectTimeout("slow")])
+def test_timeout_asks_to_try_again(monkeypatch, exc):
+    monkeypatch.setenv("GEMINI_API_KEY", KEY)
+    fake = FakeGemini(raise_exc=exc)
+    result = run(chat.ask("rate?", [], {}, fake.client()))
+    assert result.error == "timeout" and result.status == 504
+    assert result.reply == "No answer in time, try again"
+
+
+def test_retired_model_name_is_named_in_the_reply(monkeypatch, caplog):
+    monkeypatch.setenv("GEMINI_API_KEY", KEY)
+    fake = FakeGemini(status=404, body={"error": {"code": 404, "message": "This model is no longer available. Use " + KEY}})
+    with caplog.at_level("WARNING", logger="cardioview.chat"):
+        result = run(chat.ask("rate?", [], {}, fake.client()))
+    assert result.error == "model" and result.status == 502
+    assert result.reply == "Chat model is not available on this server"
+    assert "no longer available" in caplog.text and KEY not in caplog.text   # the key never reaches a log
+
+
+@pytest.mark.parametrize("status,body", [(500, {"error": "boom"}), (400, {"error": {"message": "bad"}}), (200, {"candidates": []}),
                                          (200, {"candidates": [{"content": {"parts": [{"text": "   "}]}}]})])
 def test_other_failures_are_upstream(monkeypatch, status, body):
     monkeypatch.setenv("GEMINI_API_KEY", KEY)
@@ -176,9 +217,9 @@ def test_question_is_truncated(monkeypatch):
 
 def test_reply_never_carries_an_em_dash(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", KEY)
-    fake = FakeGemini(body=gemini_reply("Measured — 72 bpm."))
+    fake = FakeGemini(body=gemini_reply("Measured \u2014 72 bpm."))
     result = run(chat.ask("rate?", [], {}, fake.client()))
-    assert "—" not in result.reply
+    assert "\u2014" not in result.reply
 
 
 def test_system_prompt_carries_the_product_rules():
@@ -187,7 +228,7 @@ def test_system_prompt_carries_the_product_rules():
     assert "Measured:" in p and "Derived from the ECG:" in p and "Modeled:" in p
     assert "only talk about the data shown in CardioView" in p
     assert "not a medical device" in p
-    assert "—" not in p
+    assert "\u2014" not in p
 
 
 class FakeSource(Source):
