@@ -229,3 +229,39 @@ def test_demo_to_demo_takes_over_the_running_stream():
         assert all(m["t"] > 1.0 for m in samples), "no restart from zero"
         await runner.stop()
     asyncio.run(run())
+
+
+def test_a_switch_never_waits_for_the_old_source_to_tear_down():
+    import time
+
+    from backend.app import Runner
+    from backend.sources.sim import SimSource
+
+    class SlowTeardown(SimSource):   # like the strap: waits inside its stream, a Bluetooth disconnect on the way out
+        kind = "live"
+
+        async def packets(self):
+            self.set_status("streaming")
+            try:
+                yield Packet(0.0, [0] * PACKET)
+                await asyncio.sleep(10)        # waiting for the next packet, where a switch finds it
+                yield Packet(PACKET_S, [0] * PACKET)
+            finally:
+                await asyncio.sleep(2.0)       # the disconnect
+
+    async def run():
+        hub = Hub("simulated")
+        clk = Clk()
+        runner = Runner(hub, {"a": lambda: SlowTeardown(bpm=72, sleep=clk.sleep, now=clk.now),
+                              "b": lambda: SimSource(bpm=90, preroll_s=3.0, sleep=clk.sleep, now=clk.now)})
+        await runner.start("a")
+        await asyncio.sleep(0.3)
+        t0 = time.monotonic()
+        await runner.start("b")
+        assert time.monotonic() - t0 < 0.5, "the switch does not wait for the teardown"
+        await asyncio.sleep(0.3)
+        assert hub.samples and hub.source_kind == "simulated", "the demo streams while the strap is still tearing down"
+        t1 = time.monotonic()
+        await runner.stop()
+        assert time.monotonic() - t1 >= 1.0, "shutdown does wait for it"
+    asyncio.run(run())

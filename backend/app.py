@@ -134,6 +134,7 @@ class Runner:
         self._lock = asyncio.Lock()
         self._index = 0                      # next stream sample index of the running source
         self._last_wall: float | None = None
+        self._reaping: set[asyncio.Task] = set()   # old pumps finishing their teardown in the background
 
     async def start(self, name: str, force: bool = False, **kwargs) -> None:
         if name not in self.factories:
@@ -167,7 +168,9 @@ class Runner:
                 last_r, rr = detector.last_r, detector.last_rr
                 template = old.template_at(last_r) if last_r is not None and hasattr(old, "template_at") else None
                 source.takeover(self._index, last_uv=history.uv[-1], last_r=last_r, rr=rr, template=template)
-                source.anchor(self._index / FS, self._last_wall)
+                # due from the last packet's arrival, but never so far back that the new source
+                # bursts to catch up if the switch itself took a moment
+                source.anchor(self._index / FS, max(self._last_wall, time.monotonic() - PACKET_S))
             else:
                 self._index = 0
                 self._last_wall = None
@@ -183,16 +186,26 @@ class Runner:
 
     async def _stop(self) -> None:
         if self.task is not None:
-            self.task.cancel()
-            with suppress(asyncio.CancelledError, Exception):
-                await self.task
-            self.task = None
+            task, self.task = self.task, None
+            task.cancel()
+            # the strap's teardown is a Bluetooth disconnect that can take a second: it finishes
+            # on its own, the new source must not wait for it (Thomas: the switch stalled, then
+            # rushed to catch up). A cancelled pump pushes nothing more.
+            self._reaping.add(asyncio.create_task(self._reap(task)))
         self.source = None
         self.name = None
+
+    async def _reap(self, task: asyncio.Task) -> None:
+        with suppress(asyncio.CancelledError, Exception):
+            await task
+        self._reaping.discard(asyncio.current_task())
 
     async def stop(self) -> None:
         async with self._lock:
             await self._stop()
+            for t in list(self._reaping):
+                with suppress(asyncio.CancelledError, Exception):
+                    await t
 
     async def _pump(self, source: Source, detector: BeatDetector, monitor: SignalMonitor,
                     takeover: bool = False) -> None:
