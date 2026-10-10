@@ -35,11 +35,12 @@ The install takes about two minutes. Below, `python` means `.venv/bin/python` (m
 Then open http://localhost:8000 on the same machine, or http://<this machine's IP>:8000 from the big screen or a phone on the same Wi-Fi.
 
 ```
-python -m backend                               # the demo plays the first recording in data/
-python -m backend --source sim                  # or a simulated ECG
+python -m backend                               # the demo plays a simulated normal rhythm
+python -m backend --source data/h10_ecg_thomas.csv   # or a recording
+python -m backend --source sim                  # or NeuroKit's simulated ECG
 ```
 
-Options: `--bpm 72` sets the simulated rate, `--invert` flips a strap worn upside down, `--host` and `--port` change where it listens (default 0.0.0.0:8000). Whatever you start with, the Strap / Demo / Exercise toggle at the top right of the viewer switches between the live strap and demo data without a restart; `--demo data/<file>.csv` or `--demo sim` picks the demo source (default: the first recording in `data/`). In Demo, the Simulated rhythm tray beside the heart rate plays synthesized rhythms (normal, bradycardia, atrial fibrillation, extra beats, ventricular tachycardia, heart attack) for showing the screen without a strap; they are simulations and are never offered beside strap data. Hover the blue ! in a cell to read what that rhythm is. Press T to switch between the dark theme and the cream one. The 0 key resets the view, like the dock's Reset view.
+Options: `--bpm 72` sets the simulated rate, `--invert` flips a strap worn upside down, `--host` and `--port` change where it listens (default 0.0.0.0:8000). Whatever you start with, the Strap / Demo / Exercise toggle at the top right of the viewer switches between the live strap and demo data without a restart; `--source data/<file>.csv` or `--source sim` picks the demo source (default: the simulated normal rhythm). In Demo, the tray beside the heart rate plays synthesized rhythms (Normal, Heart attack, and Gemini heart for anything you can describe) for showing the screen without a strap; they are simulations and are never offered beside strap data. Hover the ? in a cell to read what that rhythm is.
 
 ### Chat (optional, the only part that needs internet)
 

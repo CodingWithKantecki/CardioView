@@ -1,5 +1,5 @@
 # Render blueprint: the public CardioView web app, always on. Every viewer connects their own Polar
-# H10 in the browser (Web Bluetooth) and gets their own pipeline; the demo plays the recording.
+# H10 in the browser (Web Bluetooth) and gets their own pipeline; the demo plays the normal rhythm.
 # Dashboard: Blueprints, New Blueprint Instance, pick this repo. Every push to main redeploys.
 services:
   - type: web
@@ -8,7 +8,7 @@ services:
     plan: starter            # the free plan sleeps after 15 idle minutes; a demo link must not
     region: virginia         # closest to Orlando
     buildCommand: pip install -r requirements.txt
-    startCommand: python -m backend --source data/h10_ecg_thomas.csv --host 0.0.0.0 --port $PORT
+    startCommand: python -m backend --host 0.0.0.0 --port $PORT
     healthCheckPath: /
     autoDeploy: true
     envVars:
