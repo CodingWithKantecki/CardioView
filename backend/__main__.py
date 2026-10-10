@@ -51,8 +51,8 @@ def main(argv: list[str] | None = None) -> None:
     load_dotenv()   # the chat key and the cloud settings, from .env in the repo root, never in git
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     cloud = Cloud.from_env()
-    def rhythm(pattern: str = "sinus") -> RhythmSource:
-        return RhythmSource(pattern, invert=args.invert, preroll_s=PREROLL_S)
+    def rhythm(pattern: str = "sinus", **kw) -> RhythmSource:   # kw: a Gemini heart's recipe
+        return RhythmSource(pattern, invert=args.invert, preroll_s=PREROLL_S, **kw)
 
     factories = {"demo": demo_factory(args.source, args.bpm, args.invert), "rhythm": rhythm}   # the strap is each viewer's own
     app = create_app(factories, "demo", keep_until=parse_keep_until(args.keep_until), public_host=args.public_host,

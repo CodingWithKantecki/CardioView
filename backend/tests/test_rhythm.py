@@ -95,3 +95,39 @@ def test_takeover_plays_out_the_old_beat_and_eases_into_the_new_rate():
     rr = [b - a for a, b in zip(rs, rs[1:])]
     assert 1.03 < rr[0] < 1.17 and 1.17 < rr[1] < 1.33, "the interval glides toward bradycardia"
     assert all(1.25 < x < 1.55 for x in rr[2:6]), "then it is bradycardia"
+
+
+def test_a_described_rhythm_plays_its_recipe():
+    """Gemini heart: a recipe's rate lands, its early beats come early and wide, and it never reads as no signal."""
+    from backend.sources.rhythm import Recipe
+    jumpy = Recipe(name="Too much coffee", summary="A little fast, with an early beat now and then.", bpm=84, jitter=0.04,
+                   irregular=False, p_wave=0.12, pr_s=0.18, qrs_width=1.0, st_mv=0.0, t_mv=0.3, pvc_every=6)
+    clk = FakeClock()
+    src = RhythmSource("custom", recipe=jumpy, sleep=clk.sleep, now=clk.now)
+    assert src.pattern == "custom" and src.status.device == "Simulated: Too much coffee"
+
+    async def run():
+        out = []
+        async for p in src.packets():
+            out.append(p)
+            if len(out) * PACKET >= 30 * FS:
+                break
+        return out
+    packets = asyncio.run(run())
+    det, mon = BeatDetector(), SignalMonitor()
+    beats, lost = [], []
+    for p in packets:
+        new = det.feed(p)
+        beats += new
+        if mon.update(p, new) is not None:
+            lost.append(p.t)
+    bpms = [b.bpm for b in beats if b.bpm]
+    assert 74 <= np.median(bpms[5:]) <= 96
+    assert lost == []
+    rrs = [b.rr for b in beats if b.rr]
+    assert min(rrs) < 0.6 * np.median(rrs) + 0.05, "an early beat every six"
+    # a recipe without a recipe falls back to normal, a wide one has no P wave
+    assert RhythmSource("custom").pattern == "sinus"
+    wide = Recipe(name="Ventricular tachycardia", summary="", bpm=170, jitter=0.02, irregular=False,
+                  p_wave=0.0, pr_s=0.18, qrs_width=3.0, st_mv=0.0, t_mv=-0.5, pvc_every=0)
+    assert len(wide.template()) == 3 and wide.template()[0][2] > 0.03

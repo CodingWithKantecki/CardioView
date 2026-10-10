@@ -217,9 +217,13 @@ function handle(msg) {
     // simulated rhythms exist in demo only, never beside strap data
     const rhythms = document.getElementById('rhythms');
     rhythms.hidden = msg.source === 'live';
-    for (const b of rhythms.querySelectorAll('button')) {
+    const device = typeof msg.device === 'string' ? msg.device : '';
+    const cells = [...rhythms.querySelectorAll('.rhythm-tray button')];
+    // a Gemini heart: any simulated rhythm that is not one of the cells' own (Gemini may well name one "Atrial fibrillation")
+    const described = device.startsWith('Simulated: ') && !cells.some((b) => device === 'Simulated: ' + RHYTHM_LABELS[b.dataset.rhythm]);
+    for (const b of cells) {
       const name = b.dataset.rhythm;
-      const on = msg.device === 'Simulated: ' + RHYTHM_LABELS[name];
+      const on = name === 'gemini' ? described : device === 'Simulated: ' + RHYTHM_LABELS[name];
       b.setAttribute('aria-pressed', String(!!on));
     }
   } else if (msg.type === 'signal') {
@@ -362,6 +366,7 @@ for (const b of sourceCells) {
     const already = want === 'live' ? (!!status && status.source === 'live') : (!!status && status.source === 'recorded');
     if (!already) choose({ type: 'source', name: want });
     else if (want === 'live') lastChoice = { type: 'source', name: 'live' };
+    if (want === 'live') { describeUi.el.hidden = true; describeUi.say(''); }   // a Gemini heart belongs to the demo
   });
 }
 // the logo toggles full screen (Thomas, 2026-10-10 evening): a click fills the display, another brings the browser's tabs back
@@ -375,12 +380,41 @@ strapPanel.disconnect.addEventListener('click', () => strap.disconnect());
 panel.stop.addEventListener('click', () => session.stop());
 panel.voice.addEventListener('click', () => session.setVoice(!session.voiceOn));
 
-for (const b of document.querySelectorAll('#rhythms button')) {
+for (const b of document.querySelectorAll('.rhythm-tray button')) {
   b.addEventListener('click', () => {
     if (session.busy()) { session.flash('Stop the session first'); return; }
+    if (b.dataset.rhythm === 'gemini') { describeUi.open(); return; }   // the text box; the rhythm comes from what is typed
+    describeUi.el.hidden = true;
+    describeUi.say('');
     choose({ type: 'rhythm', name: b.dataset.rhythm });
   });
 }
+
+// Gemini heart: a patient, a situation or a rhythm in words. The server asks Gemini for the
+// simulator's recipe and switches this viewer's demo to it; the recipe is kept as the last choice,
+// so a reconnect brings the same heart back without asking again.
+const describeUi = {
+  el: $('describe'), text: $('describe-text'), go: $('describe-go'), note: $('describe-note'),
+  open() { this.el.hidden = false; this.text.focus(); },
+  say(text) { this.note.textContent = text; this.note.hidden = !text; },
+};
+describeUi.el.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (session.busy()) { session.flash('Stop the session first'); return; }
+  const text = describeUi.text.value.trim();
+  if (!text || describeUi.go.getAttribute('aria-disabled') === 'true') return;
+  setAttr(describeUi.go, 'aria-disabled', true);
+  describeUi.say('Gemini is setting up the heart');
+  try {
+    const res = await fetch('/api/rhythm/describe', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ cid, text }) });
+    const data = await res.json().catch(() => ({}));
+    if (data.ok) {
+      lastChoice = { type: 'rhythm', name: 'custom', recipe: data.recipe };
+      describeUi.say(`Simulated ${data.name.toLowerCase()}. ${data.summary}`);
+    } else describeUi.say(data.reply || 'Gemini did not answer, try again');
+  } catch { describeUi.say('Gemini heart needs an internet connection'); }
+  setAttr(describeUi.go, 'aria-disabled', false);
+});
 
 initChat();
 

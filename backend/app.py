@@ -11,6 +11,7 @@ import socket
 import time
 from collections import deque
 from contextlib import asynccontextmanager, suppress
+from dataclasses import asdict
 from datetime import datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
@@ -23,7 +24,7 @@ from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from . import analysis, chat
+from . import analysis, chat, describe
 from .pipeline import REFRACTORY_S, BeatDetector, SignalMonitor
 from .session import SessionError, SessionManager, SessionStore, utcnow
 from .sources.base import FS, PACKET, PACKET_S, PacedSource, Packet, Source, Status
@@ -455,7 +456,11 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, http: h
                     await runner.start(str(msg.get("name", "")))
                 elif kind == "rhythm":
                     pattern = str(msg.get("name", ""))
-                    if not (runner.name == "rhythm" and getattr(runner.source, "pattern", None) == pattern):
+                    if pattern == "custom":   # a described rhythm sent back by the page (after a reconnect)
+                        recipe = describe.clamp(msg.get("recipe"))
+                        if recipe is not None:
+                            await runner.start("rhythm", force=True, pattern="custom", recipe=recipe)
+                    elif not (runner.name == "rhythm" and getattr(runner.source, "pattern", None) == pattern):
                         await runner.start("rhythm", force=True, pattern=pattern)
                 elif kind == "samples" and isinstance(msg.get("uv"), list):
                     try:
@@ -482,6 +487,30 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, http: h
             hub.unsubscribe(q)
             viewers.pop(cid, None)
             await viewer.close()
+
+    @app.post("/api/rhythm/describe")
+    async def rhythm_describe(request: Request) -> JSONResponse:
+        """Gemini heart. Body: {"cid", "text"}: a patient, a situation or a rhythm in words. Gemini
+        fills the simulator's recipe (backend/describe.py), the viewer's demo switches to it, and
+        the answer is {"ok", "name", "summary", "recipe", "reply"}; `reply` is always words for the panel."""
+        try:
+            body = await request.json()
+        except ValueError:
+            body = None
+        if not isinstance(body, dict):
+            body = {}
+        viewer = viewers.get(str(body.get("cid", "")))
+        if viewer is None:
+            return JSONResponse({"ok": False, "reply": "Reload the page and try again", "error": "viewer"}, status_code=404)
+        if viewer.sessions.state in ("running", "analyzing"):
+            return JSONResponse({"ok": False, "reply": "Stop the session first", "error": "session"}, status_code=409)
+        text = body.get("text")
+        result = await describe.describe(text if isinstance(text, str) else "", app.state.http)
+        if result.recipe is None:
+            return JSONResponse({"ok": False, "reply": result.reply, "error": result.error}, status_code=result.status)
+        await viewer.runner.start("rhythm", force=True, pattern="custom", recipe=result.recipe)
+        return JSONResponse({"ok": True, "name": result.recipe.name, "summary": result.recipe.summary,
+                             "recipe": asdict(result.recipe), "reply": result.recipe.summary})
 
     @app.post("/api/chat")
     async def chat_endpoint(request: Request) -> JSONResponse:
