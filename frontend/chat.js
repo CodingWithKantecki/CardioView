@@ -76,7 +76,7 @@ export function initChat() {
     try {
       const r = await fetch('/api/chat', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ question, history: history.slice(-MAX_HISTORY) }),
+        body: JSON.stringify({ question, history: history.slice(-MAX_HISTORY), cid: window.cardioview?.cid }),
       });
       let data = null;
       try { data = await r.json(); } catch { data = null; }

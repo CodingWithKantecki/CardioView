@@ -274,4 +274,7 @@ class SignalMonitor:
             if not self.signal.ok and now - self._good_since >= OK_AFTER_S:
                 self.signal = Signal(True)
                 changed = self.signal
+        if changed is not None:   # the numbers behind every flip, for the server log
+            log.info("signal %s at t=%.1f s: p2p %.0f uV over %.0f s, %.0f%% of the last %.1f s at the clip level",
+                     "ok" if changed.ok else "lost (pads)", now, p2p, QUALITY_WINDOW_S, clipped * 100, CLIP_WINDOW_S)
         return changed

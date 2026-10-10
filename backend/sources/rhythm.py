@@ -7,6 +7,7 @@ This is a simulation for the screen, named as such; it is never shown for strap 
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from typing import Iterator
 
 import numpy as np
@@ -43,12 +44,62 @@ LABELS = {
 UV_PER_MV = 600.0
 EASE_BEATS = 3   # beats over which the interval eases from the old rhythm's to this pattern's
 
+# A described rhythm (Gemini heart, backend/describe.py): the knobs the simulator exposes, each
+# with its range and its normal value. The "custom" pattern plays one.
+LIMITS = {
+    "bpm": (30.0, 220.0, 72.0),
+    "jitter": (0.0, 0.4, 0.03),      # beat-to-beat interval variation as a fraction of the interval
+    "p_wave": (0.0, 0.3, 0.12),      # P wave height, mV; 0 is none
+    "pr_s": (0.10, 0.32, 0.18),      # P wave to R peak, s
+    "qrs_width": (1.0, 3.0, 1.0),    # 1 narrow; 2 and up wide, with a ventricular shape
+    "st_mv": (-0.3, 0.5, 0.0),       # ST shift, mV: up is elevation, down is depression
+    "t_mv": (-0.6, 0.9, 0.3),        # T wave height, mV; negative is inverted
+    "pvc_every": (0.0, 12.0, 0.0),   # an early wide beat every N beats; 0 is none
+}
+
+
+@dataclass
+class Recipe:
+    name: str
+    summary: str
+    bpm: float
+    jitter: float
+    irregular: bool
+    p_wave: float
+    pr_s: float
+    qrs_width: float
+    st_mv: float
+    t_mv: float
+    pvc_every: int
+
+    def device(self) -> str:
+        return f"Simulated: {self.name}"
+
+    def template(self) -> list:
+        """The beat as Gaussians (center s from the R peak, amplitude mV, width s)."""
+        w = self.qrs_width
+        if w >= 2.0:   # a ventricular shape: wide and deep, no P, the T the other way unless told so
+            t = self.t_mv if self.t_mv < 0 else -0.45
+            return [(-0.01, 1.1, 0.014 * w), (0.03 * w, -0.7, 0.018 * w), (0.30, t, 0.075)]
+        tpl = []
+        if self.p_wave > 0:
+            tpl.append((-self.pr_s, self.p_wave, 0.022))
+        lift = max(0.0, self.st_mv)
+        tpl += [(-0.03, -0.10, 0.009 * w), (0.0, 1.0, 0.011 * w), (0.025, -0.25 + 0.4 * lift, 0.010 * w)]
+        if self.st_mv != 0:
+            tpl.append((0.10, self.st_mv, 0.045))
+        tpl.append((0.25, self.t_mv, 0.050))
+        return tpl
+
 
 class RhythmSource(PacedSource):
     kind = "simulated"
 
-    def __init__(self, pattern: str = "sinus", invert: bool = False, seed: int = 1, **kw):
-        self.pattern = pattern if pattern in LABELS else "sinus"
+    def __init__(self, pattern: str = "sinus", invert: bool = False, seed: int = 1,
+                 recipe: Recipe | None = None, **kw):
+        self.recipe = recipe if pattern == "custom" and isinstance(recipe, Recipe) else None
+        self.pattern = "custom" if self.recipe is not None else pattern if pattern in LABELS else "sinus"
+        self._tpl = self.recipe.template() if self.recipe is not None else NORMAL
         self._rng = np.random.default_rng(seed)
         self._beats: list[tuple[float, list]] = []   # (R peak time, template)
         self._i = 0
@@ -56,7 +107,7 @@ class RhythmSource(PacedSource):
         self._ease: list[float] = []      # weights pulling the next intervals toward the old rr
         self._ease_rr: float | None = None
         super().__init__(self._stream(), invert=invert, **kw)
-        self.status.device = f"Simulated: {LABELS[self.pattern]}"
+        self.status.device = self.recipe.device() if self.recipe is not None else f"Simulated: {LABELS[self.pattern]}"
 
     def takeover(self, index: int, last_uv: int | None = None, last_r: float | None = None,
                  rr: float | None = None, template=None) -> None:
@@ -91,6 +142,8 @@ class RhythmSource(PacedSource):
         i = self._i
         self._i += 1
         p = self.pattern
+        if p == "custom":
+            return self._custom_next(i)
         if p == "tachy":
             return 0.43 + rng.normal(0, 0.01), NORMAL
         if p == "brady":
@@ -115,6 +168,21 @@ class RhythmSource(PacedSource):
             return MI_RR + rng.normal(0, 0.015), tpl
         return 0.83 + rng.normal(0, 0.025), NORMAL
 
+    def _custom_next(self, i: int) -> tuple[float, list]:
+        """A described rhythm: the recipe's rate with its jitter (wide and random when irregular),
+        an early wide beat every pvc_every beats with the pause after it."""
+        rc = self.recipe
+        rng = self._rng
+        mean = 60.0 / rc.bpm
+        if rc.pvc_every:
+            if i % rc.pvc_every == rc.pvc_every - 1:
+                return max(0.28, 0.62 * mean), WIDE          # early, wide
+            if i % rc.pvc_every == 0 and i > 0:
+                return 1.38 * mean, self._tpl                 # the pause after it
+        if rc.irregular:
+            return max(0.3, mean * float(rng.uniform(1 - 1.4 * rc.jitter, 1 + 1.4 * rc.jitter))), self._tpl
+        return max(0.28, mean + float(rng.normal(0, rc.jitter * mean))), self._tpl
+
     def _schedule(self, until: float) -> None:
         last = self._beats[-1][0] if self._beats else until - 0.6   # a fresh start: the first beat 0.2 s plus an interval in
         while last < until:
@@ -135,7 +203,8 @@ class RhythmSource(PacedSource):
                 if -0.5 < dt < 0.7:
                     for c, a, w in tpl:
                         v += a * math.exp(-((dt - c) ** 2) / (2 * w * w))
-            if self.pattern == "afib":   # fibrillatory baseline instead of P waves
+            fib = self.pattern == "afib" or (self.recipe is not None and self.recipe.irregular and self.recipe.p_wave == 0)
+            if fib:   # fibrillatory baseline instead of P waves
                 v += 0.045 * math.sin(2 * math.pi * 6.3 * t) * (0.6 + 0.4 * math.sin(2 * math.pi * 0.37 * t))
             v += self._rng.normal(0, 0.04)   # a strap-like noise floor, so a quiet stretch is never a flat line
             yield int(round(v * UV_PER_MV))

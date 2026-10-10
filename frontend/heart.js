@@ -147,14 +147,16 @@ export class Heart {
   }
 
   // Keep the heart filling the stage: about 74 percent of its height, never more than
-  // 60 percent of its width so the labels keep their room. Only the distance changes.
+  // 60 percent of its width so the labels keep their room (40 percent on a phone-width stage,
+  // where the full chamber names need the room). Only the distance changes.
   fit() {
     if (!this.bounds) return;
     const size = this.bounds.getSize(new THREE.Vector3());
     const tanV = Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2);
     const tanH = tanV * this.camera.aspect;
+    const share = this.container.clientWidth < 760 ? 0.4 : 0.6;
     const dH = (size.y / 0.74) / (2 * tanV);
-    const dW = (size.x / 0.6) / (2 * tanH);
+    const dW = (size.x / share) / (2 * tanH);
     const d = Math.max(dH, dW);
     const dir = this.camera.position.clone().sub(this.controls.target).normalize();
     this.camera.position.copy(this.controls.target).add(dir.multiplyScalar(d));

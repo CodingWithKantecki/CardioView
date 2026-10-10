@@ -1,6 +1,6 @@
-"""The strap over the network: a bridge on the booth laptop (tools/bridge.py) reads the Polar H10
-and streams its packets to the server's /ws/strap, and RemoteSource plays them as the live source.
-The cloud copy of CardioView has no Bluetooth; this is how it shows a real heart."""
+"""The viewer's own strap: the browser reads the Polar H10 over Web Bluetooth (frontend/strap.js) and
+sends its status and samples down the viewer's websocket; RemoteSource plays them as that viewer's
+live source. The server itself never touches Bluetooth."""
 from __future__ import annotations
 
 import asyncio
@@ -15,8 +15,8 @@ KEEP = 64   # packets kept while nobody plays them (about 36 s), the oldest drop
 
 
 class RemoteHub:
-    """What the bridge sends, for whichever RemoteSource is running: a queue of packets and the
-    bridge's latest status. One bridge at a time; a new one replaces the old."""
+    """What the browser sends, for whichever RemoteSource is running: a queue of packets and the
+    strap's latest status."""
 
     def __init__(self) -> None:
         self.queue: deque = deque(maxlen=KEEP)
@@ -58,4 +58,6 @@ class RemoteSource(Source):
             if item[0] == "status":
                 self.set_status(item[1], item[2])
             else:
+                if self.status.state != "streaming":   # samples are proof: a strap marked connecting never stays so
+                    self.set_status("streaming", hub.device or self.status.device or "Polar H10")
                 yield Packet(item[1], self._oriented(item[2]))

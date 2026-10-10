@@ -1,4 +1,4 @@
-"""Run the CardioView server: python -m backend --source sim | data/<file>.csv | h10"""
+"""Run the CardioView server: python -m backend [--source sim | data/<file>.csv]"""
 from __future__ import annotations
 
 import argparse
@@ -13,7 +13,6 @@ from .app import create_app
 from .cloud import Cloud
 from .env import load_dotenv
 from .sources.base import PREROLL_S, Source
-from .sources.remote import RemoteHub, RemoteSource
 from .sources.replay import ReplaySource
 from .sources.rhythm import RhythmSource
 from .sources.sim import SimSource
@@ -32,13 +31,6 @@ def demo_factory(spec: str | None, bpm: int, invert: bool):
     return lambda: ReplaySource(spec, invert=invert, preroll_s=PREROLL_S)
 
 
-def live_factory(invert: bool):
-    def make():
-        from .sources.h10 import H10Source
-        return H10Source(invert=invert)
-    return make
-
-
 def parse_keep_until(value: str | None) -> datetime | None:
     """An ISO time; one without a zone is this machine's local time."""
     if not value:
@@ -48,37 +40,24 @@ def parse_keep_until(value: str | None) -> datetime | None:
 
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(prog="python -m backend", description="CardioView server")
-    ap.add_argument("--source", default="sim", help="what to start with: sim, h10, or a CSV path with time_s,ecg_uv")
-    ap.add_argument("--demo", default=None, help="the demo source the viewer can switch to: a CSV path or sim (default: the first recording in data/)")
+    ap.add_argument("--source", default=None, help="the demo source every viewer starts on: sim or a CSV path with time_s,ecg_uv (default: the first recording in data/, else sim)")
     ap.add_argument("--bpm", type=int, default=72, help="simulated heart rate")
-    ap.add_argument("--invert", action="store_true", help="flip the signal (strap worn upside down)")
+    ap.add_argument("--invert", action="store_true", help="flip every strap signal (a strap worn upside down)")
     ap.add_argument("--host", default="0.0.0.0")
     ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("--keep-until", help="when saved sessions expire, e.g. 2026-10-11T12:00 (default: 24 hours from now)")
     ap.add_argument("--public-host", help="the address phones use for the LAN link (default: this machine's)")
-    ap.add_argument("--live", default=os.environ.get("CARDIOVIEW_LIVE", "h10"), choices=["h10", "remote"],
-                    help="where the strap is: h10 on this computer (default), or remote, streamed in by tools/bridge.py (the cloud copy)")
     args = ap.parse_args(argv)
     load_dotenv()   # the chat key and the cloud settings, from .env in the repo root, never in git
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     cloud = Cloud.from_env()
-    remote = RemoteHub() if args.live == "remote" else None
-    live = (lambda: RemoteSource(remote, invert=args.invert)) if remote is not None else live_factory(args.invert)
-    def rhythm(pattern: str = "sinus") -> RhythmSource:
-        return RhythmSource(pattern, invert=args.invert, preroll_s=PREROLL_S)
+    def rhythm(pattern: str = "sinus", **kw) -> RhythmSource:   # kw: a Gemini heart's recipe
+        return RhythmSource(pattern, invert=args.invert, preroll_s=PREROLL_S, **kw)
 
-    if args.source == "h10":
-        factories = {"live": live, "demo": demo_factory(args.demo, args.bpm, args.invert), "rhythm": rhythm}
-        initial = "live"
-    else:
-        factories = {"live": live, "demo": demo_factory(args.source, args.bpm, args.invert), "rhythm": rhythm}
-        initial = "demo"
-    app = create_app(factories, initial, keep_until=parse_keep_until(args.keep_until),
-                     public_host=args.public_host, port=args.port, cloud=cloud, remote=remote,
-                     bridge_key=os.environ.get("BRIDGE_KEY") or None, base_url=os.environ.get("CARDIOVIEW_BASE_URL") or None)
-    if remote is not None:
-        print("Strap: remote, fed by tools/bridge.py" + ("" if os.environ.get("BRIDGE_KEY") else " (set BRIDGE_KEY or no bridge can connect)"), flush=True)
-    print(f"CardioView: source {args.source}. Open http://localhost:{args.port}", flush=True)
+    factories = {"demo": demo_factory(args.source, args.bpm, args.invert), "rhythm": rhythm}   # the strap is each viewer's own
+    app = create_app(factories, "demo", keep_until=parse_keep_until(args.keep_until), public_host=args.public_host,
+                     port=args.port, cloud=cloud, base_url=os.environ.get("CARDIOVIEW_BASE_URL") or None, invert=args.invert)
+    print(f"CardioView: demo {args.source or 'first recording'}; each viewer connects their own strap. Open http://localhost:{args.port}", flush=True)
     if cloud is not None:
         print(f"Saved sessions publish to {cloud.public_url}", flush=True)
     uvicorn.run(app, host=args.host, port=args.port, loop="asyncio", ws="auto", log_level="warning")

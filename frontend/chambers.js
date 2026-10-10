@@ -6,6 +6,7 @@ export const ATRIA_S = 0.12;
 const RISE_S = 0.1;
 const RELEASE_S = 0.2;
 export const ORDER = ['ra', 'la', 'rv', 'lv'];
+export const NAMES = { ra: 'Right atrium', la: 'Left atrium', rv: 'Right ventricle', lv: 'Left ventricle' };
 const laneColor = (c) => colors()[c];   // one color per chamber, from the --c-ra/rv/la/lv tokens
 const SPARK_S = 3;
 
@@ -237,13 +238,13 @@ export class Chambers {
       ctx.restore();
     }
 
-    // the chamber letters inside each lane's top-left corner, in the same bold Helvetica as the
-    // labels on the heart, on a knock-out so the shapes pass under them
+    // the chamber names inside each lane's top-left corner, in the same bold Helvetica as the
+    // labels on the heart (no two-letter acronyms), on a knock-out so the shapes pass under them
     ctx.save();
-    ctx.font = `700 ${15 * dpr}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+    ctx.font = `700 ${14 * dpr}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
     ctx.textBaseline = 'top';
     for (let r = 0; r < rows; r++) {
-      const label = ORDER[r].toUpperCase();
+      const label = NAMES[ORDER[r]];
       const tw = ctx.measureText(label).width;
       const lx = 12 * dpr, ly = rowH * r + pad + 1 * dpr;
       ctx.fillStyle = alpha(T.paper, 0.85);

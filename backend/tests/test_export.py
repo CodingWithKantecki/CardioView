@@ -1,5 +1,6 @@
 """The Export menu's PDF report: the page's buffer becomes a saved summary with a link and a QR."""
 import asyncio
+import math
 
 from fastapi.testclient import TestClient
 
@@ -38,3 +39,19 @@ def test_export_report_refuses_too_little(tmp_path):
     with TestClient(create_app({"demo": Quiet}, "demo", sessions_dir=tmp_path)) as c:
         assert c.post("/api/export/report", json={"fs": FS, "t0": 0, "uv": [0] * 100}).status_code == 409
         assert c.post("/api/export/report", json={"uv": "nope"}).status_code == 400
+
+
+def test_the_report_can_fetch_its_ecg(tmp_path):
+    """The rhythm strips need the whole recording: the export's samples come back as sent, the
+    demo has synthetic ones, and an unknown id is a 404."""
+    with TestClient(create_app({"demo": None}, "live", sessions_dir=tmp_path)) as c:
+        uv = [int(200 * math.sin(k / 3)) for k in range(10 * FS)]
+        made = c.post("/api/export/report", json={"fs": FS, "t0": 4.5, "uv": uv, "source": "recorded"})
+        assert made.status_code == 200
+        ecg = c.get(f"/api/s/{made.json()['id']}/ecg")
+        assert ecg.status_code == 200
+        body = ecg.json()
+        assert body["fs"] == FS and body["t0"] == 4.5 and body["uv"] == uv
+        demo = c.get("/api/s/demo/ecg").json()
+        assert demo["fs"] == FS and len(demo["uv"]) > 60 * FS
+        assert c.get("/api/s/nope/ecg").status_code == 404

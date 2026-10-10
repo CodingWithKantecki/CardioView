@@ -6,10 +6,12 @@ import hashlib
 import io
 import json
 import logging
+import secrets
 import socket
 import time
 from collections import deque
 from contextlib import asynccontextmanager, suppress
+from dataclasses import asdict
 from datetime import datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
@@ -22,11 +24,11 @@ from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from . import analysis, chat
+from . import analysis, chat, describe
 from .pipeline import REFRACTORY_S, BeatDetector, SignalMonitor
 from .session import SessionError, SessionManager, SessionStore, utcnow
 from .sources.base import FS, PACKET, PACKET_S, PacedSource, Packet, Source, Status
-from .sources.remote import RemoteHub
+from .sources.remote import RemoteHub, RemoteSource
 from .synth import synth_session
 
 FRONTEND = Path(__file__).resolve().parent.parent / "frontend"
@@ -294,32 +296,62 @@ class Runner:
             log.exception("source stopped")
 
 
+class Viewer:
+    """One browser tab: its own hub (one subscriber), its own runner and sources, its own strap feed
+    (the visitor's Polar H10 through Web Bluetooth, sent over the same websocket) and its own saved
+    session. The server keeps no shared heart: every tab is its own world (Thomas, 2026-10-10)."""
+
+    def __init__(self, cid: str, factories: dict[str, Callable[..., Source]], initial: str, *, store: SessionStore,
+                 base: str, keep_until: datetime | None, cloud, invert: bool = False):
+        self.cid = cid
+        self.hub = Hub("simulated")
+        self.strap = RemoteHub()
+        own = dict(factories)
+        if "live" not in own:   # the browser's strap; tests may hand in a live source of their own
+            own["live"] = lambda: RemoteSource(self.strap, invert=invert)
+        self.sessions = SessionManager(
+            store, analyze=analysis.analyze, broadcast=self.hub.set_session,
+            link=lambda sid: f"{base}/s/{sid}",
+            publish=cloud.publish if cloud else None, unpublish=cloud.unpublish if cloud else None,
+            keep_until=keep_until,
+        )
+        self.runner = Runner(self.hub, own, on_packet=self.sessions.on_packet)
+        self.initial = initial
+
+    async def start(self) -> None:
+        await self.runner.start(self.initial)
+
+    async def close(self) -> None:
+        if self.sessions.state in ("running", "analyzing"):
+            with suppress(Exception):
+                await self.sessions.cancel()   # the tab left mid-session: nothing half done is kept
+        await self.runner.stop()
+
+
 def create_app(factories: dict[str, Callable[[], Source]], initial: str, http: httpx.AsyncClient | None = None, *,
                sessions_dir: Path | None = None, keep_until: datetime | None = None, public_host: str | None = None,
-               port: int = 8000, cloud=None, strap_only: bool = True, remote: RemoteHub | None = None,
-               bridge_key: str | None = None, base_url: str | None = None) -> FastAPI:
-    """`factories` maps a name (live, demo) to a function that builds that source. `http` is the
-    client the chat uses to reach Gemini; tests pass one with a mock transport. `cloud` is an object
-    with publish, unpublish and run(manager), or None to keep saved sessions on the laptop. With
-    `strap_only` a session starts only while the strap streams (Thomas: never on demo data).
-    `remote` is the hub a bridge feeds through /ws/strap (the cloud copy's strap), `bridge_key` what
-    the bridge must present, `base_url` the public address links are built on (https://host)."""
-    hub = Hub("simulated")
+               port: int = 8000, cloud=None, strap_only: bool = True, base_url: str | None = None,
+               invert: bool = False) -> FastAPI:
+    """`factories` maps demo and rhythm (and, for tests, live) to functions that build a source; each
+    viewer gets its own instances, and its live source is its own strap unless live is given. `http`
+    is the client the chat uses to reach Gemini; tests pass one with a mock transport. `cloud` is an
+    object with publish, unpublish and run(manager), or None to keep saved sessions on the laptop.
+    With `strap_only` a session starts only while that viewer's strap streams (Thomas: never on demo
+    data). `base_url` is the public address links are built on (https://host)."""
     store = SessionStore(sessions_dir or SESSIONS)
     host = public_host or lan_address()
     base = (base_url or f"http://{host}:{port}").rstrip("/")
-    sessions = SessionManager(
-        store, analyze=analysis.analyze, broadcast=hub.set_session,
-        link=lambda sid: f"{base}/s/{sid}",
-        publish=cloud.publish if cloud else None, unpublish=cloud.unpublish if cloud else None,
-        keep_until=keep_until,
-    )
-    runner = Runner(hub, factories, on_packet=sessions.on_packet)
+    viewers: dict[str, Viewer] = {}
+    # one manager with no viewer: links and publishing for exports, deletes from phones, the cloud sync
+    admin = SessionManager(store, analyze=analysis.analyze, link=lambda sid: f"{base}/s/{sid}",
+                           publish=cloud.publish if cloud else None, unpublish=cloud.unpublish if cloud else None,
+                           keep_until=keep_until)
 
     async def ticker() -> None:
         while True:
             await asyncio.sleep(1.0)
-            sessions.tick()
+            for v in list(viewers.values()):
+                v.sessions.tick()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -327,10 +359,9 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, http: h
         gone = store.clean_up(utcnow())
         if gone:
             log.info("removed %d unfinished or expired sessions", gone)
-        await runner.start(initial)
         tasks = [asyncio.create_task(ticker(), name="ticker")]
         if cloud is not None:
-            tasks.append(asyncio.create_task(cloud.run(sessions), name="cloud"))
+            tasks.append(asyncio.create_task(cloud.run(admin), name="cloud"))
         try:
             yield
         finally:
@@ -339,13 +370,14 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, http: h
             for task in tasks:
                 with suppress(asyncio.CancelledError, Exception):
                     await task
-            await runner.stop()
+            for v in list(viewers.values()):
+                await v.close()
             await app.state.http.aclose()
 
     app = FastAPI(title="CardioView", lifespan=lifespan)
-    app.state.hub = hub
-    app.state.runner = runner
-    app.state.sessions = sessions
+    app.state.viewers = viewers
+    app.state.store = store
+    app.state.sessions = admin
 
     @app.middleware("http")
     async def revalidate(request, call_next):
@@ -365,46 +397,45 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, http: h
         html = html.replace("<head>\n", f'<head>\n<base href="/a/{version}/">\n', 1)
         return HTMLResponse(html)
 
-    @app.websocket("/ws/strap")
-    async def ws_strap(websocket: WebSocket) -> None:
-        """The bridge on the booth laptop streams the strap here: status and samples messages, the
-        same shapes the viewer gets. Needs the key; one bridge at a time, the newest wins."""
-        if remote is None or not bridge_key or websocket.query_params.get("key") != bridge_key:
-            await websocket.close(code=1008)
-            return
-        await websocket.accept()
-        remote.bridges += 1
-        log.info("strap bridge connected")
-        try:
-            while True:
-                try:
-                    msg = json.loads(await websocket.receive_text())
-                except ValueError:
-                    continue
-                if not isinstance(msg, dict):
-                    continue
-                if msg.get("type") == "samples" and isinstance(msg.get("uv"), list):
-                    try:
-                        remote.push_samples(float(msg.get("t", 0.0)), [int(v) for v in msg["uv"]])
-                    except (TypeError, ValueError):
-                        continue
-                elif msg.get("type") == "status":
-                    remote.push_status(str(msg.get("state", "connecting")), str(msg.get("device", ""))[:80])
-        except WebSocketDisconnect:
-            pass
-        finally:
-            remote.bridges -= 1
-            if remote.bridges <= 0:
-                remote.bridge_gone()
-            log.info("strap bridge gone")
+    async def session_action(viewer: Viewer, action: str) -> dict:
+        """start, cancel or dismiss this viewer's session; the answer goes back on the socket."""
+        sessions, hub = viewer.sessions, viewer.hub
+        if action == "start":
+            if strap_only and (hub.status["source"] != "live" or hub.status["state"] != "streaming"):
+                return {"ok": False, "reason": "Exercise needs the strap on and streaming."}
+            sessions.set_source(hub.status["source"], hub.status["device"])
+            try:
+                return {"ok": True, "id": sessions.start()}
+            except SessionError as e:
+                age = None if sessions._last_sample_at is None else round(time.monotonic() - sessions._last_sample_at, 2)
+                log.info("session start refused for %s: %s (last sample %s s ago, runner %s)", viewer.cid, e, age, viewer.runner.name)
+                return {"ok": False, "reason": str(e)}
+        if action == "cancel":
+            await sessions.cancel()
+            return {"ok": True}
+        if action == "dismiss":
+            sessions.dismiss()
+            return {"ok": True}
+        return {"ok": False, "reason": "Unknown session action."}
 
     @app.websocket("/ws")
     async def ws(websocket: WebSocket) -> None:
+        """One viewer: the backlog, then everything its pipeline produces. In: source and rhythm
+        choices, the browser strap's status and samples, and session actions."""
         await websocket.accept()
+        cid = secrets.token_urlsafe(9)
+        viewer = Viewer(cid, factories, initial, store=store, base=base, keep_until=keep_until, cloud=cloud, invert=invert)
+        viewers[cid] = viewer
+        hub, runner, sessions = viewer.hub, viewer.runner, viewer.sessions
         q = hub.subscribe()
+        await viewer.start()
 
         async def send() -> None:
-            for text in hub.backlog():
+            texts = hub.backlog()   # status, signal, session, then whatever samples and beats are kept
+            for text in texts[:3]:
+                await websocket.send_text(text)
+            await websocket.send_text(dumps({"type": "hello", "cid": cid}))
+            for text in texts[3:]:
                 await websocket.send_text(text)
             while True:
                 await websocket.send_text(await q.get())
@@ -418,14 +449,31 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, http: h
                     continue
                 if not isinstance(msg, dict):
                     continue
-                if msg.get("type") in ("source", "rhythm") and sessions.state in ("running", "analyzing"):
-                    continue   # a session records one source: stop it first (Esc twice)
-                if msg.get("type") == "source":
+                kind = msg.get("type")
+                if kind in ("source", "rhythm") and sessions.state in ("running", "analyzing"):
+                    continue   # a session records one source: stop it first
+                if kind == "source":
                     await runner.start(str(msg.get("name", "")))
-                elif msg.get("type") == "rhythm":
+                elif kind == "rhythm":
                     pattern = str(msg.get("name", ""))
-                    if not (runner.name == "rhythm" and getattr(runner.source, "pattern", None) == pattern):
+                    if pattern == "custom":   # a described rhythm sent back by the page (after a reconnect)
+                        recipe = describe.clamp(msg.get("recipe"))
+                        if recipe is not None:
+                            await runner.start("rhythm", force=True, pattern="custom", recipe=recipe)
+                    elif not (runner.name == "rhythm" and getattr(runner.source, "pattern", None) == pattern):
                         await runner.start("rhythm", force=True, pattern=pattern)
+                elif kind == "samples" and isinstance(msg.get("uv"), list):
+                    try:
+                        viewer.strap.push_samples(float(msg.get("t", 0.0)), [int(v) for v in msg["uv"]])
+                    except (TypeError, ValueError):
+                        log.warning("strap samples from %s were not whole microvolts; dropped", cid)
+                        continue
+                elif kind == "status":
+                    viewer.strap.push_status(str(msg.get("state", "connecting")), str(msg.get("device", ""))[:80])
+                elif kind == "session":
+                    action = str(msg.get("action", ""))
+                    result = await session_action(viewer, action)
+                    hub.broadcast({"type": "session_result", "action": action, **result})
 
         tasks = [asyncio.create_task(send()), asyncio.create_task(receive())]
         try:
@@ -437,11 +485,38 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, http: h
                     t.result()
         finally:
             hub.unsubscribe(q)
+            viewers.pop(cid, None)
+            await viewer.close()
+
+    @app.post("/api/rhythm/describe")
+    async def rhythm_describe(request: Request) -> JSONResponse:
+        """Gemini heart. Body: {"cid", "text"}: a patient, a situation or a rhythm in words. Gemini
+        fills the simulator's recipe (backend/describe.py), the viewer's demo switches to it, and
+        the answer is {"ok", "name", "summary", "recipe", "reply"}; `reply` is always words for the panel."""
+        try:
+            body = await request.json()
+        except ValueError:
+            body = None
+        if not isinstance(body, dict):
+            body = {}
+        viewer = viewers.get(str(body.get("cid", "")))
+        if viewer is None:
+            return JSONResponse({"ok": False, "reply": "Reload the page and try again", "error": "viewer"}, status_code=404)
+        if viewer.sessions.state in ("running", "analyzing"):
+            return JSONResponse({"ok": False, "reply": "Stop the session first", "error": "session"}, status_code=409)
+        text = body.get("text")
+        result = await describe.describe(text if isinstance(text, str) else "", app.state.http)
+        if result.recipe is None:
+            return JSONResponse({"ok": False, "reply": result.reply, "error": result.error}, status_code=result.status)
+        await viewer.runner.start("rhythm", force=True, pattern="custom", recipe=result.recipe)
+        return JSONResponse({"ok": True, "name": result.recipe.name, "summary": result.recipe.summary,
+                             "recipe": asdict(result.recipe), "reply": result.recipe.summary})
 
     @app.post("/api/chat")
     async def chat_endpoint(request: Request) -> JSONResponse:
-        """One question about the data on screen. Body: {"question": str, "history": [{"role", "text"}]}.
-        The answer is {"reply", "error"}; `reply` is always words to show, `error` is null or a reason."""
+        """One question about the data on screen. Body: {"question": str, "history": [{"role", "text"}],
+        "cid": the viewer's id from its hello}. The answer is {"reply", "error"}; `reply` is always words
+        to show, `error` is null or a reason."""
         try:
             body = await request.json()
         except ValueError:
@@ -451,32 +526,13 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, http: h
         question = body.get("question")
         if not isinstance(question, str):
             question = ""
-        snap = chat.snapshot(hub, runner.last_packet_age())
+        viewer = viewers.get(str(body.get("cid", "")))
+        snap = chat.snapshot(viewer.hub if viewer else Hub("simulated"), viewer.runner.last_packet_age() if viewer else None)
         result = await chat.ask(question, body.get("history"), snap, app.state.http)
         return JSONResponse(result.body(), status_code=result.status)
 
-    @app.post("/api/session/start")
-    async def session_start():
-        if strap_only and (hub.status["source"] != "live" or hub.status["state"] != "streaming"):
-            return JSONResponse({"reason": "Exercise needs the strap on and streaming."}, status_code=409)
-        sessions.set_source(hub.status["source"], hub.status["device"])
-        try:
-            return {"id": sessions.start()}
-        except SessionError as e:
-            return JSONResponse({"reason": str(e)}, status_code=409)
-
-    @app.post("/api/session/cancel")
-    async def session_cancel():
-        await sessions.cancel()
-        return {"ok": True}
-
-    @app.post("/api/session/dismiss")
-    async def session_dismiss():
-        sessions.dismiss()
-        return {"ok": True}
-
     async def find_summary(sid: str) -> dict | None:
-        # in a thread: the first demo summary takes seconds of NeuroKit work, and the pump shares this loop
+        # in a thread: the first demo summary takes seconds of NeuroKit work, and the pumps share this loop
         return await asyncio.to_thread(lambda: demo_summary() if sid == "demo" else store.summary(sid, utcnow()))
 
     @app.post("/api/export/report")
@@ -504,7 +560,7 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, http: h
         created = utcnow()
         packet = Packet(t0, uv)
         seconds = round(len(uv) / FS, 2)
-        meta = {"id": sid, "created": created.isoformat(), "keep_until": sessions.keep_until.isoformat(),
+        meta = {"id": sid, "created": created.isoformat(), "keep_until": admin.keep_until.isoformat(),
                 "source": source, "device": device, "state": "recording",
                 "consent": {"by": "operator", "how": "export", "at": created.isoformat()},
                 "steps": [], "ended_early": False, "published": False, "export": True}
@@ -520,10 +576,10 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, http: h
         summary["steps"] = [{"name": "export", "start": 0.0, "end": seconds}]
         summary.update(id=sid, created=meta["created"], keep_until=meta["keep_until"], source=source,
                        ended_early=False, export=True, seconds=round(seconds))
-        link = sessions.link(sid)
-        if sessions.publish is not None:
+        link = admin.link(sid)
+        if admin.publish is not None:
             try:
-                public = await sessions.publish(sid, summary, sessions.keep_until)
+                public = await admin.publish(sid, summary, admin.keep_until)
             except Exception:
                 log.exception("could not publish export %s", sid)
                 public = None
@@ -543,16 +599,36 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, http: h
 
     @app.delete("/api/s/{sid}")
     async def summary_delete(sid: str):
-        if sid == "demo" or not store.valid_id(sid) or not await sessions.delete(sid):
+        if sid == "demo" or not store.valid_id(sid):
+            return JSONResponse({"reason": "This session is no longer available."}, status_code=404)
+        owner = next((v.sessions for v in list(viewers.values()) if v.sessions.sid == sid), admin)   # its viewer forgets it too
+        if not await owner.delete(sid):
             return JSONResponse({"reason": "This session is no longer available."}, status_code=404)
         return {"ok": True}
+
+    @app.get("/api/s/{sid}/ecg")
+    async def summary_ecg(sid: str):
+        """The session's whole ECG for the report's rhythm strips: raw microvolts at 130 Hz from
+        the stored recording (the demo's from the synthetic session). The cloud copy has no ECG."""
+        if sid == "demo":
+            t, uv = await asyncio.to_thread(lambda: (lambda ses: (ses.t, ses.uv))(synth_session(seed=1)))
+        else:
+            if not store.valid_id(sid) or await find_summary(sid) is None:
+                return JSONResponse({"reason": "This session is no longer available."}, status_code=404)
+            try:
+                t, uv = await asyncio.to_thread(store.read_recording, sid)
+            except OSError:
+                return JSONResponse({"reason": "This session is no longer available."}, status_code=404)
+        if len(uv) == 0:
+            return JSONResponse({"reason": "No ECG was kept for this session."}, status_code=404)
+        return {"fs": FS, "t0": round(float(t[0]), 4), "uv": [int(v) for v in uv]}
 
     @app.get("/api/s/{sid}/qr.svg")
     async def summary_qr(sid: str):
         if await find_summary(sid) is None:
             return Response(status_code=404)
         stored = (store.read_meta(sid) or {}).get("link") if sid != "demo" and store.valid_id(sid) else None
-        link = stored or (sessions.done_link if sid == sessions.sid and sessions.done_link else sessions.link(sid))
+        link = stored or admin.link(sid)
         buf = io.BytesIO()
         segno.make(link, error="m").save(buf, kind="svg", scale=8, border=3, dark="#0A1115", light="#E8F1F2")
         return Response(buf.getvalue(), media_type="image/svg+xml")

@@ -1,7 +1,9 @@
-/* The summary of a saved session: the big screen (?screen=1), a phone on the booth Wi-Fi, and the public link.
-   The viewer's look: JetBrains Mono 700 in uppercase for titles, status and controls, 600 for readouts;
-   Helvetica for sentences and the numeral; square corners, no shadows, thick rules between regions.
-   The tokens copy style.css, because this page also stands alone on Vercel. */
+/* The report of a saved session or an export: a band of small boxes (heart rate over time, the
+   numbers, the average beat, the QR) over the ECG itself as rhythm strips on medical paper.
+   The viewer's look: JetBrains Mono 700 in uppercase for titles and readouts, Helvetica for
+   sentences and figures; square corners, no shadows, thick rules between regions. The tokens
+   copy style.css, because this page also stands alone on Vercel. body.print (the Export menu's
+   PDF, ?print=1) and @media print turn the page into a light document that prints as it looks. */
 @font-face { font-family: "JetBrains Mono"; font-weight: 600; font-style: normal; font-display: swap; src: url(/vendor/fonts/jetbrains-mono-latin-600-normal.woff2) format("woff2"); }
 @font-face { font-family: "JetBrains Mono"; font-weight: 700; font-style: normal; font-display: swap; src: url(/vendor/fonts/jetbrains-mono-latin-700-normal.woff2) format("woff2"); }
 
@@ -12,10 +14,17 @@
   --sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
   --gutter: 16px;
-  --rule-w: 4px;     /* rules between regions, as in the viewer */
+  --rule-w: 4px;
   --cell-w: 3px;
-  /* chart colors (six-digit hex, like the viewer's --c-* variables) */
+  /* chart colors (six-digit hex, read by summary.js) */
   --c-ink: #E8F1F2; --c-dim: #7F969B; --c-rule: #E8F1F2; --c-trace: #37E07E;
+}
+/* the printed document: white paper, dark ink */
+body.print {
+  --paper: #FFFFFF; --card: #FFFFFF; --header: #FFFFFF; --on-header: #111417; --on-header-2: #3C464D;
+  --ink: #111417; --ink-2: #3C464D; --muted: #6B767D;
+  --line: rgba(0, 0, 0, 0.12); --line-2: rgba(0, 0, 0, 0.3); --line-strong: rgba(0, 0, 0, 0.5);
+  --c-ink: #111417; --c-dim: #6B767D; --c-rule: #000000; --c-trace: #1A7F4B;
 }
 
 * { box-sizing: border-box; border-radius: 0; box-shadow: none; }
@@ -25,88 +34,94 @@ body {
   font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased;
 }
 
-.top { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 20px; padding: 14px var(--gutter); background: var(--header); color: var(--on-header); border-bottom: var(--rule-w) solid var(--line-2); }
-.brand { font-weight: 700; font-size: 20px; letter-spacing: -0.015em; }
+.top { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 20px; padding: 12px var(--gutter); background: var(--header); color: var(--on-header); border-bottom: var(--rule-w) solid var(--line-2); }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; letter-spacing: -0.015em; }
+.brand-mark { height: 36px; width: auto; display: block; }
+body.print .brand-mark { filter: brightness(0.08); }   /* the white mark, black on paper */
 .meta { font-family: var(--mono); font-size: clamp(12px, 1.6vh, 15px); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--on-header-2); }
 
-/* phone first: one column */
-.sheet { display: grid; grid-template-columns: minmax(0, 1fr); }
-.block { padding: 20px var(--gutter); border-bottom: var(--rule-w) solid var(--line-2); min-width: 0; }
-.block h2 { margin: 0 0 10px; font-family: var(--mono); font-size: 15px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; line-height: 1.15; }
+h2 { margin: 0 0 8px; font-family: var(--mono); font-size: 14px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; line-height: 1.15; color: var(--ink); }
+h2 .sub { margin-left: 12px; font-weight: 600; color: var(--muted); letter-spacing: 0.08em; }
 .text { margin: 0; }
-.chart { display: block; width: 100%; height: 190px; margin-top: 12px; }
-.timing .chart { height: 280px; }
-.figure { margin: 0 0 6px; font-weight: 700; font-size: 48px; line-height: 1; letter-spacing: -0.04em; }
-.block.refused .chart, .block.refused .figure { display: none; }
-.block.refused .text { color: var(--muted); }
-.take { display: none; }
-.foot { padding: 20px var(--gutter) 40px; color: var(--ink-2); font-size: 14px; }
-.foot p { margin: 0 0 18px; }
-/* back to the live view, a cell at the right end of the header */
-.back { margin-left: auto; padding: 8px 14px; background: var(--card); color: var(--on-header); border: 2px solid var(--line-2); cursor: pointer; font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
-.back:hover { border-color: var(--line-strong); color: #FFFFFF; }
-.back:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(43, 212, 189, 0.4); }
+.small { font-size: 13px; color: var(--ink-2); }
+.dim { color: var(--muted); }
 
+/* phone first: the boxes stack, the strips follow */
+.band { display: grid; grid-template-columns: minmax(0, 1fr); }
+.box { display: flex; flex-direction: column; min-width: 0; overflow: hidden; padding: 16px var(--gutter); border-bottom: var(--rule-w) solid var(--line-2); }
+.chart { display: block; width: 100%; height: 150px; }
+.box .text { margin-top: 8px; }
+.box.refused .chart { display: none; }
+.box.refused .text { color: var(--muted); }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; margin: 0; }
+.stats div { min-width: 0; }
+.stats b { display: block; font-size: clamp(22px, 3vh, 30px); line-height: 1; letter-spacing: -0.03em; font-weight: 700; white-space: nowrap; }
+.stats b small { font-size: 0.5em; font-weight: 600; letter-spacing: 0; margin-left: 3px; color: var(--ink-2); }
+.stats span { display: block; margin-top: 4px; font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.take { display: none; }
+
+/* the ECG on paper: one canvas per row, drawn by summary.js with the grid and the trace */
+.strips-box { display: flex; flex-direction: column; min-height: 0; padding: 14px var(--gutter) 16px; border-bottom: var(--rule-w) solid var(--line-2); }
+.paper { min-height: 0; }
+.strip { display: block; width: 100%; }
+
+.foot { padding: 16px var(--gutter) 32px; color: var(--ink-2); font-size: 13px; }
+.foot p { margin: 0 0 16px; }
+.back { margin-left: auto; padding: 8px 14px; background: var(--card); color: var(--on-header); border: 2px solid var(--line-2); cursor: pointer; font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
+.back:hover { border-color: var(--line-strong); }
+.back:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(43, 212, 189, 0.4); }
 #delete {
   font-family: var(--mono); font-size: 14px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--ink); background: var(--card); cursor: pointer;
   min-height: 48px; padding: 12px 20px; border: var(--cell-w) solid var(--line-2);
 }
 #delete:hover { border-color: var(--line-strong); }
-#delete:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(43, 212, 189, 0.4); }
 .gone { margin: 22vh var(--gutter) 0; text-align: center; color: var(--muted); font-size: 18px; }
-.dim { color: var(--muted); }
 
-/* the big screen: effort across the top, four columns under it, the QR in its own column on the right */
+/* the big screen (the overlay over the live view): the band across the top, the strips filling the rest */
 body.screen { height: 100vh; overflow: hidden; display: flex; flex-direction: column; font-size: 17px; }
 body.screen .top { flex: 0 0 60px; flex-wrap: nowrap; padding: 0 28px; }
-body.screen .sheet {
-  flex: 1 1 auto; min-height: 0;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) 380px;
-  grid-template-rows: minmax(0, 1.05fr) minmax(0, 1fr) auto;
-}
-body.screen .block { display: flex; flex-direction: column; min-height: 0; padding: 22px 28px; border-bottom: 0; }
-body.screen .block h2 { font-size: clamp(15px, 1.9vh, 19px); }
-body.screen .effort { grid-column: 1 / 5; grid-row: 1; border-bottom: var(--rule-w) solid var(--line-2); }
-body.screen .breathing { grid-column: 1; grid-row: 2; }
-body.screen .hrv { grid-column: 2; grid-row: 2; border-left: var(--rule-w) solid var(--line-2); }
-body.screen .beat { grid-column: 3; grid-row: 2; border-left: var(--rule-w) solid var(--line-2); }
-body.screen .timing { grid-column: 4; grid-row: 2; border-left: var(--rule-w) solid var(--line-2); }
-body.screen .chart { flex: 1 1 auto; min-height: 0; height: auto; }
-body.screen .figure { font-size: clamp(56px, 8vh, 96px); }
-body.screen .take {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center;
-  grid-column: 5; grid-row: 1 / 3; padding: 28px; background: var(--card); border-left: var(--rule-w) solid var(--line-strong);
-}
-body.screen .take img { width: 300px; height: 300px; border: var(--cell-w) solid var(--line-2); }
-body.screen .take p { margin: 0; }
-body.screen #qr-text { font-weight: 500; }
-body.screen .foot { grid-column: 1 / 6; grid-row: 3; padding: 12px 28px 16px; border-top: var(--rule-w) solid var(--line-2); }
+body.screen .sheet { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+body.screen .band { flex: 0 0 auto; height: clamp(210px, 27vh, 290px); grid-template-columns: 2.2fr 1.1fr 1.3fr 280px; }
+body.screen .box { padding: 16px 24px; border-bottom: var(--rule-w) solid var(--line-2); border-left: var(--rule-w) solid var(--line-2); }
+body.screen .box:first-child { border-left: 0; }
+body.screen h2 { font-size: clamp(14px, 1.8vh, 17px); }
+body.screen .chart { flex: 1 1 0; min-height: 0; height: 0; }   /* the box's leftover height, not the canvas's own 2:1 */
+body.screen .take { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 16px 24px; text-align: center; background: var(--card); }
+body.screen .take img { width: clamp(110px, 16vh, 150px); height: auto; aspect-ratio: 1; border: var(--cell-w) solid var(--line-2); }
+body.screen .take p { margin: 0; font-size: 14px; line-height: 1.3; }
+body.screen .take #qr-text { font-weight: 600; }
+body.screen .strips-box { flex: 1 1 auto; padding: 12px 28px 10px; border-bottom: var(--rule-w) solid var(--line-2); }
+body.screen .paper { flex: 1 1 auto; overflow: auto; }
+body.screen .foot { flex: 0 0 auto; padding: 10px 28px 12px; }
 body.screen .foot p { margin: 0; }
 body.screen #delete { display: none; }
 [hidden] { display: none !important; }
 
-/* printing the report (the Export menu's PDF): the big-screen grid becomes one flowing column on
-   a portrait page, each section whole, the QR at the end, the controls gone, the dark sheet kept */
-@page { size: A4 portrait; margin: 10mm; }
+/* the printed document (the Export menu's PDF, and Cmd+P on a report): A4 landscape, the band
+   across the top of the first page, then the strips at the true medical scale, 25 mm/s and
+   10 mm/mV, 10 s a row, as many pages as the ECG needs */
+@page { size: A4 landscape; margin: 8mm 10mm; }
+body.print, body.print.screen { height: auto; overflow: visible; display: block; font-size: 12px; }
+body.print .top { position: static; flex: none; padding: 0 0 8px; border-bottom-width: 2px; }
+body.print .brand { font-size: 17px; } body.print .brand-mark { height: 9mm; }
+body.print .meta { font-size: 10px; }
+body.print .sheet { display: block; }
+body.print .band { display: grid; grid-template-columns: 2fr 1.35fr 1.3fr 38mm; height: 50mm; border-bottom: 2px solid var(--line-2); }
+body.print .box { display: flex; padding: 6px 10px 6px 0; border: 0; border-left: 2px solid var(--line-2); }
+body.print .box:first-child { border-left: 0; } body.print .box + .box { padding-left: 10px; }
+body.print h2 { font-size: 10px; margin-bottom: 4px; }
+body.print .chart { flex: 1 1 0; min-height: 0; height: 0; }
+body.print .small { font-size: 9.5px; }
+body.print .stats { gap: 6px 10px; } body.print .stats b { font-size: 20px; } body.print .stats span { font-size: 8px; }
+body.print .take { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 6px 0 6px 10px; }
+body.print .take img { width: 30mm; height: 30mm; border: 0; } body.print .take p { margin: 0; font-size: 9.5px; }
+body.print .strips-box { padding: 6px 0 0; border: 0; }
+body.print .strips-box h2 { font-size: 10px; }
+body.print .paper { overflow: visible; background: none; }
+body.print .strip { width: 250mm; height: 26mm; break-inside: avoid; }
+body.print .foot { padding: 6px 0 0; font-size: 9.5px; }
+body.print .back, body.print #delete { display: none !important; }
 @media print {
-  body, body.screen { height: auto; overflow: visible; display: block; font-size: 13px; background: var(--paper); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  body.screen .top { position: static; padding: 0 0 12px; }
-  body.screen .sheet, .sheet { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: none; grid-auto-rows: auto; column-gap: 24px; height: auto; flex: none; overflow: visible; }   /* the beat and the timing side by side, the rest full width; the big screen's row template does not apply */
-  body.screen .block, .block { grid-column: 1 / -1; display: block; padding: 12px 0; border: 0; border-bottom: var(--rule-w) solid var(--line-2); break-inside: avoid; }
-  body.screen .beat, .beat { grid-column: 1; }
-  body.screen .timing, .timing { grid-column: 2; }
-  body.screen .effort, body.screen .breathing, body.screen .hrv, body.screen .beat, body.screen .timing, body.screen .take, body.screen .foot { grid-row: auto; }   /* the big screen's fixed rows do not apply */
-  body.screen .block h2 { font-size: 13px; }
-  body.screen .chart, .chart { width: 100%; height: auto; margin-top: 8px; }   /* the screen drawing, scaled whole by its aspect ratio */
-  body.screen .timing .chart, .timing .chart { width: 100%; }
-  body.screen .figure { font-size: 40px; }
-  /* the QR goes first, beside its words, so the code to the phone copy sits at the top of the sheet */
-  body.screen .take, .take { grid-column: 1 / -1; order: -1; display: flex; flex-direction: row; justify-content: flex-start; align-items: center; gap: 18px; height: auto; min-height: 0; padding: 8px 0; border: 0; border-bottom: var(--rule-w) solid var(--line-2); break-inside: avoid; }
-  body.screen .take img { width: 108px; height: 108px; }
-  body.screen .effort .chart, .effort .chart { width: 92%; }
-  body.screen .beat .chart, .beat .chart, body.screen .timing .chart, .timing .chart { width: 84%; }
-  body.screen .take p { text-align: left; }
-  body.screen .foot, .foot { grid-column: 1 / -1; padding: 12px 0 0; border: 0; }
-  .back, #delete { display: none !important; }
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }

@@ -7,12 +7,13 @@ import { Glitch } from './glitch.js';
 import { Timeline } from './timeline.js';
 import { Dock } from './dock.js';
 import { drawRhythmTips } from './tips.js';
+import { Strap, FakeStrap, supported as strapSupported } from './strap.js';
 import { initChat } from './chat.js';
 import { SessionOverlay } from './session.js';
 
 const $ = (id) => document.getElementById(id);
 const els = {
-  device: $('conn'), bpm: $('bpm'), rr: $('rr'),
+  device: $('conn'), bpm: $('bpm'),
   trace: $('trace'), lanes: $('lanes'), column: $('column'), nowEcg: $('nowline-ecg'), nowLanes: $('nowline-lanes'),
   alert: $('alert'), alertTitle: $('alert-title'), alertHint: $('alert-hint'), strip: $('timeline-strip'),
 };
@@ -50,6 +51,29 @@ const session = new SessionOverlay(
   { box: $('session'), prompt: $('session-prompt'), sub: $('session-sub'), ring: $('session-ring') },
   { reducedMotion: REDUCED_MOTION },
 );
+// a message down this viewer's socket; true when it went
+function sendWs(msg) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+  ws.send(JSON.stringify(msg));
+  return true;
+}
+session.send = sendWs;
+// what the page last asked of the server (its source, a rhythm), re-sent when the socket comes back:
+// the server starts every connection on the demo, and a deploy or a proxy hiccup drops the socket
+let lastChoice = null;
+function choose(msg) { lastChoice = msg; return sendWs(msg); }
+// the strap's state as a status message, re-sent after a reconnect so the server never runs a
+// strap that is marked connecting while its samples flow (Thomas, 2026-10-10 evening: Not connected
+// with a signal on screen)
+function strapStatus() {
+  return { type: 'status', state: strap.state === 'streaming' ? 'streaming' : 'connecting', device: strap.state === 'off' ? '' : strap.name };
+}
+let cid = null;   // this viewer's id from the server's hello; the chat sends it with a question
+
+// The visitor's own Polar H10, through Web Bluetooth, sent down this socket as the live source.
+// ?fake=1 plays the recording as if it were a strap, for checks on a machine without a radio.
+const strap = new (params.has('fake') ? FakeStrap : Strap)(sendWs, () => syncSourceCells());
+const strapPanel = { el: $('strap-panel'), note: $('strap-note'), tray: $('strap-tray'), connect: $('strap-connect'), disconnect: $('strap-disconnect') };
 
 // The session report opens in an overlay over the live view (an iframe of the summary page in
 // embed mode), so the app never reloads: Back or three idle minutes in the report close it.
@@ -68,7 +92,7 @@ const report = {
 };
 session.onDone = (id) => report.open(id);
 window.addEventListener('message', (e) => {
-  if (e.origin === location.origin && e.data?.type === 'cardioview-report' && e.data.action === 'back') report.close();
+  if (e.origin === location.origin && e.data?.type === 'cardioview-report' && e.data.action === 'back') { report.close(); sendWs({ type: 'session', action: 'dismiss' }); }
 });
 
 // Exercise needs the real strap, streaming, with a signal
@@ -91,8 +115,26 @@ function syncSourceCells() {
     const s = b.dataset.source;
     setAttr(b, 'aria-pressed', s === 'live' ? (live && !ex) : s === 'demo' ? (!!status && !live) : ex);
   }
-  panel.el.hidden = !ex;
-  if (!ex) return;
+  // the strap panel: on the Strap tab always, on the Exercise tab until the strap streams
+  const streaming = live && status.state === 'streaming';
+  const showStrap = live && (!exerciseMode || !streaming);
+  strapPanel.el.hidden = !showStrap;
+  if (showStrap) {
+    let note;
+    if (!strapSupported && !params.has('fake')) note = 'Connecting a strap needs Chrome or Edge on a computer or an Android phone';
+    else if (strap.state === 'streaming') note = `${strap.name} connected`;
+    else if (strap.state === 'choosing') note = 'Give the list a second, then pick the strap with the signal icon';
+    else if (strap.state === 'connecting') note = 'Connecting to the strap';
+    else note = strap.reason || 'Wet the pads, wear the strap snug, then connect it';
+    if (strapPanel.note.textContent !== note) strapPanel.note.textContent = note;
+    strapPanel.connect.hidden = strap.state !== 'off' || (!strapSupported && !params.has('fake'));
+    strapPanel.disconnect.hidden = strap.state === 'off' || strap.state === 'choosing';   // Cancel while connecting, Disconnect while streaming
+    const stop = strap.state === 'streaming' ? 'Disconnect' : 'Cancel';
+    if (strapPanel.disconnect.textContent !== stop) strapPanel.disconnect.textContent = stop;
+    strapPanel.tray.hidden = strapPanel.connect.hidden && strapPanel.disconnect.hidden;
+  }
+  panel.el.hidden = !(ex && streaming);
+  if (!(ex && streaming)) return;
   const ready = strapReady();
   const note = busy ? 'Session running' : ready ? 'Strap on. Start the two minute session' : 'Waiting for the strap';
   if (panel.note.textContent !== note) panel.note.textContent = note;
@@ -116,15 +158,28 @@ let flickerUntil = 0;
 // It is either working or not connected: one message for every strap problem.
 const NOT_CONNECTED = ['Not connected', 'Wet the pads and wear the strap snug on the chest'];
 
-// Why the screen cannot follow a heart right now, or null when it can.
+// Why the screen cannot follow a heart right now, or null when it can. `lostWhy` names the rule
+// that fired, for the console: the alert itself says the same thing for every strap problem.
+let lostWhy = '';
+let loggedWhy = '';
 function lostState() {
-  if (FORCED_LOST) return NOT_CONNECTED;
-  if (!status) return null;
-  if (!wsOpen) return ['Server offline', 'Retrying'];
-  if (status.source === 'live' && status.state !== 'streaming') return NOT_CONNECTED;
-  if (lastSampleWall !== null && performance.now() - lastSampleWall > 3000) return NOT_CONNECTED;
-  if (!signal.ok) return NOT_CONNECTED;
-  return null;
+  const why = (reason, state) => { lostWhy = reason; return state; };
+  if (FORCED_LOST) return why('forced by ?signal=lost', NOT_CONNECTED);
+  if (!status) return why('', null);
+  if (!wsOpen) return why('server offline', ['Server offline', 'Retrying']);
+  if (status.source === 'live' && status.state !== 'streaming') return why(`strap ${status.state}`, NOT_CONNECTED);
+  const gap = lastSampleWall === null ? 0 : (performance.now() - lastSampleWall) / 1000;
+  if (gap > 3) return why(`no samples for ${gap.toFixed(1)} s`, NOT_CONNECTED);
+  if (!signal.ok) return why(`signal ${signal.reason}`, NOT_CONNECTED);
+  return why('', null);
+}
+
+// one console line per change of cause, not per frame
+function logLost() {
+  const key = lostWhy.replace(/[\d.]+ s$/, '');
+  if (key === loggedWhy) return;
+  loggedWhy = key;
+  console.info(lostWhy ? `lost: ${lostWhy}` : 'signal back');
 }
 
 // The status line, in words: the strap id (as data, in mono) while it streams, otherwise whose recording
@@ -162,9 +217,13 @@ function handle(msg) {
     // simulated rhythms exist in demo only, never beside strap data
     const rhythms = document.getElementById('rhythms');
     rhythms.hidden = msg.source === 'live';
-    for (const b of rhythms.querySelectorAll('button')) {
+    const device = typeof msg.device === 'string' ? msg.device : '';
+    const cells = [...rhythms.querySelectorAll('.rhythm-tray button')];
+    // a Gemini heart: any simulated rhythm that is not one of the cells' own (Gemini may well name one "Atrial fibrillation")
+    const described = device.startsWith('Simulated: ') && !cells.some((b) => device === 'Simulated: ' + RHYTHM_LABELS[b.dataset.rhythm]);
+    for (const b of cells) {
       const name = b.dataset.rhythm;
-      const on = msg.device === 'Simulated: ' + RHYTHM_LABELS[name];
+      const on = name === 'gemini' ? described : device === 'Simulated: ' + RHYTHM_LABELS[name];
       b.setAttribute('aria-pressed', String(!!on));
     }
   } else if (msg.type === 'signal') {
@@ -177,6 +236,11 @@ function handle(msg) {
     lastSampleWall = performance.now();
     clock.update(msg.t + (msg.uv.length - 1) / msg.fs);
     trace.push(msg.t, msg.uv, msg.fs);
+  } else if (msg.type === 'hello') {
+    cid = msg.cid;
+    window.cardioview = { cid };
+  } else if (msg.type === 'session_result') {
+    session.result(msg);
   } else if (msg.type === 'beat') {
     lanes.push(msg);
   } else if (msg.type === 'session') {
@@ -188,7 +252,11 @@ function handle(msg) {
 function connect() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}/ws`);
-  ws.onopen = () => { wsOpen = true; };
+  ws.onopen = () => {
+    wsOpen = true;
+    if (lastChoice) sendWs(lastChoice);
+    if (strap.state !== 'off') sendWs(strapStatus());
+  };
   ws.onmessage = (ev) => handle(JSON.parse(ev.data));
   ws.onclose = () => {
     wsOpen = false;
@@ -221,10 +289,9 @@ placeNowLine();
 function showBeat(b) {
   if (b === shownBeat) return;
   shownBeat = b;
-  if (!b) { els.bpm.textContent = '--'; els.rr.textContent = '-- s between beats'; return; }
-  // the first beat after a source switch carries no interval yet: keep the last numbers until one does
+  if (!b) { els.bpm.textContent = '--'; return; }
+  // the first beat after a source switch carries no rate yet: keep the last number until one does
   if (b.bpm != null) els.bpm.textContent = String(b.bpm);
-  if (b.rr != null) els.rr.textContent = `${b.rr.toFixed(2)} s between beats`;
 }
 
 function applyLost(lost) {
@@ -249,6 +316,7 @@ function drawFrame() {
   trace.holdFrom = heldFrom;
   lanes.holdFrom = heldFrom;
   const lost = lostState();
+  logLost();
   trace.draw(t);
   lanes.draw(t);
   for (const c in sparks) if (!labels[c].hidden) lanes.drawSpark(sparks[c], c, t);
@@ -296,21 +364,57 @@ for (const b of sourceCells) {
     const want = s === 'demo' ? 'demo' : 'live';   // the Exercise tab is the strap too
     // Demo also brings a simulated rhythm back to the recording; Strap and Exercise only switch when not live
     const already = want === 'live' ? (!!status && status.source === 'live') : (!!status && status.source === 'recorded');
-    if (!already && ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'source', name: want }));
+    if (!already) choose({ type: 'source', name: want });
+    else if (want === 'live') lastChoice = { type: 'source', name: 'live' };
+    if (want === 'live') { describeUi.el.hidden = true; describeUi.say(''); }   // a Gemini heart belongs to the demo
   });
 }
+// the logo toggles full screen (Thomas, 2026-10-10 evening): a click fills the display, another brings the browser's tabs back
+$('brand').addEventListener('click', () => {
+  if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+  else document.documentElement.requestFullscreen?.().catch(() => {});
+});
 panel.start.addEventListener('click', () => session.start(strapReady()));
+strapPanel.connect.addEventListener('click', () => { if (strap.state === 'off') strap.connect(); });
+strapPanel.disconnect.addEventListener('click', () => strap.disconnect());
 panel.stop.addEventListener('click', () => session.stop());
 panel.voice.addEventListener('click', () => session.setVoice(!session.voiceOn));
 
-for (const b of document.querySelectorAll('#rhythms button')) {
+for (const b of document.querySelectorAll('.rhythm-tray button')) {
   b.addEventListener('click', () => {
     if (session.busy()) { session.flash('Stop the session first'); return; }
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    const name = b.dataset.rhythm;
-    ws.send(JSON.stringify({ type: 'rhythm', name }));
+    if (b.dataset.rhythm === 'gemini') { describeUi.open(); return; }   // the text box; the rhythm comes from what is typed
+    describeUi.el.hidden = true;
+    describeUi.say('');
+    choose({ type: 'rhythm', name: b.dataset.rhythm });
   });
 }
+
+// Gemini heart: a patient, a situation or a rhythm in words. The server asks Gemini for the
+// simulator's recipe and switches this viewer's demo to it; the recipe is kept as the last choice,
+// so a reconnect brings the same heart back without asking again.
+const describeUi = {
+  el: $('describe'), text: $('describe-text'), go: $('describe-go'), note: $('describe-note'),
+  open() { this.el.hidden = false; this.text.focus(); },
+  say(text) { this.note.textContent = text; this.note.hidden = !text; },
+};
+describeUi.el.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (session.busy()) { session.flash('Stop the session first'); return; }
+  const text = describeUi.text.value.trim();
+  if (!text || describeUi.go.getAttribute('aria-disabled') === 'true') return;
+  setAttr(describeUi.go, 'aria-disabled', true);
+  describeUi.say('Gemini is setting up the heart');
+  try {
+    const res = await fetch('/api/rhythm/describe', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ cid, text }) });
+    const data = await res.json().catch(() => ({}));
+    if (data.ok) {
+      lastChoice = { type: 'rhythm', name: 'custom', recipe: data.recipe };
+      describeUi.say(`Simulated ${data.name.toLowerCase()}. ${data.summary}`);
+    } else describeUi.say(data.reply || 'Gemini did not answer, try again');
+  } catch { describeUi.say('Gemini heart needs an internet connection'); }
+  setAttr(describeUi.go, 'aria-disabled', false);
+});
 
 initChat();
 
