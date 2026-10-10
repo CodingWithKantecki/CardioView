@@ -26,7 +26,8 @@ body {
 }
 
 .top { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 20px; padding: 14px var(--gutter); background: var(--header); color: var(--on-header); border-bottom: var(--rule-w) solid var(--line-2); }
-.brand { font-weight: 700; font-size: 20px; letter-spacing: -0.015em; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; letter-spacing: -0.015em; }
+.brand-mark { height: 36px; width: auto; display: block; }
 .meta { font-family: var(--mono); font-size: clamp(12px, 1.6vh, 15px); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--on-header-2); }
 
 /* phone first: one column */

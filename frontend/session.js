@@ -43,6 +43,7 @@ export class SessionOverlay {
     this.lastBreath = '';
     this.analyzingAt = 0;
     this.onDone = null;       // set by the viewer: opens the report in place
+    this.send = null;         // set by the viewer: a message down its websocket
   }
 
   // the Exercise panel's buttons (no keys anywhere, Thomas 2026-10-10): Start once the operator
@@ -50,12 +51,12 @@ export class SessionOverlay {
   start(ready) {
     if (this.busy()) { this.flash('A session is already running'); return; }
     if (!ready) { this.flash('Exercise needs the strap on and streaming'); return; }
-    this.post('/api/session/start');
+    this.request('start');
   }
 
   stop() {
     if (!this.busy()) return;
-    this.post('/api/session/cancel');
+    this.request('cancel');
   }
 
   setVoice(on) {
@@ -97,16 +98,14 @@ export class SessionOverlay {
     }
   }
 
-  async post(path) {
-    try {
-      const res = await fetch(path, { method: 'POST' });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        this.flash(body.reason || 'The server said no');
-      }
-    } catch {
-      this.flash('Server offline');
-    }
+  // start, cancel or dismiss, on this viewer's own pipeline; the answer comes back as a session_result
+  request(action) {
+    if (!this.send) return;
+    if (!this.send({ type: 'session', action })) this.flash('Server offline');
+  }
+
+  result(msg) {
+    if (!msg.ok) this.flash(msg.reason || 'The server said no');
   }
 
   flash(text) {

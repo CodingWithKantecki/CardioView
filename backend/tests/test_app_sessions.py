@@ -1,4 +1,4 @@
-"""The session routes end to end: a fast synthetic source, the real detector and analysis."""
+"""Saved sessions end to end, over a viewer's websocket: a fast synthetic source, the real detector and analysis."""
 import asyncio
 import threading
 import time
@@ -43,6 +43,36 @@ class Quiet(Source):
         yield  # pragma: no cover
 
 
+class Booth:
+    """One viewer's websocket: the session actions go down it, the answers come back up it."""
+
+    def __init__(self, app, ws):
+        self.app, self.ws = app, ws
+        self.cid = None
+        for _ in range(20):
+            m = ws.receive_json()
+            if m["type"] == "hello":
+                self.cid = m["cid"]
+                break
+        assert self.cid, "no hello"
+
+    @property
+    def sessions(self):
+        return self.app.state.viewers[self.cid].sessions
+
+    @property
+    def runner(self):
+        return self.app.state.viewers[self.cid].runner
+
+    def act(self, action):
+        self.ws.send_json({"type": "session", "action": action})
+        for _ in range(400):
+            m = self.ws.receive_json()
+            if m["type"] == "session_result" and m["action"] == action:
+                return m
+        raise AssertionError(f"no answer to {action}")
+
+
 def wait_for(cond, seconds=30.0):
     end = time.monotonic() + seconds
     while time.monotonic() < end:
@@ -57,26 +87,28 @@ def client(tmp_path):
     src = FastSource()
     app = create_app({"demo": lambda: src, "live": Quiet}, "demo", strap_only=False,
                      sessions_dir=tmp_path / "sessions", public_host="booth.local", port=8000)
-    src.go = lambda: app.state.sessions.state == "running"
-    with TestClient(app) as c:
-        yield c, app.state.sessions, tmp_path / "sessions"
+    src.go = lambda: any(v.sessions.state == "running" for v in app.state.viewers.values())
+    with TestClient(app) as c, c.websocket_connect("/ws") as ws:
+        yield c, Booth(app, ws), tmp_path / "sessions"
 
 
-def test_backlog_starts_with_status_signal_then_session(client):
+def test_backlog_starts_with_status_signal_session_then_hello(client):
     c, _, _ = client
     with c.websocket_connect("/ws") as ws:
         assert ws.receive_json()["type"] == "status"
         assert ws.receive_json()["type"] == "signal"
         assert ws.receive_json() == {"type": "session", "state": "idle"}
+        assert ws.receive_json()["type"] == "hello"
 
 
 def test_a_session_from_start_to_summary_qr_and_delete(client):
-    c, sessions, root = client
+    c, booth, root = client
+    sessions = booth.sessions
     assert wait_for(lambda: sessions._last_sample_at is not None)
-    r = c.post("/api/session/start")
-    assert r.status_code == 200
-    sid = r.json()["id"]
-    assert c.post("/api/session/start").json() == {"reason": "A session is already running."}
+    r = booth.act("start")
+    assert r["ok"], r
+    sid = r["id"]
+    assert booth.act("start")["reason"] == "A session is already running."
     assert wait_for(lambda: sessions.state == "done", 60)
     assert sessions.message()["link"] == f"http://booth.local:8000/s/{sid}"
 
@@ -91,10 +123,11 @@ def test_a_session_from_start_to_summary_qr_and_delete(client):
 
 
 def test_cancel_route_deletes_the_running_session(client):
-    c, sessions, root = client
+    c, booth, root = client
+    sessions = booth.sessions
     assert wait_for(lambda: sessions._last_sample_at is not None)
-    sid = c.post("/api/session/start").json()["id"]
-    assert c.post("/api/session/cancel").json() == {"ok": True}
+    sid = booth.act("start")["id"]
+    assert booth.act("cancel")["ok"]
     assert sessions.message() == {"type": "session", "state": "idle", "note": "stopped"}
     assert not (root / sid).exists()
 
@@ -110,17 +143,17 @@ def test_unknown_bad_and_demo_ids(client):
 
 
 def test_start_without_signal_is_refused(tmp_path):
-    with TestClient(create_app({"demo": Quiet}, "demo", sessions_dir=tmp_path, strap_only=False)) as c:
-        r = c.post("/api/session/start")
-        assert r.status_code == 409 and r.json() == {"reason": "No signal yet."}
+    app = create_app({"demo": Quiet}, "demo", sessions_dir=tmp_path, strap_only=False)
+    with TestClient(app) as c, c.websocket_connect("/ws") as ws:
+        assert Booth(app, ws).act("start") == {"type": "session_result", "action": "start", "ok": False, "reason": "No signal yet."}
 
 
 def test_start_needs_the_strap_streaming_by_default(tmp_path):
     """The booth policy (Thomas): a session never runs on demo data, whatever the signal."""
     src = FastSource()
-    with TestClient(create_app({"demo": lambda: src, "live": Quiet}, "demo", sessions_dir=tmp_path)) as c:
-        r = c.post("/api/session/start")
-        assert r.status_code == 409 and r.json() == {"reason": "Exercise needs the strap on and streaming."}
+    app = create_app({"demo": lambda: src, "live": Quiet}, "demo", sessions_dir=tmp_path)
+    with TestClient(app) as c, c.websocket_connect("/ws") as ws:
+        assert Booth(app, ws).act("start")["reason"] == "Exercise needs the strap on and streaming."
 
 
 def test_keep_until_reads_zones_and_local_time():
@@ -135,14 +168,14 @@ def test_source_and_rhythm_switches_wait_for_the_session(tmp_path):
     src = FastSource(pause=0.05)   # slow enough that the session is still running when the switch arrives
     app = create_app({"demo": lambda: src, "live": Quiet, "rhythm": lambda pattern="sinus": Quiet()}, "demo",
                      sessions_dir=tmp_path / "sessions", strap_only=False)
-    sessions, runner = app.state.sessions, app.state.runner
-    with TestClient(app) as c:
+    with TestClient(app) as c, c.websocket_connect("/ws") as ws:
+        booth = Booth(app, ws)
+        sessions, runner = booth.sessions, booth.runner
         assert wait_for(lambda: sessions._last_sample_at is not None)
-        assert c.post("/api/session/start").status_code == 200
-        with c.websocket_connect("/ws") as ws:
-            ws.send_json({"type": "source", "name": "live"})
-            ws.send_json({"type": "rhythm", "name": "afib"})
-            assert not wait_for(lambda: runner.name != "demo", 1.0)
+        assert booth.act("start")["ok"]
+        ws.send_json({"type": "source", "name": "live"})
+        ws.send_json({"type": "rhythm", "name": "afib"})
+        assert not wait_for(lambda: runner.name != "demo", 1.0)
         assert sessions.state == "running"
 
 
@@ -189,7 +222,7 @@ def test_building_the_demo_summary_never_stalls_the_server(tmp_path, monkeypatch
         slow.start()
         time.sleep(0.2)                    # the slow build is under way
         t = time.monotonic()
-        assert c.post("/api/session/dismiss").status_code == 200
+        assert c.get("/s/demo").status_code == 200
         took = time.monotonic() - t
         slow.join()
     assert took < 0.5, f"another request waited {took:.2f} s behind the demo build"

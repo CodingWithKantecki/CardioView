@@ -29,6 +29,7 @@ SESSIONS = ROOT / "sessions"
 FRONTEND = ROOT / "frontend"
 CLOUD = ROOT / "cloud"
 PAGE = ("summary.html", "summary.js", "summary.css")
+ASSETS = ("logo-mark.png", "favicon.png")   # the header's heart mark and the tab icon, from frontend/assets
 FONTS = ("jetbrains-mono-latin-600-normal.woff2", "jetbrains-mono-latin-700-normal.woff2", "LICENSE-jetbrains-mono")
 GRANTS = (
     "grant usage on schema public to cardioview_booth, cardioview_public",
@@ -96,6 +97,9 @@ def deploy(frontend: Path = FRONTEND, cloud: Path = CLOUD, run=subprocess.run, w
         shutil.copy2(frontend / name, static / name)
     for name in FONTS:
         shutil.copy2(frontend / "vendor" / "fonts" / name, static / "vendor" / "fonts" / name)
+    (static / "assets").mkdir()
+    for name in ASSETS:
+        shutil.copy2(frontend / "assets" / name, static / "assets" / name)
     vercel = which("vercel")
     if vercel is None:
         raise SystemExit("The Vercel CLI is not installed: npm i -g vercel, then vercel login")

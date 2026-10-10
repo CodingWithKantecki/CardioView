@@ -60,7 +60,12 @@ def test_websocket_sends_status_then_samples():
             first = ws.receive_json()
             assert first["type"] == "status"
             assert first["source"] == "recorded"
-            seen = [ws.receive_json() for _ in range(3)]
+            seen = []   # the rest of the backlog (signal, session), then hello, then the first samples
+            for _ in range(6):
+                m = ws.receive_json()
+                seen.append(m)
+                if m["type"] == "samples":
+                    break
             assert any(m["type"] == "samples" and m["fs"] == 130 and len(m["uv"]) == PACKET for m in seen)
 
 
@@ -78,7 +83,8 @@ def test_viewer_can_switch_sources():
                 if m["type"] == "status" and m["source"] == "simulated":
                     break
             assert any(m["type"] == "status" and m["source"] == "simulated" for m in seen)
-            assert app.state.runner.name == "live"
+            viewer = next(iter(app.state.viewers.values()))
+            assert viewer.runner.name == "live"
 
 
 def test_rhythm_message_starts_the_simulator_with_that_pattern():
@@ -95,7 +101,7 @@ def test_rhythm_message_starts_the_simulator_with_that_pattern():
                 if m["type"] == "status" and m.get("device") == "Simulated: Atrial fibrillation":
                     break
             assert any(m.get("device") == "Simulated: Atrial fibrillation" for m in seen)
-            assert app.state.runner.name == "rhythm"
+            assert next(iter(app.state.viewers.values())).runner.name == "rhythm"
 
 
 class Clk:

@@ -74,6 +74,9 @@ def test_deploy_copies_the_page_and_fonts_then_deploys_to_production(tmp_path):
         (fe / name).write_text(name)
     for name in tools.FONTS:
         (fe / "vendor" / "fonts" / name).write_text(name)
+    (fe / "assets").mkdir()
+    for name in tools.ASSETS:
+        (fe / "assets" / name).write_bytes(b"png")
     cloud = tmp_path / "cloud"
     (cloud / "static").mkdir(parents=True)
     (cloud / "static" / "stale.txt").write_text("old")
@@ -81,6 +84,7 @@ def test_deploy_copies_the_page_and_fonts_then_deploys_to_production(tmp_path):
     tools.deploy(fe, cloud, run=lambda cmd, **kw: calls.append((cmd, kw)), which=lambda name: "/bin/vercel")
     assert (cloud / "static" / "summary.js").read_text() == "summary.js"
     assert (cloud / "static" / "vendor" / "fonts" / "LICENSE-jetbrains-mono").exists()
+    assert (cloud / "static" / "assets" / "logo-mark.png").exists()
     assert not (cloud / "static" / "stale.txt").exists()
     assert calls == [(["/bin/vercel", "deploy", "--prod", "--yes"], {"cwd": cloud, "check": True})]
 
@@ -92,5 +96,8 @@ def test_deploy_without_the_cli_says_how_to_get_it(tmp_path):
         (fe / name).write_text(name)
     for name in tools.FONTS:
         (fe / "vendor" / "fonts" / name).write_text(name)
+    (fe / "assets").mkdir()
+    for name in tools.ASSETS:
+        (fe / "assets" / name).write_bytes(b"png")
     with pytest.raises(SystemExit, match="npm i -g vercel"):
         tools.deploy(fe, tmp_path / "cloud", run=lambda *a, **k: None, which=lambda name: None)

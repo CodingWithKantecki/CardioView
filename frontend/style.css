@@ -52,7 +52,8 @@ body {
 
 /* header: Statura's navy bar */
 .top { flex: 0 0 76px; display: flex; align-items: center; justify-content: space-between; gap: clamp(16px, 2vw, 32px); padding: 0 var(--gutter); background: var(--header); color: var(--fg-0); border-bottom: var(--rule-w) solid var(--line-2); }
-.brand { font-weight: 700; font-size: 20px; letter-spacing: -0.015em; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; letter-spacing: -0.015em; }
+.brand-mark { height: 36px; width: auto; display: block; }   /* the heart mark from the logo (docs/logo.png), cut out with a transparent background */
 /* the timeline: one tray holding the transport cells and, as its last cell, the strip of the last
    30 s with a playhead; drag the strip to scrub */
 .top .toggle.timeline { flex: 1 1 auto; min-width: 0; display: flex; }   /* the one tray that grows */
@@ -208,7 +209,7 @@ body.lost .bpm { opacity: 0.35; }
 .exercise-panel { grid-column: 2; grid-row: 2; display: flex; flex-direction: column; justify-content: center; align-items: flex-end; gap: 12px; }
 .exercise-note { margin: 0; font-family: var(--mono); font-size: clamp(12px, 1.6vh, 14px); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); text-align: right; }
 .exercise-tray button { padding: 14px 24px; font-size: 14px; }
-#exercise-start:not([aria-disabled="true"]) { background: var(--accent); color: var(--on-accent); }
+#exercise-start:not([aria-disabled="true"]), #strap-connect:not([aria-disabled="true"]) { background: var(--accent); color: var(--on-accent); }
 #exercise-stop { background: var(--alert); color: #FFFFFF; }
 .rhythm-tray { grid-column: 2; grid-row: 2; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); gap: var(--cell-w); }
 .rhythm-tray button { position: relative; padding: 0 4px; text-align: center; white-space: normal; line-height: 1.2; font-size: clamp(11px, 0.7vw, 14px); letter-spacing: 0.04em; }

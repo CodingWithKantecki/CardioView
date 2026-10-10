@@ -7,6 +7,7 @@ import { Glitch } from './glitch.js';
 import { Timeline } from './timeline.js';
 import { Dock } from './dock.js';
 import { drawRhythmTips } from './tips.js';
+import { Strap, FakeStrap, supported as strapSupported } from './strap.js';
 import { initChat } from './chat.js';
 import { SessionOverlay } from './session.js';
 
@@ -50,6 +51,19 @@ const session = new SessionOverlay(
   { box: $('session'), prompt: $('session-prompt'), sub: $('session-sub'), ring: $('session-ring') },
   { reducedMotion: REDUCED_MOTION },
 );
+// a message down this viewer's socket; true when it went
+function sendWs(msg) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+  ws.send(JSON.stringify(msg));
+  return true;
+}
+session.send = sendWs;
+let cid = null;   // this viewer's id from the server's hello; the chat sends it with a question
+
+// The visitor's own Polar H10, through Web Bluetooth, sent down this socket as the live source.
+// ?fake=1 plays the recording as if it were a strap, for checks on a machine without a radio.
+const strap = new (params.has('fake') ? FakeStrap : Strap)(sendWs, () => syncSourceCells());
+const strapPanel = { el: $('strap-panel'), note: $('strap-note'), connect: $('strap-connect'), disconnect: $('strap-disconnect') };
 
 // The session report opens in an overlay over the live view (an iframe of the summary page in
 // embed mode), so the app never reloads: Back or three idle minutes in the report close it.
@@ -68,7 +82,7 @@ const report = {
 };
 session.onDone = (id) => report.open(id);
 window.addEventListener('message', (e) => {
-  if (e.origin === location.origin && e.data?.type === 'cardioview-report' && e.data.action === 'back') report.close();
+  if (e.origin === location.origin && e.data?.type === 'cardioview-report' && e.data.action === 'back') { report.close(); sendWs({ type: 'session', action: 'dismiss' }); }
 });
 
 // Exercise needs the real strap, streaming, with a signal
@@ -91,8 +105,23 @@ function syncSourceCells() {
     const s = b.dataset.source;
     setAttr(b, 'aria-pressed', s === 'live' ? (live && !ex) : s === 'demo' ? (!!status && !live) : ex);
   }
-  panel.el.hidden = !ex;
-  if (!ex) return;
+  // the strap panel: on the Strap tab always, on the Exercise tab until the strap streams
+  const streaming = live && status.state === 'streaming';
+  const showStrap = live && (!exerciseMode || !streaming);
+  strapPanel.el.hidden = !showStrap;
+  if (showStrap) {
+    let note;
+    if (!strapSupported && !params.has('fake')) note = 'Connecting a strap needs Chrome or Edge on a computer or an Android phone';
+    else if (strap.state === 'streaming') note = `${strap.name} connected`;
+    else if (strap.state === 'connecting') note = 'Connecting to the strap';
+    else note = 'Wet the pads, wear the strap snug, then connect it';
+    if (strapPanel.note.textContent !== note) strapPanel.note.textContent = note;
+    strapPanel.connect.hidden = strap.state === 'streaming' || (!strapSupported && !params.has('fake'));
+    strapPanel.disconnect.hidden = strap.state !== 'streaming';
+    setAttr(strapPanel.connect, 'aria-disabled', strap.state === 'connecting');
+  }
+  panel.el.hidden = !(ex && streaming);
+  if (!(ex && streaming)) return;
   const ready = strapReady();
   const note = busy ? 'Session running' : ready ? 'Strap on. Start the two minute session' : 'Waiting for the strap';
   if (panel.note.textContent !== note) panel.note.textContent = note;
@@ -177,6 +206,11 @@ function handle(msg) {
     lastSampleWall = performance.now();
     clock.update(msg.t + (msg.uv.length - 1) / msg.fs);
     trace.push(msg.t, msg.uv, msg.fs);
+  } else if (msg.type === 'hello') {
+    cid = msg.cid;
+    window.cardioview = { cid };
+  } else if (msg.type === 'session_result') {
+    session.result(msg);
   } else if (msg.type === 'beat') {
     lanes.push(msg);
   } else if (msg.type === 'session') {
@@ -300,6 +334,8 @@ for (const b of sourceCells) {
   });
 }
 panel.start.addEventListener('click', () => session.start(strapReady()));
+strapPanel.connect.addEventListener('click', () => { if (strap.state === 'off') strap.connect(); });
+strapPanel.disconnect.addEventListener('click', () => strap.disconnect());
 panel.stop.addEventListener('click', () => session.stop());
 panel.voice.addEventListener('click', () => session.setVoice(!session.voiceOn));
 

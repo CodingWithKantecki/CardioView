@@ -281,7 +281,7 @@ window.addEventListener('resize', () => { if (summary) draw(summary); });
 
 // big screen: the QR, back to live on Esc or after a while, and follow the booth's session state
 function backToLive() {
-  fetch('/api/session/dismiss', { method: 'POST' }).catch(() => {}).finally(leave);
+  leave();   // embedded, the viewer's page dismisses the session on its own socket
 }
 
 // the big screen and the demo page get a way back to the live view (Thomas: there was none)
@@ -294,19 +294,6 @@ if (screenMode) {
   $('take').hidden = false;
   $('qr').src = `/api/s/${encodeURIComponent(sid)}/qr.svg`;
   setTimeout(backToLive, IDLE_MS);
-  let ours = false;   // seen this session on the booth; leave once it is dismissed, deleted or replaced
-  const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
-  ws.onmessage = (ev) => {
-    const msg = JSON.parse(ev.data);
-    if (msg.type !== 'session') return;
-    if (msg.state === 'done' && msg.id === sid) {
-      ours = true;
-      $('qr').src = `/api/s/${encodeURIComponent(sid)}/qr.svg?v=${Date.now()}`;
-      $('qr-text').textContent = msg.online ? 'Scan to keep this on your phone' : 'Scan on the booth Wi-Fi to keep this on your phone';
-    } else if (msg.state === 'running' || (ours && msg.state === 'idle')) {
-      leave();
-    }
-  };
 }
 
 load();

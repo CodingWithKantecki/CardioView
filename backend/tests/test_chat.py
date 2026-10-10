@@ -247,11 +247,17 @@ def test_endpoint_answers_from_server_state(monkeypatch):
     fake = FakeGemini()
     app = create_app({"demo": FakeSource, "live": FakeSource}, "demo", http=fake.client())
     with TestClient(app) as client:
-        with client.websocket_connect("/ws") as ws:   # wait until samples flow
-            for _ in range(5):
-                if ws.receive_json()["type"] == "samples":
+        with client.websocket_connect("/ws") as ws:   # the viewer exists while its socket is open
+            cid, flowing = None, False
+            for _ in range(12):
+                m = ws.receive_json()
+                if m["type"] == "hello":
+                    cid = m["cid"]
+                elif m["type"] == "samples":
+                    flowing = True
+                if cid and flowing:
                     break
-        r = client.post("/api/chat", json={"question": "What am I looking at?", "history": []})
+            r = client.post("/api/chat", json={"question": "What am I looking at?", "history": [], "cid": cid})
         assert r.status_code == 200
         assert r.json() == {"reply": "The heart rate is 72 bpm.", "error": None}
         system = json.loads(fake.requests[0].content)["systemInstruction"]["parts"][0]["text"]

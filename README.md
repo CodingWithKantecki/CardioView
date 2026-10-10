@@ -1,6 +1,8 @@
 # CardioView
 
-See your own heart beat, live in 3D. A Polar H10 chest strap streams ECG over Bluetooth, Python finds every beat, and a browser shows a heart model squeezing chamber by chamber in time with it, next to the live trace, the heart rate and the chamber timing.
+![CardioView](docs/logo.png)
+
+See your own heart beat, live in 3D. Your Polar H10 chest strap streams ECG to your browser over Web Bluetooth, Python finds every beat, and the page shows a heart model squeezing chamber by chamber in time with it, next to the live trace, the heart rate and the chamber timing.
 
 Status: the core works. Simulated ECG, CSV replay and the live Polar H10 all drive the trace, heart rate, chamber activation lanes (their timing is derived from the ECG, not measured) and the 3D heart with its chamber labels and waves. Drag to orbit, scroll to zoom, and a dock at the bottom of the stage for rotate, wireframe, opening the heart, opacity and reset view. The strip in the header is the last 30 s: drag it to scrub, and the Rewind, Play, Pause, Fast forward and Live buttons replay it or return to now; the heart, the trace and the lanes all follow. Export offers three shapes for everything the page holds (up to two minutes live, or the frozen history): a PDF report with the waveforms, the measurements and a QR code that opens the same report on a phone (the browser's print dialog saves the PDF), a FHIR R4 Bundle with the waveform as sampled data, or a `time_s,ecg_uv` CSV that replays with `--source`. A signal monitor turns the stage into a red glitch with a plain-words alert when there is no signal at all. `data/h10_ecg_thomas.csv` is a real 84 s recording.
 
@@ -33,9 +35,8 @@ The install takes about two minutes. Below, `python` means `.venv/bin/python` (m
 Then open http://localhost:8000 on the same machine, or http://<this machine's IP>:8000 from the big screen or a phone on the same Wi-Fi.
 
 ```
-python -m backend --source sim                  # simulated ECG, no hardware
-python -m backend --source data/<file>.csv      # replay a recording
-python -m backend --source h10                  # live from the Polar H10
+python -m backend                               # the demo plays the first recording in data/
+python -m backend --source sim                  # or a simulated ECG
 ```
 
 Options: `--bpm 72` sets the simulated rate, `--invert` flips a strap worn upside down, `--host` and `--port` change where it listens (default 0.0.0.0:8000). Whatever you start with, the Strap / Demo / Exercise toggle at the top right of the viewer switches between the live strap and demo data without a restart; `--demo data/<file>.csv` or `--demo sim` picks the demo source (default: the first recording in `data/`). In Demo, the Simulated rhythm tray beside the heart rate plays synthesized rhythms (normal, bradycardia, atrial fibrillation, extra beats, ventricular tachycardia, heart attack) for showing the screen without a strap; they are simulations and are never offered beside strap data. Hover the blue ! in a cell to read what that rhythm is. Press T to switch between the dark theme and the cream one. The 0 key resets the view, like the dock's Reset view.
@@ -103,14 +104,7 @@ Only the anonymous summary goes to Neon. The raw ECG stays on this machine.
 
 `render.yaml` deploys the app to Render as an always-on web service in demo mode (the recording and the rhythms; the strap stays with the booth laptop). In the Render dashboard: Blueprints, New Blueprint Instance, connect this repo, Apply. Every push to main redeploys. Add `GEMINI_API_KEY` in the service's Environment tab for the chat.
 
-The cloud copy has no Bluetooth, so its Strap tab is fed by a bridge on the booth laptop. Only one program can hold the strap, so at the booth the local server takes it from the bridge too:
-
-```
-BRIDGE_KEY=<key> python -m backend --source h10 --live remote          # the big screen, strap via the bridge
-python tools/bridge.py ws://localhost:8000 wss://cardioview.onrender.com --key <key>
-```
-
-The key is `BRIDGE_KEY` in the Render service's Environment tab (use the same value locally). `--source data/<file>.csv` on the bridge plays a recording as if it were the strap. While the bridge runs, both screens show the real strap and Exercise sessions work on either.
+Everyone connects their own strap: open the site in Chrome or Edge (a computer or an Android phone; Safari has no Web Bluetooth), choose Strap, press Connect Polar H10 and pick the strap. Each viewer gets their own pipeline on the server, so many people can use the site at once with their own straps.
 
 ## Tests and checks
 

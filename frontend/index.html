@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CardioView</title>
-<link rel="icon" href="data:,">
+<link rel="icon" type="image/png" href="assets/favicon.png">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="session.css">
 <script type="importmap">
@@ -13,7 +13,7 @@
 </head>
 <body>
 <header class="top">
-  <div class="brand">CardioView</div>
+  <div class="brand"><img class="brand-mark" src="assets/logo-mark.png" alt="">CardioView</div>
   <div class="toggle timeline" id="transport">
     <button type="button" data-mode="rewind" aria-label="Rewind" aria-pressed="false"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1L0 6l6 5zM12 1L6 6l6 5z"/></svg></button>
     <button type="button" data-mode="play" aria-label="Play" aria-pressed="false"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 1v10l9-5z"/></svg></button>
@@ -77,6 +77,13 @@
         <button type="button" data-rhythm="pvc" aria-pressed="false" aria-describedby="tip-pvc">Extra beats<span class="info" aria-hidden="true">?</span><span class="tip" id="tip-pvc" aria-hidden="true"><b>Premature ventricular contractions</b><canvas class="tip-ecg" data-rhythm="pvc" aria-hidden="true"></canvas>An extra beat that starts early in a ventricle (lower chamber), often felt as a skipped beat. On the ECG it is wide with no P wave, then a pause. Common and usually harmless.</span></button>
         <button type="button" data-rhythm="vt" aria-pressed="false" aria-describedby="tip-vt">V-tach<span class="info" aria-hidden="true">?</span><span class="tip" id="tip-vt" aria-hidden="true"><b>Ventricular tachycardia</b><canvas class="tip-ecg" data-rhythm="vt" aria-hidden="true"></canvas>A fast rhythm, over 100 beats a minute, that starts in the ventricles instead of the sinus node. On the ECG: wide beats and no P waves. If it lasts, it is a medical emergency.</span></button>
         <button type="button" data-rhythm="mi" aria-pressed="false" aria-describedby="tip-mi">Heart attack<span class="info" aria-hidden="true">?</span><span class="tip" id="tip-mi" aria-hidden="true"><b>Heart attack (myocardial infarction)</b><canvas class="tip-ecg" data-rhythm="mi" aria-hidden="true"></canvas>A blocked artery starves part of the heart muscle. On the ECG, the line after each spike lifts up (ST elevation), though not every heart attack shows this. It is an emergency: call 911.</span></button>
+      </div>
+      <div class="exercise-panel" id="strap-panel" hidden>
+        <p class="exercise-note" id="strap-note"></p>
+        <span class="toggle exercise-tray" id="strap-tray">
+          <button type="button" id="strap-connect">Connect Polar H10</button>
+          <button type="button" id="strap-disconnect" hidden>Disconnect</button>
+        </span>
       </div>
       <div class="exercise-panel" id="exercise" hidden>
         <p class="exercise-note" id="exercise-note"></p>

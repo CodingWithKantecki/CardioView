@@ -1,6 +1,5 @@
-# Render blueprint: the public CardioView web app, always on. The strap is Bluetooth to the booth
-# laptop, so the cloud copy plays the recording and the rhythms until tools/bridge.py on that laptop
-# streams the strap in (--live remote, BRIDGE_KEY).
+# Render blueprint: the public CardioView web app, always on. Every viewer connects their own Polar
+# H10 in the browser (Web Bluetooth) and gets their own pipeline; the demo plays the recording.
 # Dashboard: Blueprints, New Blueprint Instance, pick this repo. Every push to main redeploys.
 services:
   - type: web
@@ -9,7 +8,7 @@ services:
     plan: starter            # the free plan sleeps after 15 idle minutes; a demo link must not
     region: virginia         # closest to Orlando
     buildCommand: pip install -r requirements.txt
-    startCommand: python -m backend --source data/h10_ecg_thomas.csv --live remote --host 0.0.0.0 --port $PORT
+    startCommand: python -m backend --source data/h10_ecg_thomas.csv --host 0.0.0.0 --port $PORT
     healthCheckPath: /
     autoDeploy: true
     envVars:
@@ -17,7 +16,5 @@ services:
         value: 3.12.10
       - key: PYTHONUNBUFFERED
         value: "1"
-      - key: BRIDGE_KEY             # what tools/bridge.py on the booth laptop must present; read it in the Environment tab
-        generateValue: true
       - key: CARDIOVIEW_BASE_URL    # links and QR codes are built on this
         value: https://cardioview.onrender.com
