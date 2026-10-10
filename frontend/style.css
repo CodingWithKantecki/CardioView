@@ -135,7 +135,10 @@ body.lost .bpm { opacity: 0.35; }
 .bpm { font-family: var(--sans); font-weight: 700; font-size: clamp(64px, 11vh, 128px); line-height: 0.95; letter-spacing: -0.04em; color: var(--ink); }
 .unit { font-size: 18px; color: var(--ink-2); }
 .rr { margin: 2px 0 0; font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted); }
-.rhythms { display: flex; flex-direction: column; gap: 6px; margin-top: clamp(8px, 1.4vh, 14px); }
+.rate-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
+.rhythms { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; max-width: 62%; }
+.rhythm-tray { justify-content: flex-end; }
+.instrument h2 .toggle { margin-left: auto; }
 .rhythms-title { font-family: var(--mono); font-size: 11.5px; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted); }
 .instrument canvas { flex: 1 1 auto; min-height: 0; width: 100%; display: block; margin-top: 6px; }
 .nowline { position: absolute; width: 0; border-left: 2px dashed var(--accent); pointer-events: none; z-index: 2; }

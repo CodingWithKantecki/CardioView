@@ -148,7 +148,10 @@ function setEcgMode(mode) {
 }
 for (const b of document.querySelectorAll('#ecg-mode button')) b.addEventListener('click', () => setEcgMode(b.dataset.mode));
 if (new URLSearchParams(location.search).get('ecg') === '3d') setEcgMode('3d');
-new ResizeObserver(placeNowLine).observe(els.column);
+const relayout = new ResizeObserver(placeNowLine);
+relayout.observe(els.column);
+relayout.observe(els.trace);     // the trace moves when the rhythm tray appears or wraps
+relayout.observe(els.lanes);
 window.addEventListener('resize', placeNowLine);
 placeNowLine();
 
