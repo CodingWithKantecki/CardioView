@@ -19,7 +19,7 @@ NO_P = NORMAL[1:]
 WIDE = [(-0.01, 1.1, 0.035), (0.06, -0.7, 0.045), (0.30, -0.45, 0.075)]   # wide QRS, inverted T, no P
 
 LABELS = {
-    "sinus": "Sinus rhythm",
+    "sinus": "Normal rhythm",
     "tachy": "Tachycardia",
     "brady": "Bradycardia",
     "afib": "Atrial fibrillation",

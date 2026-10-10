@@ -13,7 +13,6 @@
 <body>
 <header class="top">
   <div class="brand">CardioView</div>
-  <span class="device" id="conn"></span>
   <span class="toggle source-toggle" id="source-mode"><button type="button" data-source="live" aria-pressed="false">Strap</button><button type="button" data-source="demo" aria-pressed="false">Demo</button></span>
 </header>
 
@@ -34,15 +33,14 @@
   <aside class="column" id="column">
     <section class="instrument rate">
       <h2>Heart rate</h2>
-      <span class="kicker rhythm-kicker" id="rhythm-kicker" hidden>Simulated rhythm</span>
+      <span class="status-line" id="conn"></span>
       <div class="readout-block">
         <div class="readout"><span class="bpm" id="bpm">--</span><span class="unit">bpm</span></div>
         <p class="rr" id="rr">-- s between beats</p>
       </div>
       <div class="toggle rhythm-tray" id="rhythms" hidden>
         <button type="button" data-rhythm="recording" aria-pressed="false">Recording</button>
-        <button type="button" data-rhythm="sinus" aria-pressed="false">Sinus</button>
-        <button type="button" data-rhythm="tachy" aria-pressed="false">Tachy</button>
+        <button type="button" data-rhythm="sinus" aria-pressed="false">Normal</button>
         <button type="button" data-rhythm="brady" aria-pressed="false">Brady</button>
         <button type="button" data-rhythm="afib" aria-pressed="false">A-fib</button>
         <button type="button" data-rhythm="pvc" aria-pressed="false">PVC</button>

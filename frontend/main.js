@@ -30,7 +30,7 @@ function toggleTheme() {
 const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;   // lost state without the glitch pass
 
 const RHYTHM_LABELS = {
-  sinus: 'Sinus rhythm', tachy: 'Tachycardia', brady: 'Bradycardia',
+  sinus: 'Normal rhythm', tachy: 'Tachycardia', brady: 'Bradycardia',
   afib: 'Atrial fibrillation', pvc: 'Extra beats', vt: 'Ventricular tachycardia',
 };
 
@@ -102,7 +102,6 @@ function handle(msg) {
     // simulated rhythms exist in demo only, never beside strap data
     const rhythms = document.getElementById('rhythms');
     rhythms.hidden = msg.source === 'live';
-    document.getElementById('rhythm-kicker').hidden = rhythms.hidden;
     for (const b of rhythms.querySelectorAll('button')) {
       const name = b.dataset.rhythm;
       const on = name === 'recording' ? msg.source === 'recorded' : msg.device === 'Simulated: ' + RHYTHM_LABELS[name];

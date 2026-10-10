@@ -61,7 +61,7 @@ def test_afib_is_irregular_and_pvcs_come_early():
 
 def test_labels_and_amplitude():
     clk = FakeClock()
-    assert RhythmSource("sinus", sleep=clk.sleep, now=clk.now).status.device == "Simulated: Sinus rhythm"
+    assert RhythmSource("sinus", sleep=clk.sleep, now=clk.now).status.device == "Simulated: Normal rhythm"
     src = RhythmSource("vt", sleep=clk.sleep, now=clk.now)
     assert src.status.device == "Simulated: Ventricular tachycardia"
     assert set(LABELS) == {"sinus", "tachy", "brady", "afib", "pvc", "vt"}
