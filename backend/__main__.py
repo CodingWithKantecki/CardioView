@@ -10,6 +10,7 @@ import uvicorn
 from .app import create_app
 from .sources.base import Source
 from .sources.replay import ReplaySource
+from .sources.rhythm import RhythmSource
 from .sources.sim import SimSource
 
 
@@ -43,11 +44,12 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--port", type=int, default=8000)
     args = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    rhythm = lambda: RhythmSource("sinus", invert=args.invert)   # noqa: E731
     if args.source == "h10":
-        factories = {"live": live_factory(args.invert), "demo": demo_factory(args.demo, args.bpm, args.invert)}
+        factories = {"live": live_factory(args.invert), "demo": demo_factory(args.demo, args.bpm, args.invert), "rhythm": rhythm}
         initial = "live"
     else:
-        factories = {"live": live_factory(args.invert), "demo": demo_factory(args.source, args.bpm, args.invert)}
+        factories = {"live": live_factory(args.invert), "demo": demo_factory(args.source, args.bpm, args.invert), "rhythm": rhythm}
         initial = "demo"
     app = create_app(factories, initial)
     print(f"CardioView: source {args.source}. Open http://localhost:{args.port}", flush=True)

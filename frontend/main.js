@@ -18,6 +18,11 @@ const FORCED_ACT = actParam === null ? null : { ra: +actParam, la: +actParam, rv
 const FORCED_LOST = params.get('signal') === 'lost';
 const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;   // lost state without the glitch pass
 
+const RHYTHM_LABELS = {
+  sinus: 'Sinus rhythm', tachy: 'Tachycardia', brady: 'Bradycardia',
+  afib: 'Atrial fibrillation', pvc: 'Extra beats', vt: 'Ventricular tachycardia',
+};
+
 const clock = new StreamClock();
 const trace = new Trace(els.trace);
 const lanes = new Chambers(els.lanes);
@@ -79,6 +84,14 @@ function handle(msg) {
     setStatus(msg);
     for (const b of document.querySelectorAll('#source-mode button')) {
       b.setAttribute('aria-pressed', String((b.dataset.source === 'live') === (msg.source === 'live')));
+    }
+    // simulated rhythms exist in demo only, never beside strap data
+    const rhythms = document.getElementById('rhythms');
+    rhythms.hidden = msg.source === 'live';
+    for (const b of rhythms.querySelectorAll('button')) {
+      const name = b.dataset.rhythm;
+      const on = name === 'recording' ? msg.source === 'recorded' : msg.device === 'Simulated: ' + RHYTHM_LABELS[name];
+      b.setAttribute('aria-pressed', String(!!on));
     }
   } else if (msg.type === 'signal') {
     signal = { ok: !!msg.ok, reason: msg.reason || '' };
@@ -175,6 +188,14 @@ requestAnimationFrame(frame);
 for (const b of document.querySelectorAll('#source-mode button')) {
   b.addEventListener('click', () => {
     if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'source', name: b.dataset.source }));
+  });
+}
+
+for (const b of document.querySelectorAll('#rhythms button')) {
+  b.addEventListener('click', () => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    const name = b.dataset.rhythm;
+    ws.send(JSON.stringify(name === 'recording' ? { type: 'source', name: 'demo' } : { type: 'rhythm', name }));
   });
 }
 

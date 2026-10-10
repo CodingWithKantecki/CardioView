@@ -191,8 +191,15 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str) -> Fast
                     msg = json.loads(text)
                 except ValueError:
                     continue
-                if isinstance(msg, dict) and msg.get("type") == "source":
+                if not isinstance(msg, dict):
+                    continue
+                if msg.get("type") == "source":
                     await runner.start(str(msg.get("name", "")))
+                elif msg.get("type") == "rhythm":
+                    await runner.start("rhythm")
+                    src = runner.source
+                    if src is not None and hasattr(src, "set_pattern"):
+                        src.set_pattern(str(msg.get("name", "")))
 
         tasks = [asyncio.create_task(send()), asyncio.create_task(receive())]
         try:

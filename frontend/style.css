@@ -17,7 +17,7 @@
   --sans: "IBM Plex Sans", system-ui, sans-serif;
   --condensed: "IBM Plex Sans Condensed", "IBM Plex Sans", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
-  --gutter: 40px;
+  --gutter: clamp(20px, 2vw, 40px);
 }
 
 * { box-sizing: border-box; }
@@ -73,7 +73,7 @@ body {
 .label span { color: var(--dim); font-size: 15px; margin-top: 2px; }
 .label.side-left { text-align: right; align-items: flex-end; }
 .label.side-right { text-align: left; align-items: flex-start; }
-.label .spark { display: block; width: 150px; height: 26px; margin-top: 8px; }
+.label .spark { display: block; width: clamp(110px, 8vw, 150px); height: clamp(20px, 2.6vh, 26px); margin-top: 6px; }
 .label.dim { opacity: 0.4; }
 
 /* lost signal: the stage glitches and says why */
@@ -113,9 +113,20 @@ body.lost .alert b { color: #FF6B8B; }
 /* instrument column */
 .column {
   position: relative; min-height: 0; padding: 0 var(--gutter);
-  display: grid; grid-template-rows: auto minmax(0, 1.15fr) minmax(0, 1fr) 110px;
+  display: grid; grid-template-rows: auto minmax(0, 1.15fr) minmax(0, 1fr);
 }
-.instrument { min-height: 0; display: flex; flex-direction: column; padding: 24px 0 22px; border-bottom: 1px solid var(--hair); }
+.instrument { min-height: 0; display: flex; flex-direction: column; padding: clamp(14px, 2vh, 24px) 0 clamp(12px, 1.8vh, 22px); border-bottom: 1px solid var(--hair); }
+.rate-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
+.rhythms { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; padding-bottom: 4px; }
+.rhythms-title { font-size: 13px; color: var(--dimmer); }
+.rhythm-grid { display: grid; grid-template-columns: auto auto; gap: 4px 18px; justify-items: end; }
+.rhythm-grid button {
+  background: none; border: 0; border-bottom: 1.5px solid transparent; padding: 2px 0 1px; margin: 0;
+  color: var(--dim); font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap;
+}
+.rhythm-grid button:hover { color: var(--text); }
+.rhythm-grid button[aria-pressed="true"] { color: var(--text); border-bottom-color: var(--text); }
+.rhythm-grid button:focus-visible { outline: 1px solid var(--dim); outline-offset: 3px; border-radius: 2px; }
 .instrument.chambers { border-bottom: 0; }
 .instrument h2 { margin: 0; font-size: 15px; font-weight: 400; color: var(--dim); display: flex; gap: 12px; align-items: baseline; }
 .instrument h2 small { font-size: 13px; color: var(--dimmer); }
@@ -125,11 +136,10 @@ body.lost .alert b { color: #FF6B8B; }
 .toggle button[aria-pressed="true"] { color: var(--text); border-bottom-color: var(--text); }
 .toggle button:focus-visible { outline: 1px solid var(--dim); outline-offset: 4px; border-radius: 2px; }
 .readout { display: flex; align-items: baseline; gap: 12px; margin-top: 4px; }
-.bpm { font-family: var(--condensed); font-weight: 700; font-size: clamp(88px, 13.5vh, 150px); line-height: 0.9; letter-spacing: -0.02em; }
+.bpm { font-family: var(--condensed); font-weight: 700; font-size: clamp(72px, 12.5vh, 150px); line-height: 0.9; letter-spacing: -0.02em; }
 .unit { font-size: 22px; color: var(--dim); }
 .rr { margin: 6px 0 0; color: var(--dim); font-size: 15px; }
 .instrument canvas { flex: 1 1 auto; min-height: 0; width: 100%; display: block; margin-top: 8px; }
-.extras { min-height: 0; }
 .nowline { position: absolute; width: 0; border-left: 2px dotted rgba(232, 236, 243, 0.45); pointer-events: none; z-index: 2; }
 .nowline span { position: absolute; top: -2px; right: 9px; font-size: 13px; color: var(--dim); }
 
@@ -161,6 +171,5 @@ body.lost .alert b { color: #FF6B8B; }
   .column { display: flex; flex-direction: column; padding-bottom: 24px; }
   .instrument.ecg, .instrument.chambers { height: 260px; flex: 0 0 auto; }
   .bpm { font-size: 88px; }
-  .extras { display: none; }
 }
 [hidden] { display: none !important; }

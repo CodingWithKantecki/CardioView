@@ -34,8 +34,24 @@
   <aside class="column" id="column">
     <section class="instrument rate">
       <h2>Heart rate</h2>
-      <div class="readout"><span class="bpm" id="bpm">--</span><span class="unit">bpm</span></div>
-      <p class="rr" id="rr">-- s between beats</p>
+      <div class="rate-row">
+        <div>
+          <div class="readout"><span class="bpm" id="bpm">--</span><span class="unit">bpm</span></div>
+          <p class="rr" id="rr">-- s between beats</p>
+        </div>
+        <div class="rhythms" id="rhythms" hidden>
+          <span class="rhythms-title">Simulated rhythm</span>
+          <div class="rhythm-grid">
+            <button type="button" data-rhythm="recording" aria-pressed="false">Recording</button>
+            <button type="button" data-rhythm="sinus" aria-pressed="false">Sinus rhythm</button>
+            <button type="button" data-rhythm="tachy" aria-pressed="false">Tachycardia</button>
+            <button type="button" data-rhythm="brady" aria-pressed="false">Bradycardia</button>
+            <button type="button" data-rhythm="afib" aria-pressed="false">Atrial fibrillation</button>
+            <button type="button" data-rhythm="pvc" aria-pressed="false">Extra beats</button>
+            <button type="button" data-rhythm="vt" aria-pressed="false">Ventricular tachycardia</button>
+          </div>
+        </div>
+      </div>
     </section>
     <section class="instrument ecg">
       <h2>ECG <small>measured at 130 Hz</small>
@@ -46,7 +62,6 @@
       <h2>Chambers <small>timing derived from the ECG</small></h2>
       <canvas id="lanes"></canvas>
     </section>
-    <div class="extras" aria-hidden="true"></div>
     <div class="nowline" id="nowline" aria-hidden="true"><span>now</span></div>
   </aside>
 </main>

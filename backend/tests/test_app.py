@@ -74,3 +74,20 @@ def test_viewer_can_switch_sources():
                     break
             assert any(m["type"] == "status" and m["source"] == "simulated" for m in seen)
             assert app.state.runner.name == "live"
+
+
+def test_rhythm_message_starts_the_simulator_with_that_pattern():
+    from backend.sources.rhythm import RhythmSource
+    app = create_app({"demo": FakeSource, "live": OtherSource, "rhythm": lambda: RhythmSource("sinus")}, "demo")
+    with TestClient(app) as client:
+        with client.websocket_connect("/ws") as ws:
+            assert ws.receive_json()["type"] == "status"
+            ws.send_json({"type": "rhythm", "name": "afib"})
+            seen = []
+            for _ in range(30):
+                m = ws.receive_json()
+                seen.append(m)
+                if m["type"] == "status" and m.get("device") == "Simulated: Atrial fibrillation":
+                    break
+            assert any(m.get("device") == "Simulated: Atrial fibrillation" for m in seen)
+            assert app.state.runner.name == "rhythm"

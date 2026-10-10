@@ -101,6 +101,22 @@ export class Heart {
     const halfH = THREE.MathUtils.degToRad(34) / 2;
     this.camera.fov = Math.max(30, 2 * Math.atan(Math.tan(halfH) / this.camera.aspect) * (180 / Math.PI));
     this.camera.updateProjectionMatrix();
+    this.fit();
+  }
+
+  // Keep the heart filling the stage: about 74 percent of its height, never more than
+  // 60 percent of its width so the labels keep their room. Only the distance changes.
+  fit() {
+    if (!this.bounds) return;
+    const size = this.bounds.getSize(new THREE.Vector3());
+    const tanV = Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2);
+    const tanH = tanV * this.camera.aspect;
+    const dH = (size.y / 0.74) / (2 * tanV);
+    const dW = (size.x / 0.6) / (2 * tanH);
+    const d = Math.max(dH, dW);
+    const dir = this.camera.position.clone().sub(this.controls.target).normalize();
+    this.camera.position.copy(this.controls.target).add(dir.multiplyScalar(d));
+    this.controls.update();
   }
 
   async load(url = 'assets/heart/scene.gltf', configUrl = 'assets/heart.json') {
@@ -152,6 +168,7 @@ export class Heart {
       this.camera.position.copy(this.controls.target).add(off);
     }
     this.controls.update();
+    this.fit();
 
     root.traverse((obj) => {
       if (!obj.isMesh) return;
