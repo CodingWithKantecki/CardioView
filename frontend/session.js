@@ -190,14 +190,12 @@ export class SessionOverlay {
       if (prompt) sub = this.flashText;
       else prompt = this.flashText;
     }
-    this.prompt.textContent = prompt;
-    this.sub.textContent = sub;
-    this.box.hidden = !prompt && !sub;
-    if (ring === null) {
-      this.ring.hidden = true;
-    } else {
-      this.ring.hidden = false;
-      this.ring.style.transform = `translate(-50%, -50%) scale(${ring.toFixed(3)})`;
-    }
+    // write only what changed: most frames change nothing, and the box is an aria-live region
+    if (this.prompt.textContent !== prompt) this.prompt.textContent = prompt;
+    if (this.sub.textContent !== sub) this.sub.textContent = sub;
+    const hide = !prompt && !sub;
+    if (this.box.hidden !== hide) this.box.hidden = hide;
+    if (this.ring.hidden !== (ring === null)) this.ring.hidden = ring === null;
+    if (ring !== null) this.ring.style.transform = `translate(-50%, -50%) scale(${ring.toFixed(3)})`;
   }
 }
