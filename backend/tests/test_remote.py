@@ -87,3 +87,21 @@ def test_a_session_can_start_on_the_browser_strap(tmp_path):
         assert m["ok"], m
         assert app.state.viewers[cid].sessions.state == "running"
         ws.send_text(json.dumps({"type": "session", "action": "cancel"}))
+
+
+def test_samples_alone_mark_the_browser_strap_streaming(tmp_path):
+    """After a reconnect the page may send samples before (or without) its streaming status; the
+    samples are proof, so the viewer never sits on Not connected while its trace draws."""
+    with TestClient(create_app({"demo": None}, "live", sessions_dir=tmp_path)) as c:
+        with c.websocket_connect("/ws") as ws:
+            first = ws.receive_json()
+            assert first["type"] == "status" and first["state"] == "connecting"
+            for k in range(3):
+                ws.send_text(json.dumps({"type": "samples", "t": 1800 + k * PACKET_S, "uv": [k] * PACKET}))
+            streaming = None
+            for _ in range(30):
+                m = ws.receive_json()
+                if m["type"] == "status" and m["state"] == "streaming":
+                    streaming = m
+                    break
+            assert streaming is not None and streaming["source"] == "live" and streaming["device"]

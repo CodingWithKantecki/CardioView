@@ -58,4 +58,6 @@ class RemoteSource(Source):
             if item[0] == "status":
                 self.set_status(item[1], item[2])
             else:
+                if self.status.state != "streaming":   # samples are proof: a strap marked connecting never stays so
+                    self.set_status("streaming", hub.device or self.status.device or "Polar H10")
                 yield Packet(item[1], self._oriented(item[2]))

@@ -58,6 +58,16 @@ function sendWs(msg) {
   return true;
 }
 session.send = sendWs;
+// what the page last asked of the server (its source, a rhythm), re-sent when the socket comes back:
+// the server starts every connection on the demo, and a deploy or a proxy hiccup drops the socket
+let lastChoice = null;
+function choose(msg) { lastChoice = msg; return sendWs(msg); }
+// the strap's state as a status message, re-sent after a reconnect so the server never runs a
+// strap that is marked connecting while its samples flow (Thomas, 2026-10-10 evening: Not connected
+// with a signal on screen)
+function strapStatus() {
+  return { type: 'status', state: strap.state === 'streaming' ? 'streaming' : 'connecting', device: strap.state === 'off' ? '' : strap.name };
+}
 let cid = null;   // this viewer's id from the server's hello; the chat sends it with a question
 
 // The visitor's own Polar H10, through Web Bluetooth, sent down this socket as the live source.
@@ -238,7 +248,11 @@ function handle(msg) {
 function connect() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}/ws`);
-  ws.onopen = () => { wsOpen = true; };
+  ws.onopen = () => {
+    wsOpen = true;
+    if (lastChoice) sendWs(lastChoice);
+    if (strap.state !== 'off') sendWs(strapStatus());
+  };
   ws.onmessage = (ev) => handle(JSON.parse(ev.data));
   ws.onclose = () => {
     wsOpen = false;
@@ -346,7 +360,8 @@ for (const b of sourceCells) {
     const want = s === 'demo' ? 'demo' : 'live';   // the Exercise tab is the strap too
     // Demo also brings a simulated rhythm back to the recording; Strap and Exercise only switch when not live
     const already = want === 'live' ? (!!status && status.source === 'live') : (!!status && status.source === 'recorded');
-    if (!already && ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'source', name: want }));
+    if (!already) choose({ type: 'source', name: want });
+    else if (want === 'live') lastChoice = { type: 'source', name: 'live' };
   });
 }
 panel.start.addEventListener('click', () => session.start(strapReady()));
@@ -358,9 +373,7 @@ panel.voice.addEventListener('click', () => session.setVoice(!session.voiceOn));
 for (const b of document.querySelectorAll('#rhythms button')) {
   b.addEventListener('click', () => {
     if (session.busy()) { session.flash('Stop the session first'); return; }
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    const name = b.dataset.rhythm;
-    ws.send(JSON.stringify({ type: 'rhythm', name }));
+    choose({ type: 'rhythm', name: b.dataset.rhythm });
   });
 }
 
