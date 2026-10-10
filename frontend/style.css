@@ -64,7 +64,7 @@ body {
 .top { flex: 0 0 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 var(--gutter); background: var(--header); color: var(--fg-0); border-bottom: var(--rule-w) solid var(--line-2); }
 .brand { font-weight: 700; font-size: 20px; letter-spacing: -0.015em; }
 /* the status line (strap id, whose recording, which simulated rhythm) lives in the heart rate box, above the tray */
-.status-line { grid-column: 2; grid-row: 1; align-self: baseline; font-family: var(--mono); font-size: clamp(13px, 1.7vh, 16px); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.status-line { grid-column: 2; grid-row: 1; align-self: baseline; text-align: center; font-family: var(--mono); font-size: clamp(13px, 1.7vh, 16px); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .status-line.id { font-weight: 600; text-transform: none; }   /* the strap id is data, shown as the strap names itself */
 .status-line:empty { display: none; }
 
