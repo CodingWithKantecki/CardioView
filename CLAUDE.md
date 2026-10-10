@@ -42,10 +42,12 @@ Change these only if Thomas says so.
 ## Layout
 
 ```
-backend/    app.py (FastAPI, /ws, static files), pipeline.py, sources/ (base.py, sim.py, replay.py, h10.py), tests/
+backend/    app.py (FastAPI, /ws, static files, session routes), pipeline.py, sources/ (base.py, sim.py, replay.py, h10.py),
+            session.py (saved sessions), analysis.py (session summary), synth.py (synthetic sessions), tests/
 frontend/   index.html, main.js, clock.js, chambers.js, heart.js, trace.js, style.css, vendor/, assets/ (heart model + heart.json)
 tools/      h10_record.py (strap to CSV, no server), trim_csv.py, screenshot.mjs (headless check)
 data/       ECG fixtures: CSV with header time_s,ecg_uv at 130 Hz, in microvolts
+sessions/   saved visitor sessions, never committed (see Saved sessions)
 ```
 
 ## The strap
@@ -113,9 +115,12 @@ One WebSocket at `/ws`, JSON, server to viewer:
 {"type": "samples", "source": "live", "t": 12.480, "fs": 130, "uv": [12, -8, 31]}
 {"type": "beat", "source": "live", "r": 12.911, "rr": 0.83, "bpm": 72, "ra_on": -0.20, "la_on": -0.17, "v_on": -0.04, "v_off": 0.32, "p_found": true}
 {"type": "signal", "source": "live", "ok": false, "reason": "pads"}
+{"type": "session", "state": "running", "id": "x7Qk...", "step": "breathe", "index": 2, "count": 5, "elapsed_s": 12.3, "length_s": 40, "paused": false}
 ```
 
 `t` is the stream time of the first sample in `uv`. `source` is `live`, `recorded` or `simulated`. `state` is `connecting`, `streaming` or `reconnecting`. `signal` is sent on change (and first thing to a late viewer): the only reason is `pads`, meaning no signal at all: samples pinned near 19930 uV (the pads left the skin) or a flat line, over the last 2 s. Noisy or odd signal is still signal and is never flagged (Thomas's call). Lost after 0.5 s, ok again after 1 s of signal (`SignalMonitor` in pipeline.py; `CARDIOVIEW_DEBUG=1` logs the numbers per packet). Send raw microvolts. The viewer removes baseline drift (one-pole 0.5 Hz high-pass) and scales for display (follow the recent peak, floor 200 uV).
+
+`session` states are `idle` (with an optional `note`: `stopped` or `write_failed`), `running`, `analyzing` and `done` (with `link` and `online`). The backlog sends the current one right after the status and signal.
 
 ## Viewer
 
@@ -126,6 +131,16 @@ One WebSocket at `/ws`, JSON, server to viewer:
 - The model is one surface, so contraction is a vertex shader on the model's material (`onBeforeCompile`): uniforms for four chamber centers, radii and activations; each vertex gets a smooth weight per chamber from its distance to that center and moves toward the center by about 12 percent (ventricles) or 8 percent (atria) times the activation; a varying still carries the weights to the fragment shader, which adds nothing (the glow was removed). Chamber centers and radii live in `frontend/assets/heart.json` in the normalized model space (centered, 1.8 units tall), picked by eye with the `?debug=1` overlay (bounding box, axes, one marker per chamber) and checked with `?act=1` against `?act=0`; each chamber also has a surface `anchor` and outward `normal`. Labels sit in fixed slots that hug the heart's projected outline (RA and RV on one side, LA and LV on the other), swap sides once when the camera goes behind the heart (hysteresis at 80 to 100 degrees), ease into place with CSS, and never overlap. Leaders run from the label's real position to the anchor; a label whose normal faces away dims with a dashed leader. Under each label a small canvas draws a modeled pressure-style wave from the beat timing (atria: contraction bump then a filling rise during ventricular systole; ventricles: a dome from on to off, LV tall, RV half height), tagged WAVES: MODELED. The weight is 1 inside the radius and fades to 0 at 1.6 radii, so the chamber surface moves the full amount. Keep the model's own textures and materials, just extend them. Cutaway is a clipping plane with double-sided materials. Load with GLTFLoader (vendor it with `utils/BufferGeometryUtils.js` and `utils/SkeletonUtils.js`, which it imports).
 - Lost signal: when the signal message says not ok, the strap is not streaming, the server is gone, or no samples arrive for 3 s, the body gets class `lost`: the heart stops squeezing, the WebGL frame is hidden and redrawn by `glitch.js` through a red pass with bands torn sideways, TV static and flashes over the whole stage (needs `preserveDrawingBuffer`), the stage gets a red wash, labels and the numeral dim, and a centered alert says Not connected (with the one-line fix: wet the pads, wear the strap snug) for every strap problem, or Server offline when the server is gone. There is no in-between state (Thomas): while the strap is chosen and not streaming, the page is Not connected. It is either working or not connected; there is no settling or noise message (Thomas's call). `?signal=lost` forces it for rehearsal.
 - These words are part of the product: the Strap / Demo state and the Simulated label carry the honesty (Thomas dropped "measured" from the ECG title and "timing derived from the ECG" from the Chambers title on 2026-10-10; the README says the lanes are derived from the ECG). That the heart is a 3D model and the label waves are modeled is stated in the README. The status line shows the strap id only for strap data, otherwise whose recording or which simulation. No diagnosis of a live signal anywhere; rhythm names appear only on the demo's simulated rhythms (`sources/rhythm.py`: normal (sinus), tachycardia, bradycardia, atrial fibrillation, extra beats, ventricular tachycardia), in the tray beside the heart rate, hidden whenever the source is the strap; the status line then reads "Simulated <name>". This is a visualization, not a medical device.
+
+## Saved sessions
+
+Spec: `docs/superpowers/specs/2026-10-10-visitor-sessions-design.md`. Opt-in per visitor, measurements only.
+
+- A session starts only from `POST /api/session/start`, sent after the visitor agreed; that is the consent, recorded in `session.json`. Cancel deletes everything.
+- Steps: get ready (until the signal is clean for 5 s, at most 30 s), rest 30 s, breathe 40 s at 6 a minute, squats 20 s, recover 30 s. Step clocks count received samples, so a strap drop pauses them; 15 s without samples ends the session with the steps that finished.
+- `backend/analysis.py` makes five sections: effort and recovery, breathing, heart rate variability, the average beat (waves labelled, no durations: the QRS onset moves 20 to 75 ms at 130 Hz) and beat timing. Each is values or a plain reason. No verdicts, no reference ranges.
+- `sessions/<id>/` holds `ecg.csv` (replays with `--source`), `beats.csv`, `session.json` and `summary.json`. Never committed. Keep-until is 24 h by default (`--keep-until`); unfinished and expired sessions are deleted at startup.
+- The runner hands each live packet and its beats to the session (`Runner(on_packet=...)`), never the preroll or handover history; a failure there is logged and the pump goes on. While a session is running or being measured, the server ignores `source` and `rhythm` messages: stop the session first.
 
 ## Milestones
 

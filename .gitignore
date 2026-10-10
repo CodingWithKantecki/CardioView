@@ -7,3 +7,5 @@ tools/node_modules/
 tools/out/
 data/*_raw.csv
 frontend/assets/heart-pro/
+sessions/
+.env
