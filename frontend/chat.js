@@ -18,23 +18,52 @@ export function initChat() {
   const history = [];
   let busy = false;
 
-  function add(role, text) {
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let isOpen = false;
+  let closing = 0;   // timer that hides the box if animationend never fires
+
+  function make(role, text) {
     const p = document.createElement('p');
     p.className = `msg ${role}`;
     p.textContent = text;
+    return p;
+  }
+
+  function add(role, text) {
+    const p = make(role, text);
     log.appendChild(p);
     log.scrollTop = log.scrollHeight;
     return p;
   }
 
+  // The box must stay in the DOM while chat-out plays, so closing is a class first and hidden after.
+  function hide() {
+    clearTimeout(closing);
+    closing = 0;
+    box.classList.remove('closing');
+    box.hidden = true;
+  }
+
   function setOpen(on) {
-    box.hidden = !on;
+    isOpen = on;
     open.setAttribute('aria-expanded', String(on));
     if (on) {
+      clearTimeout(closing);
+      closing = 0;
+      box.classList.remove('closing');
+      box.hidden = false;
       if (!log.childElementCount) add('model', 'Ask about the heart rate, the ECG, the chamber timing or the signal.');
       input.focus();
+    } else if (box.hidden || reduced.matches) {
+      hide();
+    } else {
+      box.classList.add('closing');
+      closing = setTimeout(hide, 400);
     }
   }
+  box.addEventListener('animationend', (e) => {
+    if (e.target === box && box.classList.contains('closing')) hide();
+  });
 
   async function submit(question) {
     busy = true;
@@ -56,8 +85,8 @@ export function initChat() {
     } catch {
       reply = 'Server offline, try again';
     }
-    pending.textContent = reply;
-    pending.className = ok ? 'msg model' : 'msg model error';
+    const answer = make(ok ? 'model' : 'model error', reply);   // a new node, so the reply rises in too
+    pending.replaceWith(answer);
     log.scrollTop = log.scrollHeight;
     if (ok) {   // only real answers become context for the next question
       history.push({ role: 'user', text: question }, { role: 'model', text: reply });
@@ -69,7 +98,7 @@ export function initChat() {
     input.focus();
   }
 
-  open.addEventListener('click', () => setOpen(box.hidden));
+  open.addEventListener('click', () => setOpen(!isOpen));
   close.addEventListener('click', () => { setOpen(false); open.focus(); });
   form.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -79,7 +108,7 @@ export function initChat() {
     submit(q);
   });
   root.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !box.hidden) { setOpen(false); open.focus(); }
+    if (e.key === 'Escape' && isOpen) { setOpen(false); open.focus(); }
   });
   return { setOpen };
 }

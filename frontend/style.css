@@ -130,17 +130,28 @@ body.lost .bpm { opacity: 0.35; }
    1080 (the LA label starts about 395 px below the header, the box ends at 358). No radius, no
    shadow, no glow; the only color is the accent on the open pill and the send button. */
 .chat { position: absolute; right: var(--gutter); top: 12px; z-index: 6; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+/* motion: transform and opacity only. The pill grows a touch on hover and settles back slower than it
+   grew; the box scales out of the pill's corner and folds back into it a little quicker (chat.js keeps
+   the box in the DOM with .closing until chat-out ends); each new line rises a few pixels. All of it is
+   off under prefers-reduced-motion. */
+.chat-toggle { transform-origin: 100% 50%; transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
+.chat-toggle:hover { transform: scale(1.05); transition-duration: 0.32s; }
+.chat-toggle:active { transform: scale(0.97); transition-duration: 0.12s; }
 .chat-box {
   width: min(280px, calc(100vw - 2 * var(--gutter))); height: min(30vh, 300px);
   display: flex; flex-direction: column; background: var(--card); border: 2px solid var(--line-2);
-  transform-origin: 100% 0; animation: chat-in 0.18s ease-out;
+  transform-origin: 100% 0; animation: chat-in 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
-@keyframes chat-in { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: none; } }
+.chat-box.closing { animation: chat-out 0.24s cubic-bezier(0.4, 0, 0.6, 1) both; pointer-events: none; }
+@keyframes chat-in { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: none; } }
+@keyframes chat-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(0.92); } }
 .chat-box header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-bottom: 2px solid var(--line); }
 .chat-box header button { background: none; border: 0; margin: 0; padding: 2px 0; cursor: pointer; font-family: var(--mono); font-size: 11.5px; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted); }
 .chat-box header button:hover { color: var(--ink); }
 .chat-log { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
 .msg { margin: 0; font-size: 14px; line-height: 1.4; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+@keyframes msg-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.msg { animation: msg-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .msg.user { color: var(--ink-2); align-self: flex-end; text-align: right; max-width: 85%; }
 .msg.pending, .msg.error { color: var(--muted); }
 .msg.pending::after { content: "..."; }
@@ -190,7 +201,9 @@ body.lost .bpm { opacity: 0.35; }
 }
 @media (prefers-reduced-motion: reduce) {
   .label { transition: none; }
-  .chat-box { animation: none; }
+  .chat-box, .chat-box.closing, .msg { animation: none; }
+  .chat-toggle { transition: none; }
+  .chat-toggle:hover, .chat-toggle:active { transform: none; }
   body.lost #heart-view { opacity: 1; filter: grayscale(1) sepia(1) saturate(6) hue-rotate(-64deg) contrast(1.35) brightness(0.66); }
   body.lost .glitch { display: none; }
 }
