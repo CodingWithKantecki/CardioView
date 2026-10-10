@@ -1,5 +1,5 @@
 import { StreamClock } from './clock.js';
-import { Trace, NOW_INSET } from './trace.js';
+import { Trace, NOW_INSET, WINDOW_S } from './trace.js';
 import { Chambers } from './chambers.js';
 import { Heart } from './heart.js';
 import { Glitch } from './glitch.js';
@@ -47,7 +47,7 @@ for (const el of document.querySelectorAll('.label')) {
   sparks[el.dataset.chamber] = el.querySelector('.spark');
 }
 const heart = new Heart($('heart-view'), { labels, leaders: $('leaders'), missing: $('heart-missing') });
-if (new URLSearchParams(location.search).has('debug')) { window.heart = heart; window.clock = clock; }   // for headless checks
+if (new URLSearchParams(location.search).has('debug')) { window.heart = heart; window.clock = clock; window.trace = trace; }   // for headless checks
 heart.load();
 const glitch = new Glitch($('glitch'), heart.renderer.domElement);
 
@@ -209,6 +209,10 @@ function applyLost(lost) {
 
 function drawFrame() {
   const t = clock.displayTime();
+  // off live the buffers hold the frozen window (and the 6 s before it) instead of rolling
+  const hold = clock.mode === 'live' ? null : clock.windowStart() - WINDOW_S;
+  trace.holdFrom = hold;
+  lanes.holdFrom = hold;
   const lost = lostState();
   trace.draw(t);
   lanes.draw(t);

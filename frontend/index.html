@@ -13,13 +13,11 @@
 <body>
 <header class="top">
   <div class="brand">CardioView</div>
-  <div class="timeline">
-    <span class="toggle transport" id="transport">
-      <button type="button" data-mode="backward" aria-label="Play backward" aria-pressed="false"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M11 1v10L2 6z"/></svg></button>
-      <button type="button" data-mode="paused" aria-label="Pause" aria-pressed="false"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 1h3v10H2zM7 1h3v10H7z"/></svg></button>
-      <button type="button" data-mode="forward" aria-label="Play forward" aria-pressed="false"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1 1v10l9-5z"/></svg></button>
-      <button type="button" data-mode="live" aria-pressed="true">Live</button>
-    </span>
+  <div class="toggle timeline" id="transport">
+    <button type="button" data-mode="backward" aria-label="Play backward" aria-pressed="false"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M11 1v10L2 6z"/></svg></button>
+    <button type="button" data-mode="paused" aria-label="Pause" aria-pressed="false"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 1h3v10H2zM7 1h3v10H7z"/></svg></button>
+    <button type="button" data-mode="forward" aria-label="Play forward" aria-pressed="false"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1 1v10l9-5z"/></svg></button>
+    <button type="button" data-mode="live" aria-pressed="true">Live</button>
     <canvas id="timeline-strip" aria-label="The last 30 seconds of ECG, drag to scrub"></canvas>
   </div>
   <span class="toggle source-toggle" id="source-mode"><button type="button" data-source="live" aria-pressed="false">Strap</button><button type="button" data-source="demo" aria-pressed="false">Demo</button></span>

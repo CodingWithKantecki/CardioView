@@ -1,5 +1,5 @@
 // Chamber lanes and activation, both pure functions of t_display and the recent beats.
-import { fitCanvas, WINDOW_S, NOW_INSET, geometry } from './trace.js';
+import { fitCanvas, WINDOW_S, NOW_INSET, geometry, keepCut } from './trace.js';
 import { colors, alpha } from './theme.js';
 
 export const ATRIA_S = 0.12;
@@ -7,7 +7,6 @@ const RISE_S = 0.1;
 const RELEASE_S = 0.2;
 export const ORDER = ['ra', 'la', 'rv', 'lv'];
 const laneColor = (c) => colors()[c];   // one color per chamber, from the --c-ra/rv/la/lv tokens
-const KEEP = 120;   // beats kept: 30 s of timeline at any rate
 const SPARK_S = 3;
 
 export function intervals(beat) {
@@ -47,6 +46,7 @@ export class Chambers {
     this.ctx = canvas.getContext('2d');
     this.beats = [];
     this.mode = '2d';
+    this.holdFrom = null;   // set by the timeline while off live: keep beats from here
   }
 
   setMode(mode) { this.mode = mode === '3d' ? '3d' : '2d'; }
@@ -57,7 +57,10 @@ export class Chambers {
     const last = this.beats[this.beats.length - 1];
     if (last && beat.r < last.r - 1) this.beats.length = 0;   // stream restarted
     this.beats.push(beat);
-    if (this.beats.length > KEEP) this.beats.splice(0, this.beats.length - KEEP);
+    const cut = keepCut(beat.r, this.holdFrom);
+    let drop = 0;
+    while (drop < this.beats.length && this.beats[drop].r < cut) drop++;
+    if (drop > 0) this.beats.splice(0, drop);
   }
 
   latestBefore(t) {
