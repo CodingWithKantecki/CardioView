@@ -289,5 +289,6 @@ class SignalMonitor:
                 self._good_since = now
             if not self.signal.ok and (self._strong_pair() or now - self._good_since >= OK_AFTER_S):
                 self.signal = Signal(True)
+                self._shape_corr.clear()   # a new loss needs fresh evidence, not the old garbage pairs
                 changed = self.signal
         return changed

@@ -92,3 +92,14 @@ def test_recovery_is_quick_after_garbage():
     ok = [c for c in changes if c[1] is True]
     assert lost and ok
     assert ok[-1][0] - 23.0 <= 3.5, f"took {ok[-1][0] - 23.0:.1f} s to recover after clean signal returned"
+
+
+def test_one_rough_pair_after_recovery_does_not_relapse():
+    clean = list(simulate(72, seconds=40))
+    rng = np.random.default_rng(5)
+    garbage = [int(v) for v in rng.uniform(-2500, 2500, 6 * FS)]
+    _, _, changes = run(clean[:12 * FS] + garbage + clean[12 * FS:])
+    oks = [c for c in changes if c[1] is True]
+    assert oks
+    after = [c for c in changes if c[0] > oks[0][0]]
+    assert after == [], f"relapsed after recovery: {after}"
