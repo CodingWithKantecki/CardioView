@@ -64,6 +64,8 @@ python -m pytest
 
 Headless screenshot of the running viewer (needs Node and Google Chrome): `cd tools && npm install && node screenshot.mjs`. It writes `tools/out/screen.png`.
 
+`python tools/fake_strap.py` runs a server on port 8002 whose strap is fake (the recording streamed like the H10), for checking the Strap / Demo switch without hardware.
+
 ## Credits
 
 - Three.js 0.186.0, MIT license, vendored in `frontend/vendor/three/`.

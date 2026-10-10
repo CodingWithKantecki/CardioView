@@ -20,6 +20,7 @@ from .sources.base import FS, PACKET, PACKET_S, PacedSource, Packet, Source, Sta
 
 FRONTEND = Path(__file__).resolve().parent.parent / "frontend"
 BACKLOG_S = 8.0       # seconds of samples a late viewer gets, and what a takeover's detector is primed on
+TAKEOVER_FRESH_S = 1.5  # a source whose last packet is older than this is stale: switching away from it resets instead
 BACKLOG_BEATS = 12    # beats a late viewer gets
 QUEUE_SIZE = 256      # per viewer; the oldest message is dropped when full
 
@@ -141,16 +142,19 @@ class Runner:
             if name == self.name and not force:
                 return
             old = self.source
-            # Between demo sources the new one takes over the running stream: nothing already
-            # sent is touched, the clock runs on, the next beat lands where the old rhythm would
-            # have put it and the rate eases over a few beats. To or from the strap it is a reset.
-            takeover = (old is not None and old.kind != "live" and name != "live"
-                        and self._last_wall is not None and bool(self.hub.samples))
+            # A demo source takes over the running stream from any source that is still fresh, the
+            # strap included: nothing already sent is touched, the clock runs on, the next beat
+            # lands where the old rhythm would have put it and the rate eases over a few beats.
+            # To the strap it is a reset (the strap starts from zero once it connects), and so is
+            # leaving a stale source, whose clock would otherwise rush to catch up.
+            fresh = (self._last_wall is not None and time.monotonic() - self._last_wall < TAKEOVER_FRESH_S
+                     and bool(self.hub.samples))
             await self._stop()
             source = self.factories[name](**kwargs)
+            takeover = old is not None and fresh and source.kind != "live" and isinstance(source, PacedSource)
             detector = BeatDetector()
             monitor = SignalMonitor()
-            if takeover and isinstance(source, PacedSource):
+            if takeover:
                 history = self.hub.history()
                 # the fresh detector learns the old stream's last beats from the backlog; a beat the
                 # old pump never got to send (it confirms 0.25 s after the R) goes out now
