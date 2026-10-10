@@ -9,6 +9,7 @@ from pathlib import Path
 import uvicorn
 
 from .app import create_app
+from .cloud import Cloud, load_env
 from .sources.base import PREROLL_S, Source
 from .sources.replay import ReplaySource
 from .sources.rhythm import RhythmSource
@@ -54,6 +55,8 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--public-host", help="the address phones use for the LAN link (default: this machine's)")
     args = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    load_env(DATA.parent / ".env")   # the cloud settings live in a local .env, never in git
+    cloud = Cloud.from_env()
     def rhythm(pattern: str = "sinus") -> RhythmSource:
         return RhythmSource(pattern, invert=args.invert, preroll_s=PREROLL_S)
 
@@ -64,8 +67,10 @@ def main(argv: list[str] | None = None) -> None:
         factories = {"live": live_factory(args.invert), "demo": demo_factory(args.source, args.bpm, args.invert), "rhythm": rhythm}
         initial = "demo"
     app = create_app(factories, initial, keep_until=parse_keep_until(args.keep_until),
-                     public_host=args.public_host, port=args.port)
+                     public_host=args.public_host, port=args.port, cloud=cloud)
     print(f"CardioView: source {args.source}. Open http://localhost:{args.port}", flush=True)
+    if cloud is not None:
+        print(f"Saved sessions publish to {cloud.public_url}", flush=True)
     uvicorn.run(app, host=args.host, port=args.port, loop="asyncio", ws="auto", log_level="warning")
 
 
