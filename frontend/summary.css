@@ -86,8 +86,27 @@ body.screen .foot p { margin: 0; }
 body.screen #delete { display: none; }
 [hidden] { display: none !important; }
 
-/* printing the report (the Export menu's PDF): keep the dark sheet, drop the controls */
+/* printing the report (the Export menu's PDF): the big-screen grid becomes one flowing column on
+   a portrait page, each section whole, the QR at the end, the controls gone, the dark sheet kept */
+@page { size: A4 portrait; margin: 10mm; }
 @media print {
-  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body, body.screen { height: auto; overflow: visible; display: block; font-size: 13px; background: var(--paper); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body.screen .top { position: static; padding: 0 0 12px; }
+  body.screen .sheet, .sheet { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: none; grid-auto-rows: auto; column-gap: 24px; height: auto; flex: none; overflow: visible; }   /* the beat and the timing side by side, the rest full width; the big screen's row template does not apply */
+  body.screen .block, .block { grid-column: 1 / -1; display: block; padding: 12px 0; border: 0; border-bottom: var(--rule-w) solid var(--line-2); break-inside: avoid; }
+  body.screen .beat, .beat { grid-column: 1; }
+  body.screen .timing, .timing { grid-column: 2; }
+  body.screen .effort, body.screen .breathing, body.screen .hrv, body.screen .beat, body.screen .timing, body.screen .take, body.screen .foot { grid-row: auto; }   /* the big screen's fixed rows do not apply */
+  body.screen .block h2 { font-size: 13px; }
+  body.screen .chart, .chart { width: 100%; height: auto; margin-top: 8px; }   /* the screen drawing, scaled whole by its aspect ratio */
+  body.screen .timing .chart, .timing .chart { width: 100%; }
+  body.screen .figure { font-size: 40px; }
+  /* the QR goes first, beside its words, so the code to the phone copy sits at the top of the sheet */
+  body.screen .take, .take { grid-column: 1 / -1; order: -1; display: flex; flex-direction: row; justify-content: flex-start; align-items: center; gap: 18px; height: auto; min-height: 0; padding: 8px 0; border: 0; border-bottom: var(--rule-w) solid var(--line-2); break-inside: avoid; }
+  body.screen .take img { width: 108px; height: 108px; }
+  body.screen .effort .chart, .effort .chart { width: 92%; }
+  body.screen .beat .chart, .beat .chart, body.screen .timing .chart, .timing .chart { width: 84%; }
+  body.screen .take p { text-align: left; }
+  body.screen .foot, .foot { grid-column: 1 / -1; padding: 12px 0 0; border: 0; }
   .back, #delete { display: none !important; }
 }

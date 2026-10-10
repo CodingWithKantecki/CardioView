@@ -43,6 +43,7 @@ function canvas2d(el) {
   const dpr = window.devicePixelRatio || 1;
   el.width = Math.max(1, Math.round(r.width * dpr));
   el.height = Math.max(1, Math.round(r.height * dpr));
+  el.style.aspectRatio = `${Math.round(r.width)} / ${Math.round(r.height)}`;   // print scales the drawing as is, so it keeps its shape
   const g = el.getContext('2d');
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.font = FONT;
