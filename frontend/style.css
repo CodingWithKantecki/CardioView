@@ -136,9 +136,9 @@ body.lost .bpm { opacity: 0.35; }
 /* ECG and Chambers: the title and its 2D / 3D tray sit in their own band with a rule under it, and
    the graph fills the rest of the box edge to edge (Thomas, 2026-10-10) */
 .instrument.ecg, .instrument.chambers { padding: 0; }
-.instrument.ecg h2, .instrument.chambers h2 { padding: clamp(6px, 1vh, 10px) var(--gutter); align-items: center; border-bottom: var(--rule-w) solid var(--line-2); }
+.instrument.ecg h2, .instrument.chambers h2 { padding: clamp(3px, 0.5vh, 5px) var(--gutter); align-items: center; border-bottom: var(--rule-w) solid var(--line-2); }
 .instrument.ecg canvas, .instrument.chambers canvas { margin-top: 0; }
-.instrument h2 .toggle button { padding: 7px 14px; }
+.instrument h2 .toggle button { padding: 4px 12px; font-size: 13px; }   /* a short tray, so the band stays thin */
 /* instrument titles: Statura's mono kicker, but white, bold and at a size that reads across a room */
 .instrument h2 { margin: 0; display: flex; gap: 14px; align-items: baseline; font-family: var(--mono); font-size: clamp(15px, 1.9vh, 19px); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; line-height: 1.1; color: var(--ink); }
 .readout { display: flex; align-items: baseline; gap: 10px; margin-top: 2px; }
