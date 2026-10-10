@@ -391,13 +391,13 @@ for (const b of document.querySelectorAll('.rhythm-tray button')) {
 // simulator's recipe and switches this viewer's demo to it; the recipe is kept as the last choice,
 // so a reconnect brings the same heart back without asking again.
 const describeUi = {
-  el: $('describe'), panel: $('gemini'), tray: $('rhythm-tray'), text: $('describe-text'), go: $('describe-go'), note: $('describe-note'),
-  open() { this.tray.hidden = true; this.panel.hidden = false; this.text.focus(); },   // the panel takes the tray's place
-  close() { this.panel.hidden = true; this.tray.hidden = false; this.say(''); this.panel.classList.remove('busy'); },
+  el: $('describe'), panel: $('gemini'), tray: $('rhythm-tray'), rate: document.querySelector('.instrument.rate'), text: $('describe-text'), go: $('describe-go'), note: $('describe-note'),
+  open() { this.tray.hidden = true; this.panel.hidden = false; this.rate.classList.add('gemini-open'); this.text.focus(); },   // the panel takes the tray's place; the status line above goes quiet
+  close() { this.panel.hidden = true; this.tray.hidden = false; this.rate.classList.remove('gemini-open'); this.say(''); this.panel.classList.remove('busy'); },
   busy(on) { this.panel.classList.toggle('busy', on); setAttr(this.go, 'aria-disabled', on); },
   say(text) { this.note.textContent = text; this.note.hidden = !text; },
 };
-$('gemini-back').addEventListener('click', () => { describeUi.panel.hidden = true; describeUi.tray.hidden = false; });   // the rhythm playing stays
+$('gemini-back').addEventListener('click', () => { describeUi.panel.hidden = true; describeUi.tray.hidden = false; describeUi.rate.classList.remove('gemini-open'); });   // the rhythm playing stays
 describeUi.el.addEventListener('submit', async (e) => {
   e.preventDefault();
   if (session.busy()) { session.flash('Stop the session first'); return; }

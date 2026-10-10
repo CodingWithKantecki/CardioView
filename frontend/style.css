@@ -64,6 +64,7 @@ body {
 .status-line { grid-column: 2; grid-row: 1; align-self: baseline; text-align: center; font-family: var(--mono); font-size: clamp(15px, 2.1vh, 20px); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .status-line.id { font-weight: 600; text-transform: none; }   /* the strap id is data, shown as the strap names itself */
 .status-line:empty { display: none; }
+.instrument.rate.gemini-open .status-line { visibility: hidden; }   /* the Gemini panel speaks for itself (Thomas, 2026-10-10 evening) */
 
 /* segmented controls: equal cells separated by rules, the accent fills the active one */
 .toggle { display: inline-flex; flex-wrap: wrap; gap: var(--cell-w); padding: var(--cell-w); background: var(--line-2); }
