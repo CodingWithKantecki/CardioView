@@ -19,6 +19,12 @@ def gemini_reply(text: str) -> dict:
     return {"candidates": [{"content": {"role": "model", "parts": [{"text": text}]}, "finishReason": "STOP"}]}
 
 
+def gemini_tool(name: str, args: dict) -> dict:
+    return {"candidates": [{"content": {"role": "model", "parts": [
+        {"functionCall": {"name": name, "args": args}},
+    ]}, "finishReason": "STOP"}]}
+
+
 class FakeGemini:
     """Records the requests and answers each with the next of `answers` (the last one repeats):
     a (status, body) pair, or an exception to raise."""
@@ -118,6 +124,40 @@ def test_reply_and_request_shape(monkeypatch):
     assert body["contents"][-1]["parts"][0]["text"] == "What is my heart rate?"
     assert body["generationConfig"]["thinkingConfig"] == {"thinkingBudget": 0}
     assert len(fake.requests) == 1
+
+
+def test_tool_call_navigates_to_a_server_selected_beat(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", KEY)
+    fake = FakeGemini(answers=[
+        (200, gemini_tool("show_recent_beat", {"selection": "fastest", "focus": "ecg"})),
+        (200, gemini_reply("I paused at the fastest recent beat, derived at 72 bpm.")),
+    ])
+    result = run(chat.ask("Show me the fastest recent beat", [], chat.snapshot(hub_with_data(), 0.1), fake.client()))
+    assert result.error is None and len(fake.requests) == 2
+    assert result.actions == [{"type": "seek", "time_s": pytest.approx(0.5)}, {"type": "focus", "target": "ecg"}]
+    assert result.evidence == [{"label": "Fastest recent beat", "value": "72 bpm", "kind": "derived"}]
+    followup = json.loads(fake.requests[1].content)["contents"]
+    assert followup[-1]["parts"][0]["functionResponse"]["name"] == "show_recent_beat"
+    assert followup[-1]["parts"][0]["functionResponse"]["response"]["ok"] is True
+
+
+def test_saved_session_comparison_uses_chart_values_not_model_math():
+    summary = {
+        "source": "live",
+        "steps": [
+            {"name": "rest", "start": 0, "end": 2},
+            {"name": "squats", "start": 3, "end": 5},
+        ],
+        "hr_chart": {"step_s": 1, "bpm": [60, 62, 64, 90, 100, 110]},
+    }
+    result, actions, evidence = chat.run_tool(
+        "compare_session_steps", {"first": "rest", "second": "squats"}, {}, summary)
+    assert result["ok"] is True
+    assert result["first"]["median_bpm"] == 62 and result["second"]["median_bpm"] == 100
+    assert actions == [{"type": "focus_summary", "target": "effort"}]
+    assert evidence[0]["kind"] == "derived" and evidence[1]["value"] == "100 bpm median"
+    context = chat.session_context(summary)
+    assert "hr_chart" not in context and context["source"] == "live", "raw chart points stay server-side"
 
 
 def test_model_that_rejects_thinking_gets_one_retry_without_it(monkeypatch):
@@ -253,7 +293,7 @@ def test_endpoint_answers_from_server_state(monkeypatch):
                     break
         r = client.post("/api/chat", json={"question": "What am I looking at?", "history": []})
         assert r.status_code == 200
-        assert r.json() == {"reply": "The heart rate is 72 bpm.", "error": None}
+        assert r.json() == {"reply": "The heart rate is 72 bpm.", "error": None, "actions": [], "evidence": []}
         system = json.loads(fake.requests[0].content)["systemInstruction"]["parts"][0]["text"]
         assert '"source":"recorded"' in system and '"device":"h10_ecg_test"' in system
         assert '"streaming":true' in system

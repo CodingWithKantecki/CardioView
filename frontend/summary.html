@@ -11,6 +11,15 @@
 <header class="top">
   <div class="brand">CardioView</div>
   <span class="meta" id="meta"></span>
+  <div class="summary-chat" id="chat" hidden>
+    <span class="chat-toggle"><button type="button" id="chat-open" aria-expanded="false" aria-controls="chat-box">Ask Gemini</button></span>
+    <section class="chat-box" id="chat-box" hidden aria-label="Ask about this session">
+      <header><span class="kicker">Explore this session</span><button type="button" id="chat-close" aria-label="Close the chat">Close</button></header>
+      <div class="chat-log" id="chat-log" aria-live="polite"></div>
+      <form class="chat-form" id="chat-form"><input id="chat-input" type="text" maxlength="500" placeholder="Compare rest and squats" autocomplete="off" aria-label="Your question"><button type="submit">Send</button></form>
+      <p class="chat-note">Sends anonymous summary measurements to Gemini</p>
+    </section>
+  </div>
   <button type="button" class="back" id="back" hidden>Back to live</button>
 </header>
 

@@ -174,6 +174,8 @@ body.lost .bpm { opacity: 0.35; }
 .msg.user { color: var(--ink-2); align-self: flex-end; text-align: right; max-width: 85%; }
 .msg.pending, .msg.error { color: var(--muted); }
 .msg.pending::after { content: "..."; }
+.chat-evidence { display: grid; gap: 3px; border-left: 2px solid var(--accent); padding-left: 9px; }
+.chat-evidence p { margin: 0; font-family: var(--mono); font-size: 11px; font-weight: 600; line-height: 1.35; letter-spacing: 0.04em; color: var(--ink-2); }
 .chat-form { display: flex; align-items: stretch; gap: 10px; padding: 8px 14px 10px; border-top: 2px solid var(--line); }
 .chat-form input { flex: 1 1 auto; min-width: 0; background: none; border: 0; border-bottom: 2px solid var(--line-2); padding: 6px 0; font-family: var(--sans); font-size: 14px; color: var(--ink); }
 .chat-form input::placeholder { color: var(--muted); }
@@ -228,6 +230,7 @@ body.lost .bpm { opacity: 0.35; }
 .tip-ecg { display: block; width: 100%; height: 60px; margin: 2px 0 10px; background: var(--paper); }   /* 4 s of that rhythm, drawn by tips.js */
 .instrument canvas { flex: 1 1 auto; min-height: 0; width: 100%; display: block; margin-top: 10px; }
 .nowline { position: absolute; width: 0; border-left: 2px dashed var(--accent); pointer-events: none; z-index: 2; }
+.ai-focus { outline: 3px solid var(--accent); outline-offset: -5px; z-index: 3; }
 
 @media (max-width: 760px) {
   :root { --gutter: 16px; }

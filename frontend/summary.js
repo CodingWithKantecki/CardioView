@@ -1,6 +1,8 @@
 // One summary page for the big screen (?screen=1), a phone on the booth Wi-Fi, and the public link.
 // It reads /api/s/<id> from whichever server sent it and draws every chart on canvas, in the viewer's colors.
 
+import { initChat } from './chat.js';
+
 const $ = (id) => document.getElementById(id);
 const sid = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || '');
 const params = new URLSearchParams(location.search);
@@ -197,6 +199,7 @@ function who(s) {
 }
 
 function render(s) {
+  $('chat').hidden = !s.chat_available;
   const minutes = Math.max(1, Math.round((s.steps?.at(-1)?.end || 60) / 60));
   $('meta').textContent = s.demo
     ? 'Demo session, synthetic data'
@@ -304,5 +307,18 @@ if (screenMode) {
     }
   };
 }
+
+initChat({
+  sessionId: sid,
+  greeting: 'Ask me to compare session steps or explain one of these measurements.',
+  onAction(action) {
+    if (action?.type !== 'focus_summary') return;
+    const target = document.getElementById(action.target);
+    if (!target?.classList.contains('block')) return;
+    document.querySelectorAll('.ai-focus').forEach((el) => el.classList.remove('ai-focus'));
+    target.classList.add('ai-focus');
+    if (!screenMode) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  },
+});
 
 load();

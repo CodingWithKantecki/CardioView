@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import statistics
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -28,6 +29,7 @@ MAX_OUTPUT_TOKENS = 1024        # a cap, not a target: the prompt asks for two o
 THINKING = {"thinkingBudget": 0}
 ECG_SUMMARY_S = 2.0             # the stretch of recent ECG summarized for the model
 STALE_AFTER_S = 3.0             # no packet for this long counts as not streaming
+MAX_TOOL_ROUNDS = 2
 
 # Plain words for every failure. The viewer shows `reply` whatever happened.
 REPLIES = {
@@ -63,6 +65,8 @@ Rules:
 - If the source is simulated, you may use the simulated rhythm's name exactly as the device field shows it, and say it is a simulation.
 - Keep measured, derived and modeled apart: say which one a fact is when it matters.
 - If a question is not about the data on this screen, say politely in one sentence that you can only talk about the data shown in CardioView.
+- Use the available tools when the visitor asks you to show, find, compare or focus something. The tools do the calculations and control the viewer. Never claim that you moved the viewer or compared steps unless a tool result says it succeeded.
+- When a tool gives evidence, use its exact values. Do not calculate a new medical measurement yourself.
 - Reply in plain sentences, two or three at most, no lists, no markdown, no em dashes. Round numbers sensibly.
 
 Risk and condition questions (for example "Is my heart rate a risk for something?", "Does this bpm mean I have X?", "Is this bad?"): these are about the data, so answer them, in this order, in up to six short sentences:
@@ -80,9 +84,16 @@ class ChatReply:
     reply: str
     error: str | None = None     # None, or a key of REPLIES
     status: int = 200
+    actions: list[dict] | None = None
+    evidence: list[dict] | None = None
 
     def body(self) -> dict:
-        return {"reply": self.reply, "error": self.error}
+        return {
+            "reply": self.reply,
+            "error": self.error,
+            "actions": self.actions or [],
+            "evidence": self.evidence or [],
+        }
 
 
 def snapshot(hub: Any, last_packet_age_s: float | None = None) -> dict:
@@ -143,9 +154,88 @@ def clean_history(history: Any) -> list[dict]:
     return out[-MAX_HISTORY_TURNS * 2:]
 
 
-def build_request(question: str, history: Any, snap: dict, thinking: dict | None = THINKING) -> dict:
-    system = SYSTEM_PROMPT + "\nCurrent data (JSON):\n" + json.dumps(snap, separators=(",", ":"))
+TOOLS = [{
+    "functionDeclarations": [
+        {
+            "name": "show_recent_beat",
+            "description": "Pause the live viewer at a recent beat and focus the requested visualization.",
+            "parameters": {
+                "type": "OBJECT",
+                "properties": {
+                    "selection": {"type": "STRING", "enum": ["latest", "fastest", "slowest"]},
+                    "focus": {"type": "STRING", "enum": ["ecg", "heart", "chambers"]},
+                },
+                "required": ["selection", "focus"],
+            },
+        },
+        {
+            "name": "set_heart_view",
+            "description": "Open, close or reset the interactive 3D heart view.",
+            "parameters": {
+                "type": "OBJECT",
+                "properties": {"view": {"type": "STRING", "enum": ["open", "closed", "reset"]}},
+                "required": ["view"],
+            },
+        },
+        {
+            "name": "compare_session_steps",
+            "description": "Compare derived heart-rate measurements between two completed session steps.",
+            "parameters": {
+                "type": "OBJECT",
+                "properties": {
+                    "first": {"type": "STRING", "enum": ["rest", "breathe", "squats", "recover"]},
+                    "second": {"type": "STRING", "enum": ["rest", "breathe", "squats", "recover"]},
+                },
+                "required": ["first", "second"],
+            },
+        },
+        {
+            "name": "focus_summary_section",
+            "description": "Focus one section of a saved-session summary.",
+            "parameters": {
+                "type": "OBJECT",
+                "properties": {
+                    "section": {"type": "STRING", "enum": ["effort", "breathing", "hrv", "beat", "timing"]},
+                },
+                "required": ["section"],
+            },
+        },
+    ],
+}]
+
+
+def session_context(summary: dict | None) -> dict | None:
+    """The useful, anonymous measurements from a saved session, without waveform arrays."""
+    if not isinstance(summary, dict):
+        return None
+    beat = summary.get("beat") if isinstance(summary.get("beat"), dict) else {}
+    timing = summary.get("timing") if isinstance(summary.get("timing"), dict) else {}
+    return {
+        "source": summary.get("source"),
+        "demo": bool(summary.get("demo")),
+        "steps": summary.get("steps") or [],
+        "effort": summary.get("effort"),
+        "breathing": {k: v for k, v in (summary.get("breathing") or {}).items() if k != "chart"},
+        "hrv": summary.get("hrv"),
+        "average_beat": {k: beat.get(k) for k in ("ok", "reason", "n", "waves")},
+        "beat_timing": {
+            "ok": timing.get("ok"),
+            "reason": timing.get("reason"),
+            "rest_points": len(timing.get("rest") or []),
+            "breathe_points": len(timing.get("breathe") or []),
+        },
+    }
+
+
+def build_request(question: str, history: Any, snap: dict, thinking: dict | None = THINKING,
+                  extra_contents: list[dict] | None = None, summary: dict | None = None) -> dict:
+    context = dict(snap)
+    saved = session_context(summary)
+    if saved is not None:
+        context["saved_session"] = saved
+    system = SYSTEM_PROMPT + "\nCurrent data (JSON):\n" + json.dumps(context, separators=(",", ":"))
     contents = clean_history(history) + [{"role": "user", "parts": [{"text": question}]}]
+    contents.extend(extra_contents or [])
     config: dict[str, Any] = {"maxOutputTokens": MAX_OUTPUT_TOKENS, "temperature": 0.3}
     if thinking:
         config["thinkingConfig"] = dict(thinking)
@@ -153,6 +243,7 @@ def build_request(question: str, history: Any, snap: dict, thinking: dict | None
         "systemInstruction": {"parts": [{"text": system}]},
         "contents": contents,
         "generationConfig": config,
+        "tools": TOOLS,
     }
 
 
@@ -173,8 +264,91 @@ def extract_text(data: Any) -> str:
     return "".join(p.get("text", "") for p in parts if isinstance(p, dict)).strip()
 
 
+def model_content(data: Any) -> dict | None:
+    try:
+        content = data["candidates"][0]["content"]
+    except (KeyError, IndexError, TypeError):
+        return None
+    return content if isinstance(content, dict) and isinstance(content.get("parts"), list) else None
+
+
+def function_calls(content: dict | None) -> list[dict]:
+    if not content:
+        return []
+    calls = []
+    for part in content["parts"]:
+        call = part.get("functionCall") if isinstance(part, dict) else None
+        if isinstance(call, dict) and isinstance(call.get("name"), str):
+            calls.append(call)
+    return calls
+
+
+def _step_stats(summary: dict, name: str) -> dict | None:
+    steps = summary.get("steps") or []
+    step = next((s for s in steps if s.get("name") == name), None)
+    chart = (summary.get("hr_chart") or {}).get("bpm") or []
+    interval = float((summary.get("hr_chart") or {}).get("step_s") or 1.0)
+    if not step or not chart or interval <= 0:
+        return None
+    start = max(0, int(float(step["start"]) / interval))
+    end = min(len(chart), int(float(step["end"]) / interval) + 1)
+    values = [float(v) for v in chart[start:end] if isinstance(v, (int, float))]
+    if not values:
+        return None
+    return {
+        "step": name,
+        "median_bpm": round(statistics.median(values)),
+        "minimum_bpm": round(min(values)),
+        "maximum_bpm": round(max(values)),
+    }
+
+
+def run_tool(name: str, args: Any, snap: dict, summary: dict | None) -> tuple[dict, list[dict], list[dict]]:
+    """Run only allowlisted deterministic tools. The browser receives validated, inert actions."""
+    args = args if isinstance(args, dict) else {}
+    if name == "show_recent_beat":
+        beats = [b for b in snap.get("recent_beats", []) if isinstance(b.get("r"), (int, float))]
+        if not beats:
+            return {"ok": False, "reason": "No recent beat is available."}, [], []
+        selection = args.get("selection")
+        if selection == "fastest":
+            chosen = max(beats, key=lambda b: b.get("bpm") or -1)
+        elif selection == "slowest":
+            chosen = min(beats, key=lambda b: b.get("bpm") if b.get("bpm") is not None else float("inf"))
+        else:
+            selection, chosen = "latest", beats[-1]
+        focus = args.get("focus") if args.get("focus") in ("ecg", "heart", "chambers") else "ecg"
+        bpm = chosen.get("bpm")
+        evidence = [{"label": f"{selection.title()} recent beat", "value": f"{bpm} bpm", "kind": "derived"}] if bpm else []
+        actions = [{"type": "seek", "time_s": float(chosen["r"])}, {"type": "focus", "target": focus}]
+        return {"ok": True, "selection": selection, "r_s": chosen["r"], "bpm": bpm, "focus": focus}, actions, evidence
+    if name == "set_heart_view":
+        view = args.get("view")
+        if view not in ("open", "closed", "reset"):
+            return {"ok": False, "reason": "Unknown heart view."}, [], []
+        return {"ok": True, "view": view}, [{"type": "heart_view", "view": view}], []
+    if name == "compare_session_steps":
+        if not isinstance(summary, dict):
+            return {"ok": False, "reason": "No saved session is open."}, [], []
+        first, second = str(args.get("first", "")), str(args.get("second", ""))
+        a, b = _step_stats(summary, first), _step_stats(summary, second)
+        if a is None or b is None:
+            return {"ok": False, "reason": "Those steps do not have enough steady heart-rate data."}, [], []
+        evidence = [
+            {"label": first.title(), "value": f"{a['median_bpm']} bpm median", "kind": "derived"},
+            {"label": second.title(), "value": f"{b['median_bpm']} bpm median", "kind": "derived"},
+        ]
+        return {"ok": True, "first": a, "second": b}, [{"type": "focus_summary", "target": "effort"}], evidence
+    if name == "focus_summary_section":
+        section = args.get("section")
+        if section not in ("effort", "breathing", "hrv", "beat", "timing"):
+            return {"ok": False, "reason": "Unknown summary section."}, [], []
+        return {"ok": True, "section": section}, [{"type": "focus_summary", "target": section}], []
+    return {"ok": False, "reason": "That tool is not available."}, [], []
+
+
 async def ask(question: str, history: Any, snap: dict, client: httpx.AsyncClient,
-              api_key: str | None = None) -> ChatReply:
+              api_key: str | None = None, summary: dict | None = None) -> ChatReply:
     question = (question or "").strip()
     if not question:
         return ChatReply(REPLIES["empty"], "empty", STATUS["empty"])
@@ -185,34 +359,57 @@ async def ask(question: str, history: Any, snap: dict, client: httpx.AsyncClient
         return ChatReply(REPLIES["missing_key"], "missing_key", STATUS["missing_key"])
     url = f"{API_BASE}/{model_name()}:generateContent"
     headers = {"x-goog-api-key": key, "content-type": "application/json"}
-    t0 = time.monotonic()
-    try:
-        resp = await client.post(url, headers=headers, json=build_request(question, history, snap),
-                                 timeout=TIMEOUT_S)
-        if resp.status_code == 400 and THINKING:   # this model does not take the thinking field
-            log.info("chat: retrying without thinkingConfig: %s", error_message(resp, key))
-            resp = await client.post(url, headers=headers,
-                                     json=build_request(question, history, snap, thinking=None),
-                                     timeout=TIMEOUT_S)
-    except httpx.TimeoutException:
-        log.warning("chat: gemini timed out after %.1fs", time.monotonic() - t0)
-        return ChatReply(REPLIES["timeout"], "timeout", STATUS["timeout"])
-    except httpx.HTTPError as e:
-        log.warning("chat: no connection to gemini (%s)", type(e).__name__)
-        return ChatReply(REPLIES["offline"], "offline", STATUS["offline"])
-    if resp.status_code in (429, 503):   # over quota, or the model is overloaded: same advice
-        log.warning("chat: gemini busy (%d): %s", resp.status_code, error_message(resp, key))
-        return ChatReply(REPLIES["rate_limit"], "rate_limit", STATUS["rate_limit"])
-    if resp.status_code != 200:
-        log.warning("chat: gemini answered %d: %s", resp.status_code, error_message(resp, key))
-        kind = "model" if resp.status_code == 404 else "upstream"
-        return ChatReply(REPLIES[kind], kind, STATUS[kind])
-    try:
-        text = extract_text(resp.json())
-    except ValueError:
-        text = ""
+    t0, thinking = time.monotonic(), THINKING
+    extra: list[dict] = []
+    actions: list[dict] = []
+    evidence: list[dict] = []
+    text = ""
+    for _ in range(MAX_TOOL_ROUNDS + 1):
+        try:
+            resp = await client.post(
+                url, headers=headers,
+                json=build_request(question, history, snap, thinking, extra, summary),
+                timeout=TIMEOUT_S,
+            )
+            if resp.status_code == 400 and thinking:   # this model does not take the thinking field
+                log.info("chat: retrying without thinkingConfig: %s", error_message(resp, key))
+                thinking = None
+                resp = await client.post(
+                    url, headers=headers,
+                    json=build_request(question, history, snap, thinking, extra, summary),
+                    timeout=TIMEOUT_S,
+                )
+        except httpx.TimeoutException:
+            log.warning("chat: gemini timed out after %.1fs", time.monotonic() - t0)
+            return ChatReply(REPLIES["timeout"], "timeout", STATUS["timeout"])
+        except httpx.HTTPError as e:
+            log.warning("chat: no connection to gemini (%s)", type(e).__name__)
+            return ChatReply(REPLIES["offline"], "offline", STATUS["offline"])
+        if resp.status_code in (429, 503):
+            log.warning("chat: gemini busy (%d): %s", resp.status_code, error_message(resp, key))
+            return ChatReply(REPLIES["rate_limit"], "rate_limit", STATUS["rate_limit"])
+        if resp.status_code != 200:
+            log.warning("chat: gemini answered %d: %s", resp.status_code, error_message(resp, key))
+            kind = "model" if resp.status_code == 404 else "upstream"
+            return ChatReply(REPLIES[kind], kind, STATUS[kind])
+        try:
+            data = resp.json()
+        except ValueError:
+            data = {}
+        content = model_content(data)
+        calls = function_calls(content)
+        text = extract_text(data)
+        if not calls:
+            break
+        responses = []
+        for call in calls:
+            result, new_actions, new_evidence = run_tool(call["name"], call.get("args"), snap, summary)
+            actions.extend(new_actions)
+            evidence.extend(new_evidence)
+            responses.append({"functionResponse": {"name": call["name"], "response": result}})
+        extra.extend([content, {"role": "user", "parts": responses}])
     if not text:
         log.warning("chat: empty answer")
         return ChatReply(REPLIES["upstream"], "upstream", STATUS["upstream"])
     log.info("chat: answered in %.1fs", time.monotonic() - t0)
-    return ChatReply(text.replace("\u2014", ", "))
+    return ChatReply(text.replace("\u2014", ", "), actions=actions, evidence=evidence)

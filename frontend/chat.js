@@ -1,11 +1,10 @@
-// The chat widget: one button at the bottom right of the stage opens a small box where you ask
-// about the data on screen. Questions go to the server (POST /api/chat), which adds the live
-// context and asks Gemini; the browser only keeps a short history for follow-up questions.
+// Gemini guide shared by the live viewer and saved-session page. The server grounds every answer
+// in its own measurements and returns only allowlisted viewer actions.
 
 const MAX_HISTORY = 12;   // six question and answer pairs, the server keeps no more either
 const MAX_CHARS = 500;
 
-export function initChat() {
+export function initChat(options = {}) {
   const root = document.getElementById('chat');
   if (!root) return null;
   const box = root.querySelector('#chat-box');
@@ -17,6 +16,7 @@ export function initChat() {
   const send = form.querySelector('button');
   const history = [];
   let busy = false;
+  const onAction = typeof options.onAction === 'function' ? options.onAction : () => {};
 
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   let isOpen = false;
@@ -36,6 +36,23 @@ export function initChat() {
     return p;
   }
 
+  function addEvidence(items) {
+    if (!Array.isArray(items) || !items.length) return;
+    const group = document.createElement('div');
+    group.className = 'chat-evidence';
+    for (const item of items) {
+      if (!item || typeof item.label !== 'string' || typeof item.value !== 'string') continue;
+      const row = document.createElement('p');
+      const kind = typeof item.kind === 'string' ? item.kind.toUpperCase() : 'DATA';
+      row.textContent = `${kind} · ${item.label}: ${item.value}`;
+      group.appendChild(row);
+    }
+    if (group.childElementCount) {
+      log.appendChild(group);
+      log.scrollTop = log.scrollHeight;
+    }
+  }
+
   // The box must stay in the DOM while chat-out plays, so closing is a class first and hidden after.
   function hide() {
     clearTimeout(closing);
@@ -52,7 +69,7 @@ export function initChat() {
       closing = 0;
       box.classList.remove('closing');
       box.hidden = false;
-      if (!log.childElementCount) add('model', 'Ask about the heart rate, the ECG, the chamber timing or the signal.');
+      if (!log.childElementCount) add('model', options.greeting || 'Ask me to explain the data or show a recent beat.');
       input.focus();
     } else if (box.hidden || reduced.matches) {
       hide();
@@ -73,12 +90,16 @@ export function initChat() {
     const pending = add('model pending', 'Thinking');
     let reply = 'Chat failed, try again';
     let ok = false;
+    let data = null;
     try {
       const r = await fetch('/api/chat', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ question, history: history.slice(-MAX_HISTORY) }),
+        body: JSON.stringify({
+          question,
+          history: history.slice(-MAX_HISTORY),
+          ...(options.sessionId ? { session_id: options.sessionId } : {}),
+        }),
       });
-      let data = null;
       try { data = await r.json(); } catch { data = null; }
       if (data && typeof data.reply === 'string' && data.reply) reply = data.reply;
       ok = r.ok && data && !data.error;
@@ -87,6 +108,12 @@ export function initChat() {
     }
     const answer = make(ok ? 'model' : 'model error', reply);   // a new node, so the reply rises in too
     pending.replaceWith(answer);
+    if (ok && Array.isArray(data?.evidence)) addEvidence(data.evidence);
+    if (ok && Array.isArray(data?.actions)) {
+      for (const action of data.actions) {
+        try { onAction(action); } catch (e) { console.error('Gemini action failed', e); }
+      }
+    }
     log.scrollTop = log.scrollHeight;
     if (ok) {   // only real answers become context for the next question
       history.push({ role: 'user', text: question }, { role: 'model', text: reply });

@@ -6,6 +6,7 @@ import hashlib
 import io
 import json
 import logging
+import os
 import socket
 import time
 from collections import deque
@@ -401,8 +402,7 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, http: h
 
     @app.post("/api/chat")
     async def chat_endpoint(request: Request) -> JSONResponse:
-        """One question about the data on screen. Body: {"question": str, "history": [{"role", "text"}]}.
-        The answer is {"reply", "error"}; `reply` is always words to show, `error` is null or a reason."""
+        """One grounded Gemini question, optionally about an open saved-session summary."""
         try:
             body = await request.json()
         except ValueError:
@@ -412,8 +412,10 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, http: h
         question = body.get("question")
         if not isinstance(question, str):
             question = ""
+        sid = body.get("session_id")
+        summary = await find_summary(sid) if isinstance(sid, str) and (sid == "demo" or store.valid_id(sid)) else None
         snap = chat.snapshot(hub, runner.last_packet_age())
-        result = await chat.ask(question, body.get("history"), snap, app.state.http)
+        result = await chat.ask(question, body.get("history"), snap, app.state.http, summary=summary)
         return JSONResponse(result.body(), status_code=result.status)
 
     @app.post("/api/session/start")
@@ -445,7 +447,9 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, http: h
         summary = await find_summary(sid)
         if summary is None:
             return JSONResponse({"reason": "This session is no longer available."}, status_code=404)
-        return summary
+        out = dict(summary)
+        out["chat_available"] = bool(os.environ.get("GEMINI_API_KEY", "").strip())
+        return out
 
     @app.delete("/api/s/{sid}")
     async def summary_delete(sid: str):

@@ -293,7 +293,30 @@ for (const b of document.querySelectorAll('#rhythms button')) {
   });
 }
 
-initChat();
+function applyGeminiAction(action) {
+  if (!action || typeof action.type !== 'string') return;
+  if (action.type === 'seek' && Number.isFinite(action.time_s)) {
+    clock.seek(action.time_s);
+    return;
+  }
+  if (action.type === 'heart_view') {
+    if (action.view === 'open') heart.setCutaway(true);
+    else if (action.view === 'closed') heart.setCutaway(false);
+    else if (action.view === 'reset') heart.resetView();
+    return;
+  }
+  if (action.type !== 'focus') return;
+  const target = {
+    ecg: document.querySelector('.instrument.ecg'),
+    chambers: document.querySelector('.instrument.chambers'),
+    heart: document.querySelector('.stage'),
+  }[action.target];
+  if (!target) return;
+  document.querySelectorAll('.ai-focus').forEach((el) => el.classList.remove('ai-focus'));
+  target.classList.add('ai-focus');
+}
+
+initChat({ onAction: applyGeminiAction });
 
 const opacity = $('opacity');
 opacity.addEventListener('input', () => heart.setOpacity(Number(opacity.value) / 100));

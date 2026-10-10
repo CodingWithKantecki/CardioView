@@ -42,13 +42,15 @@ Options: `--bpm 72` sets the simulated rate, `--invert` flips a strap worn upsid
 
 ### Chat (optional, the only part that needs internet)
 
-The Ask button at the top right of the stage opens a small chat that answers questions about what is on screen (heart rate, ECG, chamber timing, signal, source) through Google's Gemini API. To turn it on, create a file named `.env` in the repo root (next to this README, on any OS) with one line:
+The Ask button opens a Gemini guide grounded in CardioView's own measurements. It can answer questions, show the latest, fastest or slowest recent beat by pausing the shared replay clock, focus the ECG, chambers or heart, and open or reset the heart view. The saved-session page can compare rest, breathing, squats and recovery, show the exact derived evidence it used, and focus the relevant report section. Deterministic CardioView code selects and calculates the measurements; Gemini chooses tools and explains their results.
+
+To turn it on, create a file named `.env` in the repo root (next to this README, on any OS) with one line:
 
 ```
 GEMINI_API_KEY=your-key-here
 ```
 
-Get a free key at https://aistudio.google.com/apikey. The server reads the file at startup, the key never leaves the server and `.env` is ignored by git. Without a key the chat says "Chat is not set up on this server"; without internet it says so too, and everything else keeps working. `GEMINI_MODEL=<name>` in the same file changes the model (default `gemini-3.5-flash`). The answers come from an AI and can be wrong. The chat only talks about the data on screen, never diagnoses, and says which numbers are measured (the ECG), derived (beats, rate, chamber timing) or modeled (the heart and the label waves).
+Get a free key at https://aistudio.google.com/apikey. The server reads the file at startup, the key never leaves the server and `.env` is ignored by git. Without a key the guide says "Chat is not set up on this server"; without internet it says so too, and everything else keeps working. `GEMINI_MODEL=<name>` in the same file changes the model (default `gemini-3.5-flash`). The answers come from an AI and can be wrong. It never diagnoses and labels evidence as measured, derived, modeled or simulated. Saved-session questions send anonymous summary measurements to Gemini, never the raw ECG or chart arrays; the page says this beside the input.
 
 ## The strap
 
