@@ -2,7 +2,7 @@
 
 See your own heart beat, live in 3D. A Polar H10 chest strap streams ECG over Bluetooth, Python finds every beat, and a browser shows a heart model squeezing chamber by chamber in time with it, next to the live trace, the heart rate and the chamber timing.
 
-Status: the core works. Simulated ECG, CSV replay and the live Polar H10 all drive the trace (2D or a 3D beat waterfall), heart rate, chamber activation lanes and the 3D heart with its chamber labels and waves. Drag to orbit, scroll to zoom, an opacity slider, and the R, W and C keys for auto-rotate, wireframe and cutaway. A signal monitor turns the stage into a red glitch with a plain-words alert when there is no signal at all. `data/h10_ecg_thomas.csv` is a real 84 s recording.
+Status: the core works. Simulated ECG, CSV replay and the live Polar H10 all drive the trace (2D or a 3D beat waterfall), heart rate, chamber activation lanes (their timing is derived from the ECG, not measured) and the 3D heart with its chamber labels and waves. Drag to orbit, scroll to zoom, an opacity slider, and the R, W and C keys for auto-rotate, wireframe and cutaway. A signal monitor turns the stage into a red glitch with a plain-words alert when there is no signal at all. `data/h10_ecg_thomas.csv` is a real 84 s recording.
 
 ## Setup
 
@@ -68,6 +68,7 @@ Headless screenshot of the running viewer (needs Node and Google Chrome): `cd to
 
 - Three.js 0.186.0, MIT license, vendored in `frontend/vendor/three/`.
 - IBM Plex fonts 5.3.0 via Fontsource, SIL Open Font License 1.1, vendored in `frontend/vendor/fonts/`.
+- JetBrains Mono 5.2.6 via Fontsource (weights 400, 600, 700), SIL Open Font License 1.1, vendored in `frontend/vendor/fonts/` with its license file.
 - NeuroKit2 for ECG cleaning, peak detection and delineation, MIT license.
 - bleak (MIT license) and bleakheart (Mozilla Public License 2.0) for the Polar H10 link.
 - Heart model: this work is based on "Realistic Human Heart" (https://sketchfab.com/3d-models/realistic-human-heart-3f8072336ce94d18b3d0d055a1ece089) by neshallads (https://sketchfab.com/neshallads) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/). Files in `frontend/assets/heart/` with the license text. The chambers are animated by a vertex shader; the model itself is unchanged.

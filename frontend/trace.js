@@ -66,10 +66,10 @@ export class Trace {
   // the sample rate, small, in the graph's top-left corner
   drawRate(ctx, gutter, dpr) {
     ctx.save();
-    ctx.font = `400 ${12 * dpr}px "JetBrains Mono", monospace`;
+    ctx.font = `600 ${12 * dpr}px "JetBrains Mono", monospace`;
     ctx.fillStyle = colors().dim;
     ctx.textBaseline = 'top';
-    ctx.fillText(`${this.fs} Hz`, gutter + 4 * dpr, 4 * dpr);
+    ctx.fillText(`${this.fs} HZ`, gutter + 4 * dpr, 4 * dpr);
     ctx.restore();
   }
 

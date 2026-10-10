@@ -45,6 +45,7 @@ for (const el of document.querySelectorAll('.label')) {
   sparks[el.dataset.chamber] = el.querySelector('.spark');
 }
 const heart = new Heart($('heart-view'), { labels, leaders: $('leaders'), missing: $('heart-missing') });
+if (new URLSearchParams(location.search).has('debug')) window.heart = heart;   // for headless checks
 heart.load();
 const glitch = new Glitch($('glitch'), heart.renderer.domElement);
 
@@ -241,9 +242,11 @@ for (const b of document.querySelectorAll('#rhythms button')) {
 const opacity = $('opacity');
 opacity.addEventListener('input', () => heart.setOpacity(Number(opacity.value) / 100));
 
-// Keys keep the other views reachable without chrome: R spins, W wireframe, C cutaway.
+// Keys keep the other views reachable without chrome: R spins, W wireframe, C cutaway. Plain keys only:
+// Cmd+C to copy text or Cmd+R to reload must not touch the heart (Cmd+C used to cut it open).
 window.addEventListener('keydown', (e) => {
-  if (e.target instanceof HTMLInputElement) return;
+  if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
   const k = e.key.toLowerCase();
   if (k === 't') toggleTheme();
   else if (k === 'r') heart.setRotate(!heart.state.rotate);
