@@ -13,13 +13,11 @@ from typing import Callable
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 
-from .pipeline import BeatDetector, SignalMonitor
+from .pipeline import REFRACTORY_S, BeatDetector, SignalMonitor
 from .sources.base import FS, PACKET, PACKET_S, PacedSource, Packet, Source, Status
 
 FRONTEND = Path(__file__).resolve().parent.parent / "frontend"
-BACKLOG_S = 8.0       # seconds of samples a late viewer gets
-HANDOVER_SILENT = 15  # packets of the new source fed to the detector only, so its rhythm history is ready
-HANDOVER_OVERLAP = 2  # packets that replace what the viewer has buffered but not shown yet
+BACKLOG_S = 8.0       # seconds of samples a late viewer gets, and what a takeover's detector is primed on
 BACKLOG_BEATS = 12    # beats a late viewer gets
 QUEUE_SIZE = 256      # per viewer; the oldest message is dropped when full
 
@@ -70,19 +68,15 @@ class Hub:
         self.beats.append(msg)
         self.broadcast(msg)
 
-    def handover(self, from_t: float) -> None:
-        """A new source takes over from stream time `from_t`: everything after it is replaced."""
-        kept: deque[dict] = deque()
-        for m in self.samples:
-            if m["t"] >= from_t:
-                continue
-            n = int(round((from_t - m["t"]) * FS))
-            if n < len(m["uv"]):
-                m = dict(m, uv=m["uv"][:n])
-            kept.append(m)
-        self.samples = kept
-        self.beats = deque((b for b in self.beats if b["r"] < from_t), maxlen=BACKLOG_BEATS)
-        self.broadcast({"type": "handover", "source": self.source_kind, "from": round(from_t, 4)})
+    def history(self) -> Packet | None:
+        """The backlog as one packet (it is contiguous: a jump clears it)."""
+        if not self.samples:
+            return None
+        return Packet(self.samples[0]["t"], [v for m in self.samples for v in m["uv"]])
+
+    @property
+    def last_beat_r(self) -> float | None:
+        return self.beats[-1]["r"] if self.beats else None
 
     def push_signal(self, msg: dict) -> None:
         self.signal = msg
@@ -132,20 +126,30 @@ class Runner:
         async with self._lock:
             if name == self.name and not force:
                 return
-            # Between demo sources the new one takes over the running clock (a handover): the
-            # screen keeps flowing and the new rhythm enters at the now line. To or from the
-            # strap it is a full reset.
-            handover = (self.source is not None and self.source.kind != "live" and name != "live"
-                        and self._last_wall is not None
-                        and self._index > (HANDOVER_SILENT + HANDOVER_OVERLAP) * PACKET)
+            old = self.source
+            # Between demo sources the new one takes over the running stream: nothing already
+            # sent is touched, the clock runs on, the next beat lands where the old rhythm would
+            # have put it and the rate eases over a few beats. To or from the strap it is a reset.
+            takeover = (old is not None and old.kind != "live" and name != "live"
+                        and self._last_wall is not None and bool(self.hub.samples))
             await self._stop()
             source = self.factories[name](**kwargs)
-            hand_from: float | None = None
-            if handover and isinstance(source, PacedSource):
-                stream_t = self._index / FS
-                source.index = self._index - (HANDOVER_SILENT + HANDOVER_OVERLAP) * PACKET
-                source.anchor(stream_t, min(self._last_wall + PACKET_S, time.monotonic()))
-                hand_from = (self._index - HANDOVER_OVERLAP * PACKET) / FS
+            detector = BeatDetector()
+            monitor = SignalMonitor()
+            if takeover and isinstance(source, PacedSource):
+                history = self.hub.history()
+                # the fresh detector learns the old stream's last beats from the backlog; a beat the
+                # old pump never got to send (it confirms 0.25 s after the R) goes out now
+                primed = await asyncio.to_thread(detector.prime, history)
+                monitor.update(history, primed)
+                sent = self.hub.last_beat_r
+                for beat in primed:
+                    if sent is None or beat.r > sent + REFRACTORY_S:
+                        self.hub.push_beat(beat.message(old.kind))
+                last_r, rr = detector.last_r, detector.last_rr
+                template = old.template_at(last_r) if last_r is not None and hasattr(old, "template_at") else None
+                source.takeover(self._index, last_uv=history.uv[-1], last_r=last_r, rr=rr, template=template)
+                source.anchor(self._index / FS, self._last_wall)
             else:
                 self._index = 0
                 self._last_wall = None
@@ -156,8 +160,8 @@ class Runner:
             source.on_status(lambda st, src=source: self.hub.set_status(st) if src is self.source else None)
             self.hub.set_status(source.status)
             self.hub.broadcast(self.hub.signal)
-            self.task = asyncio.create_task(self._pump(source, hand_from), name=f"pump-{name}")
-            log.info("source: %s %s%s", name, kwargs or "", " (handover)" if hand_from is not None else "")
+            self.task = asyncio.create_task(self._pump(source, detector, monitor, takeover), name=f"pump-{name}")
+            log.info("source: %s %s%s", name, kwargs or "", " (takeover)" if takeover else "")
 
     async def _stop(self) -> None:
         if self.task is not None:
@@ -172,25 +176,14 @@ class Runner:
         async with self._lock:
             await self._stop()
 
-    async def _pump(self, source: Source, hand_from: float | None = None) -> None:
-        detector = BeatDetector()
-        monitor = SignalMonitor()
-        preroll = float(getattr(source, "preroll_s", 0.0) or 0.0) if hand_from is None else 0.0
+    async def _pump(self, source: Source, detector: BeatDetector, monitor: SignalMonitor,
+                    takeover: bool = False) -> None:
+        preroll = 0.0 if takeover else float(getattr(source, "preroll_s", 0.0) or 0.0)
         pending: list[Packet] = []
-        silent: list[Packet] = []
         try:
             async for packet in source.packets():
                 self._index = round(packet.t_end * FS)
                 self._last_wall = time.monotonic()
-                if hand_from is not None and packet.t_end <= hand_from + 1e-6:
-                    silent.append(packet)         # the new source's past: the detector learns it, nobody sees it
-                    continue
-                if silent:
-                    history = Packet(silent[0].t, [v for p in silent for v in p.uv])
-                    silent = []
-                    await asyncio.to_thread(detector.prime, history)
-                    monitor.update(history, [])
-                    self.hub.handover(hand_from)
                 if preroll > 0 and packet.t_end <= preroll + 1e-6:
                     pending.append(packet)        # the history a source starts with: sent all at once below
                     continue
@@ -217,7 +210,6 @@ class Runner:
             raise
         except Exception:
             log.exception("source stopped")
-
 
 def create_app(factories: dict[str, Callable[[], Source]], initial: str) -> FastAPI:
     """`factories` maps a name (live, demo) to a function that builds that source."""

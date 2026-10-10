@@ -139,8 +139,8 @@ def test_a_switch_starts_the_new_source_from_zero():
     asyncio.run(run())
 
 
-def test_demo_to_demo_is_a_handover_not_a_reset():
-    from backend.app import HANDOVER_OVERLAP, Runner
+def test_demo_to_demo_takes_over_the_running_stream():
+    from backend.app import Runner
     from backend.sources.base import FS, PACKET
     from backend.sources.sim import SimSource
 
@@ -161,26 +161,25 @@ def test_demo_to_demo_is_a_handover_not_a_reset():
         runner = Runner(hub, {"a": lambda: SimSource(bpm=72, sleep=clk.sleep, now=clk.now),
                               "b": lambda: SimSource(bpm=140, preroll_s=10.0, sleep=clk.sleep, now=clk.now)})
         await runner.start("a")
-        for _ in range(200):
+        for _ in range(400):
             await asyncio.sleep(0.01)
             if runner._index > 20 * PACKET:
                 break
         q = hub.subscribe()
         t_switch = runner._index / FS
+        last_uv = hub.samples[-1]["uv"][-1]
         await runner.start("b")
         await asyncio.sleep(0.6)
         msgs = []
         while not q.empty():
             msgs.append(json.loads(q.get_nowait()))
-        hand = [m for m in msgs if m["type"] == "handover"]
-        assert len(hand) == 1, "one handover message"
-        assert abs(hand[0]["from"] - (t_switch - HANDOVER_OVERLAP * PACKET / FS)) < 0.6
-        after = msgs[msgs.index(hand[0]) + 1:]
-        samples = [m for m in after if m["type"] == "samples"]
-        assert samples and samples[0]["t"] == pytest.approx(hand[0]["from"], abs=1e-3), "the new source starts exactly at the handover"
+        assert not [m for m in msgs if m["type"] == "handover"], "nothing already sent is replaced"
+        samples = [m for m in msgs if m["type"] == "samples"]
+        assert samples and samples[0]["t"] == pytest.approx(t_switch, abs=1e-3), "the stream time runs on"
+        assert len(samples[0]["uv"]) == PACKET, "no preroll"
+        assert samples[0]["uv"][0] == last_uv, "the first new sample meets the old stream's last value"
+        for a, b in zip(samples, samples[1:]):
+            assert b["t"] == pytest.approx(a["t"] + len(a["uv"]) / FS, abs=1e-3), "contiguous packets"
         assert all(m["t"] > 1.0 for m in samples), "no restart from zero"
-        beats = [m for m in after if m["type"] == "beat"]
-        assert beats and beats[0]["bpm"] is not None, "the detector was primed: the first beat already has a rate"
-        assert all(b["r"] >= hand[0]["from"] for b in beats)
         await runner.stop()
     asyncio.run(run())

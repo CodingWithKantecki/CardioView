@@ -61,14 +61,6 @@ export class Trace {
 
   clear() { this.ts.length = 0; this.ys.length = 0; this.resetFilter(); this.scale = 200; }
 
-  // drop everything from stream time t on; the filter continues from its last output
-  truncate(t) {
-    const i = this.indexAt(t);
-    this.ts.length = i;
-    this.ys.length = i;
-    this.prevX = null;
-  }
-
   // the sample rate, small, in the graph's top-left corner
   drawRate(ctx, gutter, dpr) {
     ctx.save();
