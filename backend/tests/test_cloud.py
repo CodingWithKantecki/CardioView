@@ -5,7 +5,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from backend.cloud import Cloud, load_env
+from backend.cloud import Cloud
+from backend.env import load_dotenv
 from backend.session import SessionManager, SessionStore
 
 T0 = datetime(2026, 10, 10, 14, 0, tzinfo=timezone.utc)
@@ -118,12 +119,12 @@ def test_off_without_both_settings(monkeypatch):
     assert Cloud.from_env() is not None
 
 
-def test_load_env_reads_pairs_and_keeps_what_is_set(tmp_path, monkeypatch):
+def test_dotenv_keeps_a_connection_string_whole_and_what_is_set(tmp_path, monkeypatch):
     monkeypatch.setenv("KEEP_ME", "outer")
     monkeypatch.delenv("NEW_ONE", raising=False)
     p = tmp_path / ".env"
     p.write_text("# comment\nNEW_ONE='postgresql://a:b@c/d?sslmode=require'\nKEEP_ME=inner\n\nJUNK\n")
-    load_env(p)
+    load_dotenv(p)
     import os
     assert os.environ["NEW_ONE"] == "postgresql://a:b@c/d?sslmode=require"
     assert os.environ["KEEP_ME"] == "outer"

@@ -22,7 +22,8 @@ from urllib.parse import quote, urlsplit, urlunsplit
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from backend.cloud import SCHEMA, NeonDb, load_env  # noqa: E402
+from backend.cloud import SCHEMA, NeonDb  # noqa: E402
+from backend.env import load_dotenv  # noqa: E402
 from backend.session import SessionStore, utcnow  # noqa: E402
 
 SESSIONS = ROOT / "sessions"
@@ -119,7 +120,7 @@ def main(argv: list[str] | None = None) -> None:
     sub.add_parser("deploy")
     args = ap.parse_args(argv)
 
-    load_env(ROOT / ".env")
+    load_dotenv(ROOT / ".env")
     store = SessionStore(SESSIONS)
     dsn = os.environ.get("NEON_DATABASE_URL")
     db = NeonDb(dsn) if dsn else None
