@@ -326,13 +326,16 @@ class SessionManager:
         steps = [s.window() for s in self.steps if s.done]
         try:
             t, uv = await asyncio.to_thread(self.store.read_recording, sid)
+            if gen != self._gen:
+                self._remove(sid)   # cancelled during the read, when Windows could not delete the open file
+                return
             summary = await asyncio.to_thread(self.analyze, t, uv, steps)
         except Exception:
             log.exception("could not analyze %s", sid)
             summary = {"version": 1, "steps": [], **{k: {"ok": False, "reason": "Something went wrong measuring this."}
                                                       for k in ("effort", "breathing", "hrv", "beat", "timing")}}
         if gen != self._gen:
-            return   # cancelled while analyzing; _abort already deleted it
+            return   # cancelled while analyzing; _stop already deleted it
         meta = self._meta
         meta.update(state="done", ended_early=early,
                     steps=[{**w, "seconds": round(s.elapsed_s, 2)} for s, w in zip(self.steps, steps)])
@@ -365,9 +368,17 @@ class SessionManager:
         self._gen += 1
         self.state, self.sid, self.note = "idle", None, note
         if sid:
-            self.store.delete(sid)
+            self._remove(sid)
         self.broadcast(self.message())
         return sid
+
+    def _remove(self, sid: str) -> None:
+        try:
+            self.store.delete(sid)
+        except OSError:
+            # Windows cannot delete an open file, and the analysis may be reading the recording:
+            # _finish removes the folder once the read is done, and startup clears anything left
+            log.warning("could not delete %s yet", sid, exc_info=True)
 
     async def _unpublish(self, sid: str | None) -> None:
         if sid and self.unpublish is not None:
