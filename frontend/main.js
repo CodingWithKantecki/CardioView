@@ -74,11 +74,11 @@ function strapReady() {
   return !!status && status.source === 'live' && status.state === 'streaming' && signal.ok;
 }
 
-// the header cells: Strap or Demo for the source, Exercise pressed while a session runs or is armed
+// the header cells: Strap or Demo for the source, Exercise pressed while a session runs
 const sourceCells = [...document.querySelectorAll('#source-mode button')];
 function syncSourceCells() {
   const live = !!status && status.source === 'live';
-  const busy = session.busy() || session.armed();
+  const busy = session.busy();
   for (const b of sourceCells) {
     const s = b.dataset.source;
     const pressed = s === 'live' ? (live && !busy) : s === 'demo' ? (!!status && !live) : busy;

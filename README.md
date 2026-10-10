@@ -73,10 +73,10 @@ The viewer uses the CGTrader pack "Human Heart with Cross section" by devden (pu
 A visitor can save a two minute session and take a summary of it home.
 
 1. Strap them in and explain: their ECG is recorded for about two minutes, without their name, kept on this laptop until the end of the event, and they can delete it from their phone.
-2. If they agree, press S, then S again. The stage walks them through it: hold still, rest, slow breathing with the ring, squats, recovery.
+2. If they agree, press S or click Exercise. The stage walks them through it: hold still, rest, slow breathing with the ring, squats, recovery.
 3. The big screen then shows their summary with a QR code. Esc goes back to the live view, and so does three minutes without a key.
 
-The Exercise cell in the header starts a session with two clicks (the consent) and stops one with two clicks; it only works while the real strap is streaming, never on demo data. S twice and Esc twice do the same from the keyboard, and V turns the voice on or off. While a session runs, the Strap / Demo and rhythm buttons wait: stop the session first. The report opens over the live view and Back returns to it.
+The Exercise cell in the header starts a session with one click, once the visitor has agreed, and stops one with two clicks; it only works while the real strap is streaming, never on demo data. S and Esc twice do the same from the keyboard, and V turns the voice on or off. While a session runs, the Strap / Demo and rhythm buttons wait: stop the session first. The report opens over the live view and Back returns to it.
 
 The summary shows effort and recovery, breathing, heart rate variability, their average heartbeat and their beat timing. A section says what it could not measure when the signal was not good enough. A session run on demo data says so at the top. It is a visualization, not a diagnosis.
 
