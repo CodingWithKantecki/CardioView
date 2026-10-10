@@ -13,7 +13,6 @@ const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;  
 if (DEBUG) window.THREE = THREE;   // for headless picking of model points
 export const VALVES = ['tri', 'mit', 'pul', 'ao'];   // tricuspid, mitral (AV, hang open, shut in systole); pulmonary, aortic (semilunar, shut, open in ejection)
 const FORCED_VALVES = (() => { const v = new URLSearchParams(location.search).get('valves'); return v === null ? null : Number(v); })();
-const VALVE_AMP = 0.045;   // world units the leaflets travel
 
 const VERTEX_HEAD = `
 uniform vec3 uCenters[4];
@@ -25,7 +24,6 @@ uniform float uValveR[4];
 uniform vec3 uValveUp[4];
 uniform float uValveOpen[4];
 uniform float uValveKind[4];
-uniform float uValveAmp;
 varying vec4 vChamber;
 `;
 const VERTEX_BODY = `
@@ -37,11 +35,12 @@ for (int i = 0; i < 4; i++) {
   transformed += (uCenters[i] - position) * wi * uStrength[i] * uAct[i];
 }
 vChamber = cardioW;
-// valves in the opened heart (radii are zero elsewhere). A leaflet is a hinge: every vertex inside
-// the ring's cylinder rotates about the ring point nearest to it, around the ring's tangent, so the
-// ring and the wall never move. AV leaflets are modeled hanging open and swing up to meet at the
-// center while their ventricle squeezes; semilunar cusps are modeled shut and swing out to the wall
-// while it ejects.
+// valves in the opened heart (radii are zero elsewhere). The leaflets are sculpted as a closed
+// funnel hanging from the ring (AV) or cusps meeting at the center (aortic), so the modeled pose is
+// shut. Every vertex inside the ring's cylinder rotates about the ring point nearest to it, around
+// the ring's tangent: swinging outward flares the funnel open without any leaflet crossing another,
+// and the ring and the wall never move. AV valves open while their ventricle relaxes and shut (a
+// touch inward of the modeled pose) while it squeezes; the aortic cusps lean out while it ejects.
 for (int i = 0; i < 4; i++) {
   float R = uValveR[i];
   if (R <= 0.0) continue;
@@ -50,17 +49,18 @@ for (int i = 0; i < 4; i++) {
   vec3 radial = rel - uValveUp[i] * s;
   float r = length(radial);
   float L = R * 1.2;
-  float wr = 1.0 - smoothstep(R * ((uValveKind[i] < 0.5) ? 0.85 : 0.65), R * ((uValveKind[i] < 0.5) ? 1.05 : 0.85), r);
-  float wa = (uValveKind[i] < 0.5)
+  bool av = uValveKind[i] < 0.5;
+  float wr = 1.0 - smoothstep(R * (av ? 0.85 : 0.65), R * (av ? 1.05 : 0.85), r);
+  float wa = av
     ? smoothstep(-L - R * 0.3, -L, s) * (1.0 - smoothstep(R * 0.1, R * 0.4, s))
     : smoothstep(-R * 0.4, -R * 0.1, s) * (1.0 - smoothstep(L, L + R * 0.3, s));
   float w = wr * wa;
   if (w <= 0.0) continue;
   vec3 rd = radial / max(r, 1e-5);
-  vec3 t = normalize(cross(uValveUp[i], rd));
+  vec3 t = normalize(cross(uValveUp[i], rd));   // the ring's tangent: the hinge
   vec3 q = position - (uValveC[i] + rd * R);
-  float amount = (uValveKind[i] < 0.5) ? (1.0 - uValveOpen[i]) : uValveOpen[i];
-  float ang = amount * ((uValveKind[i] < 0.5) ? 1.0 : 0.55);   // leaflets rise to the ring; cusps lean to the wall
+  // below the ring a positive angle swings inward, above it outward
+  float ang = av ? (0.12 - 0.5 * uValveOpen[i]) : (0.55 * uValveOpen[i]);
   vec3 q2 = q * cos(ang) + cross(t, q) * sin(ang) + t * dot(t, q) * (1.0 - cos(ang));
   transformed += (q2 - q) * w;
 }
@@ -325,7 +325,6 @@ export class Heart {
     mat.userData.uValveC = { value: VALVES.map(() => new THREE.Vector3()) };
     mat.userData.uValveR = { value: [0, 0, 0, 0] };
     mat.userData.uValveUp = { value: VALVES.map(() => new THREE.Vector3(0, 1, 0)) };
-    mat.userData.uValveAmp = { value: 0 };
     mat.userData.mesh = mesh;
     mat.side = THREE.DoubleSide;
     mat.onBeforeCompile = (shader) => {
@@ -339,7 +338,6 @@ export class Heart {
       shader.uniforms.uValveUp = mat.userData.uValveUp;
       shader.uniforms.uValveOpen = this.uValveOpen;
       shader.uniforms.uValveKind = this.uValveKind;
-      shader.uniforms.uValveAmp = mat.userData.uValveAmp;
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', '#include <common>\n' + VERTEX_HEAD)
         .replace('#include <begin_vertex>', '#include <begin_vertex>\n' + VERTEX_BODY);
@@ -390,7 +388,6 @@ export class Heart {
         mat.userData.uValveR.value[i] = vw.radius / worldPerLocal;
         mat.userData.uValveUp.value[i].copy(vw.up).transformDirection(inv);
       });
-      mat.userData.uValveAmp.value = VALVE_AMP / worldPerLocal;
     }
     (this.valveMarkers || []).forEach((m, i) => { const vw = this.valvesWorld[i]; m.visible = !!vw; if (vw) m.position.copy(vw.center); });
     this.markers.forEach((m, i) => m.position.copy(this.centersWorld[i]));
