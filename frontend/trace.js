@@ -37,6 +37,7 @@ export class Trace {
     this.ctx = canvas.getContext('2d');
     this.ts = [];
     this.ys = [];
+    this.raw = [];   // the microvolts as received, for Export; ys holds the filtered trace
     this.scale = 200;
     this.holdFrom = null;   // set by the timeline while off live: keep samples from here
     this.fs = FS_DEFAULT;
@@ -50,7 +51,7 @@ export class Trace {
     this.prevX = 0; this.prevY = 0; this.primed = false;
   }
 
-  clear() { this.ts.length = 0; this.ys.length = 0; this.resetFilter(); this.scale = 200; }
+  clear() { this.ts.length = 0; this.ys.length = 0; this.raw.length = 0; this.resetFilter(); this.scale = 200; }
 
   // the sample rate, small, in the graph's top-left corner
   drawRate(ctx, gutter, dpr) {
@@ -72,12 +73,13 @@ export class Trace {
       this.prevX = x; this.prevY = y;
       this.ts.push(t0 + i / fs);
       this.ys.push(y);
+      this.raw.push(x);
     }
     const newest = this.ts[this.ts.length - 1];
     let drop = 0;
     const cut = keepCut(newest, this.holdFrom);
     while (drop < this.ts.length && this.ts[drop] < cut) drop++;
-    if (drop > 0) { this.ts.splice(0, drop); this.ys.splice(0, drop); }
+    if (drop > 0) { this.ts.splice(0, drop); this.ys.splice(0, drop); this.raw.splice(0, drop); }
   }
 
   // first sample index with time >= t
@@ -153,4 +155,16 @@ export class Trace {
     ctx.stroke();
     ctx.restore();
   }
+}
+
+// Everything the page keeps, as the CSV the recordings use (time_s,ecg_uv, time from zero), so a
+// file replays with --source. Beats are not written: the detector finds them again on replay.
+export function exportCsv(trace) {
+  const n = trace.ts.length;
+  if (!n) return null;
+  const t0 = trace.ts[0];
+  const rows = new Array(n + 1);
+  rows[0] = 'time_s,ecg_uv';
+  for (let i = 0; i < n; i++) rows[i + 1] = `${(trace.ts[i] - t0).toFixed(4)},${trace.raw[i]}`;
+  return { text: rows.join('\n') + '\n', seconds: trace.ts[n - 1] - t0 };
 }

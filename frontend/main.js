@@ -1,5 +1,5 @@
 import { StreamClock } from './clock.js';
-import { Trace, NOW_INSET, WINDOW_S } from './trace.js';
+import { Trace, NOW_INSET, WINDOW_S, exportCsv } from './trace.js';
 import { Chambers } from './chambers.js';
 import { Heart } from './heart.js';
 import { Glitch } from './glitch.js';
@@ -33,6 +33,26 @@ const trace = new Trace(els.trace);
 const lanes = new Chambers(els.lanes);
 trace.beats = lanes.beats;   // one shared list of recent beats
 const timeline = new Timeline(els.strip, trace, lanes, clock);
+
+// Export: everything the timeline holds, as a recording CSV named for the moment and the source
+function exportName() {
+  const d = new Date();
+  const pad = (v) => String(v).padStart(2, '0');
+  const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
+  const src = !status ? 'ecg' : status.source === 'live' ? 'strap' : status.source === 'recorded' ? 'recording' : 'simulated';
+  return `cardioview_${stamp}_${src}.csv`;
+}
+document.getElementById('export').addEventListener('click', () => {
+  const out = exportCsv(trace);
+  if (!out) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([out.text], { type: 'text/csv' }));
+  a.download = exportName();
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+});
 const labels = {};
 const sparks = {};
 for (const el of document.querySelectorAll('.label')) {
