@@ -12,47 +12,49 @@
 </head>
 <body>
 <header class="top">
-  <div class="brand"><span class="brand-dot"></span>CardioView</div>
-  <div class="pill" id="pill" data-source="none"><span class="pill-dot"></span><span id="pill-text">CONNECTING</span></div>
-  <div class="conn" id="conn">WAITING FOR SERVER</div>
+  <div class="brand">CardioView</div>
+  <div class="status">
+    <span class="state" id="pill" data-source="none" data-state="connecting"><span class="state-dot"></span><span id="pill-text">Connecting</span></span>
+    <span class="device" id="conn"></span>
+  </div>
 </header>
 
-<main class="grid">
-  <section class="card heart-card">
-    <div class="tags"><div class="tag">ANATOMY: MODEL</div><div class="tag">WAVES: MODELED</div></div>
+<main class="screen">
+  <section class="stage" aria-label="Heart">
+    <div class="floor" id="floor" aria-hidden="true"><span class="ring"></span><span class="ring ring-2"></span><span class="ripple" id="ripple"></span></div>
     <div id="heart-view"></div>
-    <div id="heart-missing" class="missing" hidden>Heart model not installed, see README</div>
+    <p id="heart-missing" class="missing" hidden>Heart model not installed, see the README</p>
     <svg id="leaders" class="leaders" aria-hidden="true"></svg>
     <div class="label side-left" data-chamber="ra" hidden><b>RA</b><span>right atrium</span><canvas class="spark" data-spark="ra"></canvas></div>
     <div class="label side-right" data-chamber="la" hidden><b>LA</b><span>left atrium</span><canvas class="spark" data-spark="la"></canvas></div>
     <div class="label side-left" data-chamber="rv" hidden><b>RV</b><span>right ventricle</span><canvas class="spark" data-spark="rv"></canvas></div>
     <div class="label side-right" data-chamber="lv" hidden><b>LV</b><span>left ventricle</span><canvas class="spark" data-spark="lv"></canvas></div>
-    <div class="controls">
+    <div class="controls" role="group" aria-label="View">
       <button type="button" data-action="rotate" aria-pressed="false">Rotate</button>
       <button type="button" data-action="wireframe" aria-pressed="false">Wireframe</button>
       <button type="button" data-action="opacity" aria-pressed="false">Opacity</button>
       <button type="button" data-action="cutaway" aria-pressed="false">Cutaway</button>
     </div>
+    <div class="footnote"><span>Anatomy: 3D model</span><span>Chamber waves: modeled</span></div>
   </section>
 
-  <section class="right">
-    <div class="card rate-card">
-      <div class="tag-plain">HEART RATE</div>
-      <div class="rate">
-        <span class="bpm" id="bpm">--</span><span class="unit">bpm</span>
-        <span class="rr" id="rr">-- S BETWEEN BEATS</span>
-      </div>
-    </div>
-    <div class="card trace-card">
-      <div class="card-head"><span class="tag-green">ECG · MEASURED</span></div>
+  <aside class="column" id="column">
+    <section class="instrument rate">
+      <h2>Heart rate</h2>
+      <div class="readout"><span class="bpm" id="bpm">--</span><span class="unit">bpm</span></div>
+      <p class="rr" id="rr">-- s between beats</p>
+    </section>
+    <section class="instrument ecg">
+      <h2>ECG <small>measured at 130 Hz</small></h2>
       <canvas id="trace"></canvas>
-    </div>
-    <div class="card lanes-card">
-      <div class="card-head"><span class="tag-plain">CHAMBERS · DERIVED FROM ECG</span></div>
+    </section>
+    <section class="instrument chambers">
+      <h2>Chambers <small>timing derived from the ECG</small></h2>
       <canvas id="lanes"></canvas>
-    </div>
+    </section>
     <div class="extras" aria-hidden="true"></div>
-  </section>
+    <div class="nowline" id="nowline" aria-hidden="true"><span>now</span></div>
+  </aside>
 </main>
 <script type="module" src="main.js"></script>
 </body>

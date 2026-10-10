@@ -85,6 +85,7 @@ export class Heart {
     this.radiiWorld = [0.45, 0.45, 0.6, 0.6];
     this.backView = false;   // true while the camera looks at the back of the heart
     this.bounds = null;
+    this.metrics = null;     // projected extents and the floor point, for the stage decoration
     this.clipPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0.1);
 
     this.resize();
@@ -288,6 +289,8 @@ export class Heart {
       if (sx < minX) minX = sx;
       if (sx > maxX) maxX = sx;
     }
+    p.set(0, min.y + 0.04, 0).project(this.camera);
+    this.metrics = { minX, maxX, width: maxX - minX, centerX: (p.x * 0.5 + 0.5) * w, floorY: (-p.y * 0.5 + 0.5) * h };
 
     const items = CHAMBERS.map((c, i) => {
       const el = this.labels[c];

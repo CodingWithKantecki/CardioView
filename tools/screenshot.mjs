@@ -17,7 +17,7 @@ const browser = await puppeteer.launch({
 });
 try {
   const page = await browser.newPage();
-  await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
+  await page.setViewport({ width: Number(process.env.W || 1920), height: Number(process.env.H || 1080), deviceScaleFactor: 1 });
   page.on('console', (m) => console.log('[page]', m.text()));
   page.on('pageerror', (e) => console.log('[pageerror]', e.message));
   await page.goto(url, { waitUntil: 'load' });

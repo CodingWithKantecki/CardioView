@@ -1,5 +1,5 @@
 // Chamber lanes and activation, both pure functions of t_display and the recent beats.
-import { fitCanvas, drawNowLine, WINDOW_S, NOW_FRAC, GUTTER } from './trace.js';
+import { fitCanvas, WINDOW_S, NOW_FRAC, GUTTER } from './trace.js';
 
 export const ATRIA_S = 0.12;
 const RISE_S = 0.1;
@@ -113,7 +113,7 @@ export class Chambers {
     const base = h - 1.5 * dpr;
     const top = 2 * dpr;
     ctx.save();
-    ctx.strokeStyle = 'rgba(140,151,171,0.35)';
+    ctx.strokeStyle = 'rgba(140,151,171,0.25)';
     ctx.lineWidth = 1 * dpr;
     ctx.beginPath(); ctx.moveTo(0, base); ctx.lineTo(w, base); ctx.stroke();
     if (tDisplay !== null) {
@@ -126,7 +126,7 @@ export class Chambers {
       }
       ctx.lineTo(w - 1, base);
       ctx.closePath();
-      ctx.fillStyle = COLOR[c] + '40';
+      ctx.fillStyle = COLOR[c] + '1A';
       ctx.fill();
       ctx.beginPath();
       for (let x = 0; x < w; x++) {
@@ -136,7 +136,7 @@ export class Chambers {
         if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       }
       ctx.strokeStyle = COLOR[c];
-      ctx.lineWidth = 1.5 * dpr;
+      ctx.lineWidth = 1.25 * dpr;
       ctx.lineJoin = 'round';
       ctx.stroke();
     }
@@ -154,36 +154,35 @@ export class Chambers {
     const tLeft = tDisplay === null ? 0 : tDisplay - WINDOW_S * NOW_FRAC;
     const rows = ORDER.length;
     const rowH = h / rows;
-    const barH = Math.min(22 * dpr, rowH * 0.55);
+    const barH = Math.min(12 * dpr, rowH * 0.5);
 
     for (let r = 0; r < rows; r++) {
       const c = ORDER[r];
       const yMid = rowH * (r + 0.5);
       ctx.save();
-      ctx.font = `${19 * dpr}px "IBM Plex Mono", monospace`;
-      ctx.fillStyle = '#8C97AB';
+      ctx.font = `${14 * dpr}px "IBM Plex Sans", sans-serif`;
+      ctx.fillStyle = '#7F8AA0';
       ctx.textBaseline = 'middle';
       ctx.fillText(c.toUpperCase(), 0, yMid);
-      ctx.fillStyle = '#121B30';
+      ctx.fillStyle = 'rgba(232,236,243,0.06)';
       ctx.beginPath();
-      ctx.roundRect(gutter, yMid - barH / 2, drawable, barH, 4 * dpr);
+      ctx.roundRect(gutter, yMid - barH / 2, drawable, barH, barH / 2);
       ctx.fill();
       ctx.restore();
       if (tDisplay === null) continue;
       ctx.save();
       ctx.beginPath(); ctx.rect(gutter, 0, xNow - gutter, h); ctx.clip();
-      ctx.fillStyle = COLOR[c];
+      ctx.fillStyle = COLOR[c] + 'D9';
       for (const b of this.beats) {
         const [on, off] = intervals(b)[c];
         if (off < tLeft || on > tDisplay) continue;
         const x0 = gutter + (on - tLeft) * pxPerS;
         const x1 = gutter + (Math.min(off, tDisplay) - tLeft) * pxPerS;
         ctx.beginPath();
-        ctx.roundRect(x0, yMid - barH / 2, Math.max(x1 - x0, 3 * dpr), barH, 4 * dpr);
+        ctx.roundRect(x0, yMid - barH / 2, Math.max(x1 - x0, 3 * dpr), barH, barH / 2);
         ctx.fill();
       }
       ctx.restore();
     }
-    drawNowLine(ctx, xNow, 0, h, dpr, false);
   }
 }

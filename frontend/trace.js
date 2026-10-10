@@ -15,24 +15,6 @@ export function fitCanvas(canvas) {
   return { w, h, dpr };
 }
 
-export function drawNowLine(ctx, x, top, bottom, dpr, label) {
-  ctx.save();
-  ctx.setLineDash([3 * dpr, 5 * dpr]);
-  ctx.strokeStyle = 'rgba(232,236,243,0.6)';
-  ctx.lineWidth = 1.5 * dpr;
-  ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke();
-  ctx.restore();
-  if (label) {
-    ctx.save();
-    ctx.font = `${18 * dpr}px "IBM Plex Mono", monospace`;
-    ctx.fillStyle = '#8C97AB';
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'top';
-    ctx.fillText('NOW', x - 8 * dpr, top);
-    ctx.restore();
-  }
-}
-
 export class Trace {
   constructor(canvas) {
     this.canvas = canvas;
@@ -79,7 +61,7 @@ export class Trace {
 
     // grid
     ctx.save();
-    ctx.strokeStyle = 'rgba(140,151,171,0.14)';
+    ctx.strokeStyle = 'rgba(140,151,171,0.07)';
     ctx.lineWidth = 1 * dpr;
     const stepPx = pxPerS * 0.2;
     const phase = tDisplay === null ? 0 : ((tLeft % 0.2) + 0.2) % 0.2;
@@ -91,7 +73,6 @@ export class Trace {
     for (let y = baseline + stepPx; y <= h; y += stepPx) { ctx.beginPath(); ctx.moveTo(gutter, y); ctx.lineTo(w, y); ctx.stroke(); }
     ctx.restore();
 
-    drawNowLine(ctx, xNow, 0, h, dpr, true);
     if (tDisplay === null || this.ts.length === 0) return;
 
     // scale follows the recent peak, floor 200 uV
@@ -113,11 +94,11 @@ export class Trace {
     ctx.rect(gutter, 0, drawable, h);
     ctx.clip();
     ctx.strokeStyle = '#43E0A0';
-    ctx.lineWidth = 2.5 * dpr;
+    ctx.lineWidth = 2 * dpr;
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
     ctx.shadowColor = 'rgba(67,224,160,0.35)';
-    ctx.shadowBlur = 6 * dpr;
+    ctx.shadowBlur = 5 * dpr;
     ctx.beginPath();
     let pen = false;
     let prevT = null;
