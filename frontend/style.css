@@ -231,7 +231,7 @@ body.lost .bpm { opacity: 0.35; }
 .gemini-mark svg { width: 100%; height: 100%; fill: url(#gemini-fill); }
 .gemini-mark svg path { fill: var(--gemini-b); }
 .gemini-head .gemini-mark svg path { fill: var(--gemini-a); }
-.gemini-mark.small { width: clamp(14px, 1.9vh, 18px); height: clamp(14px, 1.9vh, 18px); margin-right: 10px; }
+.gemini-mark.small { width: clamp(13px, 1.7vh, 16px); height: clamp(13px, 1.7vh, 16px); margin-right: 8px; }
 .gemini-mark.small svg path { fill: #FFFFFF; }
 .gemini-title { flex: 0 0 auto; white-space: nowrap; font-family: var(--mono); font-size: clamp(16px, 2.3vh, 24px); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; background: var(--gemini); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .gemini-powered { margin-top: 2px; white-space: nowrap; font-family: var(--mono); font-size: clamp(10px, 1.4vh, 13px); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
@@ -246,7 +246,7 @@ body.lost .bpm { opacity: 0.35; }
 }
 .describe input::placeholder { color: var(--muted); }
 .describe input:focus-visible { outline: 0; box-shadow: inset 0 0 0 2px var(--gemini-b); }
-.describe button { display: inline-flex; align-items: center; padding: 0 clamp(18px, 1.6vw, 32px); border: 0; margin: 0; cursor: pointer; background: var(--gemini); color: #FFFFFF; font-family: var(--mono); font-size: clamp(13px, 1.8vh, 17px); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
+.describe button { display: inline-flex; align-items: center; flex: 0 0 auto; padding: 0 clamp(12px, 0.9vw, 18px); border: 0; margin: 0; cursor: pointer; background: var(--gemini); color: #FFFFFF; font-family: var(--mono); font-size: clamp(12px, 1.6vh, 15px); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
 .describe button[aria-disabled="true"] { opacity: 0.7; cursor: progress; }
 .describe-note { position: relative; z-index: 1; margin: 0; flex: 0 1 auto; min-height: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-family: var(--sans); font-size: clamp(12px, 1.7vh, 15px); line-height: 1.3; color: var(--ink-2); animation: gemini-in 0.35s ease-out; }
 /* the Gemini heart cell in the tray: the sparkle, the name in the gradient, a gradient frame that
