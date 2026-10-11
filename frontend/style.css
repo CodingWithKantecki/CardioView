@@ -84,6 +84,9 @@ body {
 .toggle button[aria-pressed="true"], .top .toggle button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
 .toggle button[aria-disabled="true"] { color: var(--muted); cursor: default; }   /* Exercise without the strap streaming */
 .toggle button:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(242, 242, 239, 0.35); }
+/* every cell lifts a touch under the pointer, like the dock's cells do (Thomas, 2026-10-10 evening: just slightly) */
+.toggle button, .gemini-back, .describe button, .export-menu button { transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.toggle button:hover, .gemini-back:hover, .describe button:hover, .export-menu button:hover { transform: scale(1.04); position: relative; z-index: 2; }
 
 /* screen: a ruled grid, stage on paper, instruments on a lifted white column */
 .screen { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 3fr 2fr; }
@@ -273,6 +276,8 @@ body.lost .bpm { opacity: 0.35; }
 }
 @media (prefers-reduced-motion: reduce) {
   .label { transition: none; }
+  .toggle button, .gemini-back, .describe button, .export-menu button { transition: none; }
+  .toggle button:hover, .gemini-back:hover, .describe button:hover, .export-menu button:hover { transform: none; }
   body.lost #heart-view { opacity: 1; filter: grayscale(1) sepia(1) saturate(6) hue-rotate(-64deg) contrast(1.35) brightness(0.66); }
   body.lost .glitch { display: none; }
 }
