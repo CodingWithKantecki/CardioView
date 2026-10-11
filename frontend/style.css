@@ -252,11 +252,14 @@ body.lost .bpm { opacity: 0.35; }
 .rhythm-tray button { position: relative; padding: 0 6px; text-align: center; white-space: normal; line-height: 1.15; font-size: clamp(13px, 0.95vw, 19px); letter-spacing: 0.06em; }   /* bigger (Thomas, 2026-10-10 evening); the badges and tips went the same evening */
 .instrument > canvas { flex: 1 1 auto; min-height: 0; width: 100%; display: block; margin-top: 10px; }
 .nowline { position: absolute; width: 0; border-left: 2px dashed var(--accent); pointer-events: none; z-index: 2; }
-/* liquid metal under the cells (metal.js): the mount's canvas is the tray's first child, behind everything else */
-.metal > canvas:not(#timeline-strip) { position: absolute; inset: 0; margin: 0; width: 100% !important; height: 100% !important; z-index: 0; pointer-events: none; }
-.metal > *:not(canvas), .metal > #timeline-strip { position: relative; z-index: 1; }
-.metal > #timeline-strip { contain: none; }
-.dock.metal .dock-item { background: transparent; }   /* the items' frames show the metal */
+/* the Gemini heart cell's liquid-metal frame (metal.js): the mount's canvas is the cell's first child,
+   a dark face sits 3 px inside it, the mark and the name above both; pressed, the gradient fills it */
+.metal > canvas { position: absolute; inset: 0; margin: 0; width: 100% !important; height: 100% !important; z-index: 0; pointer-events: none; }
+.metal > *:not(canvas) { position: relative; z-index: 1; }
+.rhythm-tray button.gemini-cell.metal { background: transparent; }
+.rhythm-tray button.gemini-cell.metal::before { display: none; }
+.rhythm-tray button.gemini-cell.metal::after { content: ""; position: absolute; inset: 3px; z-index: 0; background: var(--card); }
+.rhythm-tray button.gemini-cell.metal[aria-pressed="true"]::after { inset: 0; background: var(--gemini); }
 
 @media (max-width: 760px) {
   :root { --gutter: 16px; }

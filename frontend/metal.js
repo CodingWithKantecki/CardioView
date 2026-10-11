@@ -1,8 +1,8 @@
-// Liquid metal between the cells (Thomas, 2026-10-10 evening, from 21st.dev's Liquid Metal Button):
-// every tray's rules and frame are a Paper Shaders liquid-metal surface under its cells, one WebGL
-// mount per tray, so the chrome shows only through the gaps. It idles slowly, runs on hover and
-// flashes on a click; under prefers-reduced-motion it holds still. Without WebGL2 the trays keep
-// their plain rules. The Gemini frames keep their own gradient.
+// The Gemini heart cell's liquid-metal frame (Thomas, 2026-10-10 evening, from 21st.dev's Liquid
+// Metal Button, and then: only that one button): a Paper Shaders liquid-metal surface mounted behind
+// the cell, showing through a 3 px rim around its dark face. It idles slowly, runs on hover and
+// flashes on a click; under prefers-reduced-motion it holds still. Without WebGL2 the cell keeps
+// its gradient frame.
 import { ShaderMount } from './vendor/paper-shaders/shader-mount.js';
 import { liquidMetalFragmentShader, LiquidMetalShapes } from './vendor/paper-shaders/shaders/liquid-metal.js';
 
@@ -16,7 +16,7 @@ const UNIFORMS = {
   u_repetition: 4, u_softness: 0.5, u_shiftRed: 0.3, u_shiftBlue: 0.3,
   u_distortion: 0, u_contour: 0, u_angle: 45, u_shape: LiquidMetalShapes.none,
 };
-const TRAYS = ['#transport', '#source-mode', '#rhythm-tray', '#strap-tray', '#exercise .exercise-tray', '#export-menu', '#dock'];
+const TRAYS = ['.rhythm-tray button.gemini-cell'];
 
 export function initMetal() {
   const probe = document.createElement('canvas');
