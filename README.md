@@ -116,6 +116,44 @@ Headless screenshot of the running viewer (needs Node and Google Chrome): `cd to
 
 `python tools/fake_strap.py` runs a server on port 8002 whose strap is fake (the recording streamed like the H10), for checking the Strap / Demo switch without hardware.
 
+## Demo pattern classifier (experimental)
+
+A small model that names which of the demo's simulated patterns a 10 s stretch of ECG looks most like: Normal, Bradycardia, Atrial fibrillation, Extra beats, V-tach, Heart attack, or No match. It is trained only on simulated ECG, it is not in the viewer yet, and it is not a diagnosis.
+
+How it works: [HuBERT-ECG small](https://huggingface.co/Edoardo-Coppola/hubert-ecg-small), a transformer pretrained on 9.1 million clinical ECGs, turns each 5 s half of a window into features and stays frozen. Only a logistic regression head on top is trained. The strap's single lead fills all twelve lead slots the encoder expects.
+
+The training data comes from the demo's rhythm simulator (`backend/sources/rhythm.py`): its beat shapes, placed and varied at random. Every recording randomizes the heart rate, the ECG amplitude (R peaks of 240 to 1200 uV), baseline drift, noise, motion bumps and muscle noise, polarity (30% upside down) and beat timing (rate variability, breathing, how often extra beats come and how early). Normal covers 60 to 150 bpm, so squats stay Normal. Bradycardia is 36 to 56 bpm, V-tach 130 to 220 bpm with wide beats. Heart attack windows always show developed ST elevation. No match is pads off the skin (clipping), a flat line, motion swamping the ECG, or plain noise. Windows are 10 s long, one every 5 s.
+
+One seed makes one whole recording, and the splits never share a seed. So every test window comes from a recording the head never saw. A second test runs the demo's own rhythm source, and the strap recording in `data/` gets a check too.
+
+Setup, in its own venv (Python 3.10 or newer, tested on 3.13; Windows: `.venv-ml\Scripts\` instead of `.venv-ml/bin/`):
+
+```
+python3 -m venv .venv-ml
+.venv-ml/bin/pip install -r tools/requirements-ml.txt
+.venv-ml/bin/pip install --no-deps git+https://github.com/Edoar-do/HuBERT-ECG
+```
+
+Train (downloads the 120 MB encoder once, about 15 minutes on a laptop CPU, caches the features in `tools/rhythm_model/cache/`), then try it on any strap CSV, for example one made with `tools/h10_record.py`:
+
+```
+.venv-ml/bin/python -m tools.rhythm_model.train
+.venv-ml/bin/python -m tools.rhythm_model.classify data/h10_ecg_thomas.csv
+```
+
+Results (`docs/rhythm-model/results.json`; 700 training recordings, 4,896 training windows):
+
+![Confusion matrices: held-out seeds and the demo rhythm source](docs/rhythm-model/confusion.png)
+
+| Test set | Windows | Accuracy | Answered at 0.6 confidence | Accuracy when answered |
+|---|---|---|---|---|
+| Held-out seeds (350 recordings) | 2,449 | 98.0% | 98.5% | 98.9% |
+| Demo rhythm source (36 streams) | 378 | 100% | 99.2% | 100% |
+
+F1 on the held-out seeds: Normal 0.95, Bradycardia 1.00, Atrial fibrillation 0.95, Extra beats 0.97, V-tach 1.00, Heart attack 0.99, No match 1.00. The main mix-up is Normal read as Atrial fibrillation (6% of Normal windows), when noise hides the P waves and breathing bends the rate. Thomas's real strap recording reads as Normal in all 15 of its windows.
+
+Limits: the head has only seen Gaussian-sum beats from one simulator. Real rhythms vary far more, and a chest strap sees one lead. Take these numbers as "it recognizes our demo", nothing more.
+
 ## Credits
 
 - Three.js 0.186.0, MIT license, vendored in `frontend/vendor/three/`.
@@ -124,6 +162,7 @@ Headless screenshot of the running viewer (needs Node and Google Chrome): `cd to
 - NeuroKit2 for ECG cleaning, peak detection and delineation, MIT license.
 - bleak (MIT license) and bleakheart (Mozilla Public License 2.0) for the Polar H10 link.
 - Voice: the session prompts were generated with Kokoro 82M (https://huggingface.co/hexgrad/Kokoro-82M), Apache 2.0.
+- Demo pattern classifier: HuBERT-ECG (Coppola et al., https://github.com/Edoar-do/HuBERT-ECG), weights from https://huggingface.co/Edoardo-Coppola/hubert-ecg-small, CC BY-NC 4.0 (non-commercial). Downloaded at training time, not committed.
 - segno (BSD) for QR codes, psycopg (LGPL 3) for Neon.
 - Heart model: "Human Heart with Cross section" by devden on CGTrader, royalty-free license, purchased by Thomas Kantecki.
 - Fallback heart model: this work is based on "Realistic Human Heart" (https://sketchfab.com/3d-models/realistic-human-heart-3f8072336ce94d18b3d0d055a1ece089) by neshallads (https://sketchfab.com/neshallads) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/). Files in `frontend/assets/heart/` with the license text. The chambers are animated by a vertex shader; the model itself is unchanged.

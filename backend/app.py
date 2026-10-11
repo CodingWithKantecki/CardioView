@@ -25,6 +25,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from . import analysis, chat, describe
+from .pattern import PatternModel, PatternWatch
 from .pipeline import REFRACTORY_S, BeatDetector, SignalMonitor
 from .session import SessionError, SessionManager, SessionStore, utcnow
 from .sources.base import FS, PACKET, PACKET_S, PacedSource, Packet, Source, Status
@@ -92,6 +93,7 @@ class Hub:
                        "device": "", "fs": FS}
         self.signal = {"type": "signal", "source": source_kind, "ok": True, "reason": ""}
         self.session = {"type": "session", "state": "idle"}
+        self.on_samples: Callable[[Packet], None] | None = None   # the closest-pattern reader sees what is sent
 
     def reset(self, source_kind: str) -> None:
         """A new source is starting from zero: forget the old backlog and signal state."""
@@ -120,6 +122,11 @@ class Hub:
         while self.samples and self.samples[0]["t"] + len(self.samples[0]["uv"]) / FS < packet.t_end - BACKLOG_S:
             self.samples.popleft()
         self.broadcast(msg)
+        if self.on_samples is not None:
+            try:
+                self.on_samples(packet)
+            except Exception:
+                log.exception("pattern hook failed; the live view goes on")
 
     def push_beat(self, msg: dict) -> None:
         self.beats.append(msg)
@@ -168,10 +175,12 @@ class Runner:
     fresh stream clock, fresh detector and monitor, empty backlog."""
 
     def __init__(self, hub: Hub, factories: dict[str, Callable[..., Source]],
-                 on_packet: Callable[[Packet, list], None] | None = None):
+                 on_packet: Callable[[Packet, list], None] | None = None,
+                 on_switch: Callable[[float, str], None] | None = None):
         self.hub = hub
         self.factories = factories
         self.on_packet = on_packet           # saved sessions see every live packet and its beats
+        self.on_switch = on_switch           # (stream time, kind) each time a source starts
         self.name: str | None = None
         self.source: Source | None = None
         self.task: asyncio.Task | None = None
@@ -225,6 +234,11 @@ class Runner:
             source.on_status(lambda st, src=source: self.hub.set_status(st) if src is self.source else None)
             self.hub.set_status(source.status)
             self.hub.broadcast(self.hub.signal)
+            if self.on_switch is not None:
+                try:
+                    self.on_switch(self._index / FS, source.kind)
+                except Exception:
+                    log.exception("pattern switch hook failed; the live view goes on")
             self.task = asyncio.create_task(self._pump(source, detector, monitor, takeover), name=f"pump-{name}")
             log.info("source: %s %s%s", name, kwargs or "", " (takeover)" if takeover else "")
 
@@ -302,9 +316,13 @@ class Viewer:
     session. The server keeps no shared heart: every tab is its own world (Thomas, 2026-10-10)."""
 
     def __init__(self, cid: str, factories: dict[str, Callable[..., Source]], initial: str, *, store: SessionStore,
-                 base: str, keep_until: datetime | None, cloud, invert: bool = False):
+                 base: str, keep_until: datetime | None, cloud, invert: bool = False,
+                 pattern: PatternModel | None = None):
         self.cid = cid
         self.hub = Hub("simulated")
+        self.pattern = PatternWatch(pattern, self.hub.broadcast) if pattern is not None else None
+        if self.pattern is not None:
+            self.hub.on_samples = self.pattern.feed
         self.strap = RemoteHub()
         own = dict(factories)
         if "live" not in own:   # the browser's strap; tests may hand in a live source of their own
@@ -315,7 +333,8 @@ class Viewer:
             publish=cloud.publish if cloud else None, unpublish=cloud.unpublish if cloud else None,
             keep_until=keep_until,
         )
-        self.runner = Runner(self.hub, own, on_packet=self.sessions.on_packet)
+        self.runner = Runner(self.hub, own, on_packet=self.sessions.on_packet,
+                             on_switch=self.pattern.reset if self.pattern is not None else None)
         self.initial = initial
 
     async def start(self) -> None:
@@ -326,18 +345,21 @@ class Viewer:
             with suppress(Exception):
                 await self.sessions.cancel()   # the tab left mid-session: nothing half done is kept
         await self.runner.stop()
+        if self.pattern is not None:
+            self.pattern.close()
 
 
 def create_app(factories: dict[str, Callable[[], Source]], initial: str, http: httpx.AsyncClient | None = None, *,
                sessions_dir: Path | None = None, keep_until: datetime | None = None, public_host: str | None = None,
                port: int = 8000, cloud=None, strap_only: bool = True, base_url: str | None = None,
-               invert: bool = False) -> FastAPI:
+               invert: bool = False, pattern: PatternModel | None = None) -> FastAPI:
     """`factories` maps demo and rhythm (and, for tests, live) to functions that build a source; each
     viewer gets its own instances, and its live source is its own strap unless live is given. `http`
     is the client the chat uses to reach Gemini; tests pass one with a mock transport. `cloud` is an
     object with publish, unpublish and run(manager), or None to keep saved sessions on the laptop.
     With `strap_only` a session starts only while that viewer's strap streams (Thomas: never on demo
-    data). `base_url` is the public address links are built on (https://host)."""
+    data). `base_url` is the public address links are built on (https://host). `pattern` is the shared
+    closest-demo-pattern classifier (backend/pattern.py), loaded in the background at startup, or None."""
     store = SessionStore(sessions_dir or SESSIONS)
     host = public_host or lan_address()
     base = (base_url or f"http://{host}:{port}").rstrip("/")
@@ -362,6 +384,8 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, http: h
         tasks = [asyncio.create_task(ticker(), name="ticker")]
         if cloud is not None:
             tasks.append(asyncio.create_task(cloud.run(admin), name="cloud"))
+        if pattern is not None and pattern.state == "off":
+            tasks.append(asyncio.create_task(pattern.load(), name="pattern"))
         try:
             yield
         finally:
@@ -372,6 +396,8 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, http: h
                     await task
             for v in list(viewers.values()):
                 await v.close()
+            if pattern is not None:
+                pattern.close()
             await app.state.http.aclose()
 
     app = FastAPI(title="CardioView", lifespan=lifespan)
@@ -424,7 +450,8 @@ def create_app(factories: dict[str, Callable[[], Source]], initial: str, http: h
         choices, the browser strap's status and samples, and session actions."""
         await websocket.accept()
         cid = secrets.token_urlsafe(9)
-        viewer = Viewer(cid, factories, initial, store=store, base=base, keep_until=keep_until, cloud=cloud, invert=invert)
+        viewer = Viewer(cid, factories, initial, store=store, base=base, keep_until=keep_until, cloud=cloud, invert=invert,
+                        pattern=pattern)
         viewers[cid] = viewer
         hub, runner, sessions = viewer.hub, viewer.runner, viewer.sessions
         q = hub.subscribe()

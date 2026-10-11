@@ -1,0 +1,276 @@
+{
+  "version": 1,
+  "encoder": "Edoardo-Coppola/hubert-ecg-small (frozen)",
+  "head": "logistic regression on layers [2, 4, 6, 8], C=0.03",
+  "threshold": 0.6,
+  "window_s": 10.0,
+  "hop_s": 5.0,
+  "recordings": {
+    "train": 700,
+    "val": 175,
+    "test": 350,
+    "demo": 36
+  },
+  "windows": {
+    "train": 4896,
+    "val": 1224,
+    "test": 2449,
+    "demo": 378
+  },
+  "val_accuracy": 0.9869281045751634,
+  "test": {
+    "windows": 2449,
+    "accuracy": 0.9799918334013883,
+    "answered": 0.9848917925683952,
+    "accuracy_answered": 0.9888059701492538,
+    "labels": [
+      "sinus",
+      "brady",
+      "afib",
+      "pvc",
+      "vt",
+      "mi",
+      "none"
+    ],
+    "confusion": [
+      [
+        328,
+        0,
+        20,
+        2,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        350,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        7,
+        2,
+        340,
+        0,
+        0,
+        1,
+        0
+      ],
+      [
+        7,
+        0,
+        6,
+        334,
+        0,
+        2,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        350,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        1,
+        0,
+        349,
+        0
+      ],
+      [
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        349
+      ]
+    ],
+    "per_class": {
+      "Normal": {
+        "precision": 0.9590643274853801,
+        "recall": 0.9371428571428572,
+        "f1-score": 0.9479768786127167,
+        "support": 350.0
+      },
+      "Brady": {
+        "precision": 0.9915014164305949,
+        "recall": 1.0,
+        "f1-score": 0.9957325746799431,
+        "support": 350.0
+      },
+      "AFib": {
+        "precision": 0.9289617486338798,
+        "recall": 0.9714285714285714,
+        "f1-score": 0.9497206703910615,
+        "support": 350.0
+      },
+      "Extra beats": {
+        "precision": 0.9910979228486647,
+        "recall": 0.9570200573065902,
+        "f1-score": 0.9737609329446064,
+        "support": 349.0
+      },
+      "V-tach": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 350.0
+      },
+      "Heart attack": {
+        "precision": 0.9914772727272727,
+        "recall": 0.9971428571428571,
+        "f1-score": 0.9943019943019943,
+        "support": 350.0
+      },
+      "No match": {
+        "precision": 1.0,
+        "recall": 0.9971428571428571,
+        "f1-score": 0.9985693848354793,
+        "support": 350.0
+      },
+      "macro avg": {
+        "precision": 0.9803003840179703,
+        "recall": 0.9799824571662477,
+        "f1-score": 0.9800089193951145,
+        "support": 2449.0
+      },
+      "weighted avg": {
+        "precision": 0.9802959750596891,
+        "recall": 0.9799918334013883,
+        "f1-score": 0.9800114706349881,
+        "support": 2449.0
+      }
+    }
+  },
+  "demo": {
+    "windows": 378,
+    "accuracy": 1.0,
+    "answered": 0.9920634920634921,
+    "accuracy_answered": 1.0,
+    "labels": [
+      "sinus",
+      "brady",
+      "afib",
+      "pvc",
+      "vt",
+      "mi"
+    ],
+    "confusion": [
+      [
+        66,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        66,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        66,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        66,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        66,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        48
+      ]
+    ],
+    "per_class": {
+      "Normal": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 66.0
+      },
+      "Brady": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 66.0
+      },
+      "AFib": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 66.0
+      },
+      "Extra beats": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 66.0
+      },
+      "V-tach": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 66.0
+      },
+      "Heart attack": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 48.0
+      },
+      "macro avg": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 378.0
+      },
+      "weighted avg": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 378.0
+      }
+    }
+  },
+  "strap": {
+    "h10_ecg_thomas.csv": {
+      "sinus": 15
+    }
+  }
+}

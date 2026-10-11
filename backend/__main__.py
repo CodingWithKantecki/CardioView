@@ -12,6 +12,7 @@ import uvicorn
 from .app import create_app
 from .cloud import Cloud
 from .env import load_dotenv
+from .pattern import PatternModel
 from .sources.base import PREROLL_S, Source
 from .sources.replay import ReplaySource
 from .sources.rhythm import RhythmSource
@@ -47,6 +48,7 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("--keep-until", help="when saved sessions expire, e.g. 2026-10-11T12:00 (default: 24 hours from now)")
     ap.add_argument("--public-host", help="the address phones use for the LAN link (default: this machine's)")
+    ap.add_argument("--no-pattern", action="store_true", help="never load the closest-demo-pattern classifier (it needs tools/requirements-ml.txt)")
     args = ap.parse_args(argv)
     load_dotenv()   # the chat key and the cloud settings, from .env in the repo root, never in git
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -56,7 +58,8 @@ def main(argv: list[str] | None = None) -> None:
 
     factories = {"demo": demo_factory(args.source, args.bpm, args.invert), "rhythm": rhythm}   # the strap is each viewer's own
     app = create_app(factories, "demo", keep_until=parse_keep_until(args.keep_until), public_host=args.public_host,
-                     port=args.port, cloud=cloud, base_url=os.environ.get("CARDIOVIEW_BASE_URL") or None, invert=args.invert)
+                     port=args.port, cloud=cloud, base_url=os.environ.get("CARDIOVIEW_BASE_URL") or None, invert=args.invert,
+                     pattern=None if args.no_pattern else PatternModel())
     print(f"CardioView: demo {args.source or 'first recording'}; each viewer connects their own strap. Open http://localhost:{args.port}", flush=True)
     if cloud is not None:
         print(f"Saved sessions publish to {cloud.public_url}", flush=True)

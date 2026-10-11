@@ -9,5 +9,7 @@ data/*_raw.csv
 .env
 sessions/
 .venv-voice/
+.venv-ml/
+tools/rhythm_model/cache/
 cloud/static/
 cloud/.vercel/

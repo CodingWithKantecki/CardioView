@@ -1,0 +1,8 @@
+# The demo-pattern classifier's extras, on top of requirements.txt in the same venv:
+#   pip install -r requirements.txt -r tools/requirements-ml.txt
+#   pip install --no-deps git+https://github.com/Edoar-do/HuBERT-ECG
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.14.1
+transformers==5.19.0
+safetensors
+huggingface_hub

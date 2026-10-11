@@ -10,6 +10,7 @@ import { drawRhythmTips } from './tips.js';
 import { Strap, FakeStrap, supported as strapSupported } from './strap.js';
 import { initChat } from './chat.js';
 import { SessionOverlay } from './session.js';
+import { PatternLabel } from './pattern.js';
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -35,6 +36,7 @@ const trace = new Trace(els.trace);
 const lanes = new Chambers(els.lanes);
 trace.beats = lanes.beats;   // one shared list of recent beats
 const timeline = new Timeline(els.strip, trace, lanes, clock);
+const pattern = new PatternLabel($('pattern'));
 
 const labels = {};
 const sparks = {};
@@ -243,6 +245,8 @@ function handle(msg) {
     session.result(msg);
   } else if (msg.type === 'beat') {
     lanes.push(msg);
+  } else if (msg.type === 'pattern') {
+    pattern.push(msg);
   } else if (msg.type === 'session') {
     session.handle(msg);
     if (msg.state === 'running' || msg.state === 'analyzing') report.close();
@@ -319,6 +323,7 @@ function drawFrame() {
   logLost();
   trace.draw(t);
   lanes.draw(t);
+  pattern.draw(t);
   for (const c in sparks) if (!labels[c].hidden) lanes.drawSpark(sparks[c], c, t);
   if (lost) {
     heart.setActivation({ ra: 0, la: 0, rv: 0, lv: 0 });

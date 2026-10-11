@@ -49,7 +49,8 @@ backend/    app.py (FastAPI, /ws, /api/chat, session routes, static files), pipe
 frontend/   index.html, main.js, clock.js, chambers.js, heart.js, trace.js, chat.js, style.css, session.js/.css (stage overlay),
             summary.html/.js/.css (summary page), vendor/, assets/ (heart model + heart.json)
 tools/      h10_record.py (strap to CSV, no server), trim_csv.py, screenshot.mjs (headless check),
-            sessions.py (list, delete, wipe, cloud-init, deploy), make_voice.py (voice clips, own venv)
+            sessions.py (list, delete, wipe, cloud-init, deploy), make_voice.py (voice clips, own venv),
+            rhythm_model/ (demo-pattern classifier: data.py, encoder.py, train.py, classify.py, own venv)
 cloud/      public summary pages on Vercel (app.py reads Neon), deployed with tools/sessions.py deploy
 data/       ECG fixtures: CSV with header time_s,ecg_uv at 130 Hz, in microvolts
 sessions/   saved visitor sessions, never committed (see Saved sessions)
@@ -156,6 +157,10 @@ Spec: `docs/superpowers/specs/2026-10-10-visitor-sessions-design.md`. Opt-in per
 - Cloud is optional: with `NEON_DATABASE_URL` and `CARDIOVIEW_PUBLIC_URL` in `.env`, the anonymous summary (never the ECG) goes to Neon and the QR opens the Vercel page in `cloud/`. Offline or without them, the QR is the LAN link; a sync loop retries every 30 s and applies deletes made on phones. `cloud/vercel.json` pins the FastAPI preset: a project made with `vercel project add` starts as Other and deploys `cloud/` as plain files with no app.
 - `python tools/sessions.py wipe` after the event deletes every local session and every Neon row; `list` and `delete <id>` are there for the operator.
 
+## Demo pattern classifier
+
+Experimental, offline, not in the viewer. `tools/rhythm_model/` names the closest of the demo's patterns (sinus, brady, afib, pvc, vt, mi) or `none` for a 10 s window (hop 5 s): HuBERT-ECG small (`Edoardo-Coppola/hubert-ecg-small`, CC BY-NC 4.0, downloaded, never committed) stays frozen, and a logistic regression head (`head.npz`) is trained on layers 2, 4, 6 and 8, mean and spread over time, averaged over the two 5 s halves. Input per half: band-pass 0.5 to 47 Hz, 130 to 100 Hz, min-max to -1..1, the one lead copied into all 12 slots (6000 values). The model lives in `.venv-ml` (`tools/requirements-ml.txt` plus `pip install --no-deps` of github.com/Edoar-do/HuBERT-ECG; transformers 5 ignores `output_hidden_states` there, so encoder.py taps the layers with hooks). `data.py` is numpy and scipy only, tested in the main venv: the simulator's beat shapes with the rate, amplitude, drift, noise, polarity and timing randomized per seed; Normal is 60 to 150 bpm so squats stay Normal; mi windows only once the ST elevation has developed; pvc windows only with an extra beat inside. Splits are by seed (`SEED_BASE`), plus the demo's own `RhythmSource` and `data/h10_ecg_*.csv` as checks. Results and the confusion matrix are in `docs/rhythm-model/` and the README (98.0% on held-out seeds, 100% on the demo source, Thomas's recording all Normal). Bump `VERSION` in data.py when the generator or `prepare()` changes. Showing it next to strap data would break the rule above that no rhythm name appears for a live signal. That is Thomas's call, and if he allows it, the wording is "Closest demo pattern", experimental, not a diagnosis, with "unsure" below 0.6.
+
 ## Milestones
 
 - M0. `tools/h10_record.py`: connect, print battery and sample counts, save a CSV. Give it to Thomas first. His recording proves the strap path and becomes the main fixture. Record at least 90 s and trim the settling lead-in.
@@ -166,7 +171,7 @@ Spec: `docs/superpowers/specs/2026-10-10-visitor-sessions-design.md`. Opt-in per
 
 ## Tests
 
-`pytest` covers: bpm within 2 of a simulated rate, every beat emitted once, every beat emitted within 0.9 s of stream time after its R peak, a stream time jump restamps beats, sources paced like the strap, `sources/h10.py` against the fake client (decode, battery, invert, reconnect), and every `data/h10_ecg_*.csv` replayed without gaps over 2 s. Sessions: the analysis against synthetic sessions with known answers and bad input, the step machine by samples (pause, drop, cancel, consent), the routes end to end (including that source and rhythm switches wait and that a failing session hook never stops the pump), the Neon sync and the public app with fake databases, and the sessions command.
+`pytest` covers: bpm within 2 of a simulated rate, every beat emitted once, every beat emitted within 0.9 s of stream time after its R peak, a stream time jump restamps beats, sources paced like the strap, `sources/h10.py` against the fake client (decode, battery, invert, reconnect), and every `data/h10_ecg_*.csv` replayed without gaps over 2 s. Sessions: the analysis against synthetic sessions with known answers and bad input, the step machine by samples (pause, drop, cancel, consent), the routes end to end (including that source and rhythm switches wait and that a failing session hook never stops the pump), the Neon sync and the public app with fake databases, and the sessions command. The classifier's window generator: disjoint seed splits, rates and timing per class, extra-beat and heart-attack window rules, the demo source match, and `prepare()`.
 
 ## Conventions
 
