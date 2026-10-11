@@ -21,6 +21,8 @@ const PAPER = { bg: '#FFF8F5', minor: '#F3C9C5', major: '#E29C96', ink: '#14171C
 const MM_PER_S = 25;      // the standard paper speed
 const MM_PER_MV = 10;     // the standard gain
 const ROW_MM = 26;        // a row is 26 mm tall: plus 1.6 mV above the baseline, minus 1 mV below
+const MIN_ROW_MM = 22;    // on screen the rows share the box's height: never squatter than this, never taller than MAX_ROW_MM
+const MAX_ROW_MM = 48;
 const BASE_FRAC = 0.62;   // the baseline sits below the middle: R peaks go up
 const LEAD_S = 0.5;       // the lead-in at the left of every row holds the 1 mV calibration pulse
 const HIGHPASS_HZ = 0.5;  // the live trace's one-pole high-pass, so the baseline sits still
@@ -180,12 +182,24 @@ function highpass(uv, fs) {
   return out;
 }
 
-// seconds a row holds: the printed strip is 10 s at the true paper speed; the screen fits the
-// stretch in rows of 20 s (30 s for long stretches), a phone takes 5 s
-function rowSeconds(total) {
-  if (printMode) return 10;
-  if (document.body.clientWidth < 760) return 5;
-  return total > 150 ? 30 : 20;
+// seconds a row holds, and how tall each row is. The printed strip is 10 s at the true paper speed
+// and 30 mm a row. On screen the rows fill the box: the shortest row length whose rows fit the
+// box at MIN_ROW_MM each, the rows then sharing the height (Thomas, 2026-10-10 evening: the
+// report left most of the screen empty). A phone takes 5 or 10 s a row and scrolls.
+function rowPlan(total, width, height) {
+  if (printMode) return { rowS: 10, rowPx: null };
+  const phone = document.body.clientWidth < 760;
+  const choices = phone ? [5, 10] : [5, 10, 15, 20, 30, 60];
+  for (const rowS of choices) {
+    const rows = Math.ceil(total / rowS);
+    const pxPerMm = width / (rowS + LEAD_S) / MM_PER_S;
+    if (phone) return { rowS, rowPx: Math.round(ROW_MM * pxPerMm) };
+    if (rows * MIN_ROW_MM * pxPerMm <= height) {
+      return { rowS, rowPx: Math.round(Math.min(height / rows, MAX_ROW_MM * pxPerMm)) };
+    }
+  }
+  const rowS = choices[choices.length - 1];
+  return { rowS, rowPx: Math.round(MIN_ROW_MM * width / (rowS + LEAD_S) / MM_PER_S) };
 }
 
 // the rhythm strips: one canvas a row, the grid, the calibration pulse, the trace, the time and
@@ -198,19 +212,16 @@ function strips(s) {
   const fs = ecg.fs;
   const total = ecg.uv.length / fs;
   const y = highpass(ecg.uv, fs);
-  const rowS = rowSeconds(total);
-  const rows = Math.ceil(total / rowS);
   const bpm = s.hr_chart?.bpm || [];
   const steps = (s.steps || []).filter((st) => STEP_NAME[st.name]);
   $('strips-sub').textContent = `${clock(Math.round(total))} at ${MM_PER_S} mm/s, ${MM_PER_MV} mm/mV, ${fs} Hz`;
-  const width = host.getBoundingClientRect().width;
+  const box = host.getBoundingClientRect();
+  const { rowS, rowPx } = rowPlan(total, box.width, box.height);
+  const rows = Math.ceil(total / rowS);
   for (let r = 0; r < rows; r++) {
     const c = document.createElement('canvas');
     c.className = 'strip';
-    if (!printMode) {   // on screen the row's height follows its width, so a millimetre is the same both ways
-      const pxPerMm = width / (rowS + LEAD_S) / MM_PER_S;
-      c.style.height = `${Math.round(ROW_MM * pxPerMm)}px`;
-    }
+    if (rowPx) c.style.height = `${rowPx}px`;
     host.appendChild(c);
     stripRow(c, r, rowS, y, fs, bpm, steps, total);
   }
