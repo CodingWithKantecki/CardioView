@@ -7,25 +7,26 @@
 @font-face { font-family: "JetBrains Mono"; font-weight: 700; font-style: normal; font-display: swap; src: url(vendor/fonts/jetbrains-mono-latin-700-normal.woff2) format("woff2"); }
 
 :root {
-  /* medical dark: clinical monitor surfaces and signal colors, Statura's Swiss structure */
-  --bg-0: #0A1115; --bg-1: #0F1A1F; --bg-2: #142329;
-  --fg-0: #E8F1F2; --fg-1: #B9C9CC; --fg-2: #7F969B;
-  --teal: #2BD4BD; --teal-deep: #06211E;
+  /* ink and signal (Thomas, 2026-10-10 evening): the interface is neutral, color lives only in data (the
+     trace, the chambers, the alert, Gemini's panel); the active state is white like a key on an instrument */
+  --bg-0: #0A0A0C; --bg-1: #121214; --bg-2: #1A1A1D;
+  --fg-0: #F2F2EF; --fg-1: #C9C9C4; --fg-2: #8C8C88;
+  --teal: #2BD4BD; --teal-deep: #06211E;   /* kept for the record; the accent is the ink now */
   --green: #37E07E; --cyan: #4FC3F7; --coral: #FF6B6B; --red: #FF5252;
 
   --paper: var(--bg-0);             /* the stage */
   --card: var(--bg-1);              /* the instrument column */
-  --header: #0E1A1F;
+  --header: #0E0E10;
   --ink: var(--fg-0);
   --ink-2: var(--fg-1);
   --muted: var(--fg-2);
-  --line: rgba(232, 241, 242, 0.14);
-  --line-2: rgba(232, 241, 242, 0.28);
-  --line-strong: rgba(232, 241, 242, 0.45);
-  --tray: rgba(232, 241, 242, 0.08);
-  --rule-solid: #4A5A61;   /* the rule color with nothing showing through, for frames over the stage */
-  --accent: var(--teal);
-  --on-accent: var(--teal-deep);
+  --line: rgba(242, 242, 239, 0.14);
+  --line-2: rgba(242, 242, 239, 0.28);
+  --line-strong: rgba(242, 242, 239, 0.45);
+  --tray: rgba(242, 242, 239, 0.08);
+  --rule-solid: #4A4A4E;   /* the rule color with nothing showing through, for frames over the stage */
+  --accent: var(--fg-0);
+  --on-accent: var(--bg-0);
   --alert: var(--red);
 
   --sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
@@ -36,8 +37,8 @@
   --numeral: clamp(56px, 9.5vh, 112px);   /* the heart-rate numeral; the column beside it is sized for three digits */
 
   /* canvas and scene colors (six-digit hex only; the scripts derive their alphas) */
-  --c-stage: #0A1115; --c-paper: #0F1A1F; --c-ink: #E8F1F2; --c-trace: #37E07E; --c-grid: #8FB8B8; --c-rule: #E8F1F2;
-  --c-dim: #7F969B; --c-alert: #FF5252; --c-now: #2BD4BD;
+  --c-stage: #0A0A0C; --c-paper: #121214; --c-ink: #F2F2EF; --c-trace: #37E07E; --c-grid: #9A9A96; --c-rule: #F2F2EF;
+  --c-dim: #8C8C88; --c-alert: #FF5252; --c-now: #F2F2EF;
   /* one color per chamber, plainly different (Thomas, 2026-10-10: blues and corals were too alike): blue, green, red, yellow */
   --c-ra: #4D8BFF; --c-rv: #7FE24B; --c-la: #FF4F4F; --c-lv: #FFC93C;
 }
@@ -81,7 +82,7 @@ body {
 .top .toggle button:hover { color: var(--fg-0); }
 .toggle button[aria-pressed="true"], .top .toggle button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
 .toggle button[aria-disabled="true"] { color: var(--muted); cursor: default; }   /* Exercise without the strap streaming */
-.toggle button:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(43, 212, 189, 0.4); }
+.toggle button:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(242, 242, 239, 0.35); }
 
 /* screen: a ruled grid, stage on paper, instruments on a lifted white column */
 .screen { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 3fr 2fr; }
@@ -128,7 +129,7 @@ body.lost .bpm { opacity: 0.35; }
 .dock button { width: 48px; height: 48px; border: 0; margin: 0; padding: 0; background: var(--card); color: var(--ink-2); cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .dock button:hover { color: var(--ink); }
 .dock button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
-.dock button:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(43, 212, 189, 0.4); }
+.dock button:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(242, 242, 239, 0.35); }
 .dock button svg { width: 46%; height: 46%; display: block; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: square; stroke-linejoin: miter; }
 .dock button::after { content: attr(data-label); position: absolute; left: 50%; bottom: calc(100% + 12px); transform: translateX(-50%); padding: 6px 10px; background: var(--card); border: 2px solid var(--line-2); font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; line-height: 1; color: var(--ink); white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.12s; }
 .dock-item:hover button::after, .dock button:focus-visible::after { opacity: 1; }
@@ -142,7 +143,7 @@ body.lost .bpm { opacity: 0.35; }
 .opacity-pop input::-moz-range-track { height: 2px; background: var(--line-2); }
 .opacity-pop input::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; margin-top: -6px; background: var(--accent); border: 0; }
 .opacity-pop input::-moz-range-thumb { width: 14px; height: 14px; background: var(--accent); border: 0; border-radius: 0; }
-.opacity-pop input:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(43, 212, 189, 0.4); }
+.opacity-pop input:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(242, 242, 239, 0.35); }
 
 .dock button[disabled] { opacity: 0.45; cursor: default; }   /* Rotate under reduced motion */
 
@@ -182,7 +183,7 @@ body.lost .bpm { opacity: 0.35; }
 .chat-form input:focus { outline: 0; border-bottom-color: var(--accent); }
 .chat-form button { background: var(--accent); color: var(--on-accent); border: 0; margin: 0; padding: 6px 14px; cursor: pointer; font-family: var(--mono); font-size: 11.5px; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; }
 .chat-form button:disabled, .chat-form input:disabled { opacity: 0.6; cursor: default; }
-.chat-form button:focus-visible, .chat-box header button:focus-visible, .chat-toggle button:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(43, 212, 189, 0.4); }
+.chat-form button:focus-visible, .chat-box header button:focus-visible, .chat-toggle button:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(242, 242, 239, 0.35); }
 .chat-note { margin: 0; padding: 0 14px 10px; font-size: 11px; color: var(--muted); }
 .chat-toggle button[aria-expanded="true"] { background: var(--accent); color: var(--on-accent); }
 

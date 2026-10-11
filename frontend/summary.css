@@ -8,16 +8,16 @@
 @font-face { font-family: "JetBrains Mono"; font-weight: 700; font-style: normal; font-display: swap; src: url(/vendor/fonts/jetbrains-mono-latin-700-normal.woff2) format("woff2"); }
 
 :root {
-  --paper: #0A1115; --card: #0F1A1F; --header: #0E1A1F; --on-header: #E8F1F2; --on-header-2: #B9C9CC;
-  --ink: #E8F1F2; --ink-2: #B9C9CC; --muted: #7F969B;
-  --line: rgba(232, 241, 242, 0.14); --line-2: rgba(232, 241, 242, 0.28); --line-strong: rgba(232, 241, 242, 0.45);
+  --paper: #0A0A0C; --card: #121214; --header: #0E0E10; --on-header: #F2F2EF; --on-header-2: #C9C9C4;
+  --ink: #F2F2EF; --ink-2: #C9C9C4; --muted: #8C8C88;
+  --line: rgba(242, 242, 239, 0.14); --line-2: rgba(242, 242, 239, 0.28); --line-strong: rgba(242, 242, 239, 0.45);
   --sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
   --gutter: 16px;
   --rule-w: 4px;
   --cell-w: 3px;
   /* chart colors (six-digit hex, read by summary.js) */
-  --c-ink: #E8F1F2; --c-dim: #7F969B; --c-rule: #E8F1F2; --c-trace: #37E07E;
+  --c-ink: #F2F2EF; --c-dim: #8C8C88; --c-rule: #F2F2EF; --c-trace: #37E07E;
 }
 /* the printed document: white paper, dark ink */
 body.print {
@@ -69,7 +69,7 @@ h2 .sub { margin-left: 12px; font-weight: 600; color: var(--muted); letter-spaci
 .foot p { margin: 0 0 16px; }
 .back { margin-left: auto; padding: 8px 14px; background: var(--card); color: var(--on-header); border: 2px solid var(--line-2); cursor: pointer; font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
 .back:hover { border-color: var(--line-strong); }
-.back:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(43, 212, 189, 0.4); }
+.back:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(242, 242, 239, 0.35); }
 #delete {
   font-family: var(--mono); font-size: 14px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--ink); background: var(--card); cursor: pointer;
