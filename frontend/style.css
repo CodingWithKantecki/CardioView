@@ -62,7 +62,7 @@ body {
 .timeline button { display: flex; align-items: center; justify-content: center; padding: 12px 15px; }
 .timeline svg { width: 12px; height: 12px; display: block; fill: currentColor; }
 /* the status line (strap id, whose recording, which simulated rhythm) lives in the heart rate box, above the tray */
-.status-line { grid-column: 2; grid-row: 1; align-self: baseline; text-align: center; font-family: var(--mono); font-size: clamp(15px, 2.1vh, 20px); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.status-line { grid-column: 2; grid-row: 1; align-self: baseline; text-align: center; font-family: var(--mono); font-size: clamp(14px, 1.9vh, 18px); line-height: 1.2; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }   /* a long name wraps to a second line instead of trailing off (Thomas, 2026-10-10 evening) */
 .status-line.id { font-weight: 600; text-transform: none; }   /* the strap id is data, shown as the strap names itself */
 .status-line:empty { display: none; }
 .instrument.rate.gemini-open .status-line { display: none; }   /* the Gemini panel speaks for itself (Thomas, 2026-10-10 evening) */
