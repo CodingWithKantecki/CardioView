@@ -44,7 +44,7 @@ Options: `--bpm 72` sets the simulated rate, `--invert` flips a strap worn upsid
 
 ### Chat (optional, the only part that needs internet)
 
-The Ask button at the top right of the stage opens a small chat that answers questions about what is on screen (heart rate, ECG, chamber timing, signal, source) through Google's Gemini API. To turn it on, create a file named `.env` in the repo root (next to this README, on any OS) with one line:
+Gemini heart (and `POST /api/chat`, a question-answering route the page no longer shows) run through Google's Gemini API. To turn them on, create a file named `.env` in the repo root (next to this README, on any OS) with one line:
 
 ```
 GEMINI_API_KEY=your-key-here

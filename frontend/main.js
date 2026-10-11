@@ -7,7 +7,6 @@ import { Glitch } from './glitch.js';
 import { Timeline } from './timeline.js';
 import { Dock } from './dock.js';
 import { Strap, FakeStrap, supported as strapSupported } from './strap.js';
-import { initChat } from './chat.js';
 import { SessionOverlay } from './session.js';
 
 const $ = (id) => document.getElementById(id);
@@ -66,7 +65,7 @@ function choose(msg) { lastChoice = msg; return sendWs(msg); }
 function strapStatus() {
   return { type: 'status', state: strap.state === 'streaming' ? 'streaming' : 'connecting', device: strap.state === 'off' ? '' : strap.name };
 }
-let cid = null;   // this viewer's id from the server's hello; the chat sends it with a question
+let cid = null;   // this viewer's id from the server's hello; Gemini heart sends it with a description
 
 // The visitor's own Polar H10, through Web Bluetooth, sent down this socket as the live source.
 // ?fake=1 plays the recording as if it were a strap, for checks on a machine without a radio.
@@ -437,7 +436,6 @@ describeUi.el.addEventListener('submit', async (e) => {
   describeUi.busy(false);
 });
 
-initChat();
 
 const opacity = $('opacity');
 opacity.addEventListener('input', () => heart.setOpacity(Number(opacity.value) / 100));
