@@ -122,6 +122,7 @@ Headless screenshot of the running viewer (needs Node and Google Chrome): `cd to
 - Three.js 0.186.0, MIT license, vendored in `frontend/vendor/three/`.
 - IBM Plex fonts 5.3.0 via Fontsource, SIL Open Font License 1.1, vendored in `frontend/vendor/fonts/`.
 - JetBrains Mono 5.2.6 via Fontsource (weights 400, 600, 700), SIL Open Font License 1.1, vendored in `frontend/vendor/fonts/` with its license file.
+- The Gemini spark and wordmark in `frontend/assets/gemini-mark.svg` and `gemini-wordmark.svg` come from LobeHub's icon set (MIT). Gemini is a trademark of Google LLC; the marks say that Gemini heart and the chat run on the Gemini API.
 - NeuroKit2 for ECG cleaning, peak detection and delineation, MIT license.
 - bleak (MIT license) and bleakheart (Mozilla Public License 2.0) for the Polar H10 link.
 - Voice: the session prompts were generated with Kokoro 82M (https://huggingface.co/hexgrad/Kokoro-82M), Apache 2.0.

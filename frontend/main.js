@@ -417,7 +417,7 @@ const describeUi = {
     n.appendChild(t);
   },
 };
-const SPARKLE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0C12 6.6 17.4 12 24 12C17.4 12 12 17.4 12 24C12 17.4 6.6 12 0 12C6.6 12 12 6.6 12 0Z"/></svg>';
+const SPARKLE = '<img src="assets/gemini-mark.svg" alt="">';   // the Gemini mark (frontend/assets/gemini-mark.svg)
 $('gemini-back').addEventListener('click', () => { describeUi.panel.hidden = true; describeUi.tray.hidden = false; describeUi.rate.classList.remove('gemini-open'); });   // the rhythm playing stays
 describeUi.el.addEventListener('submit', async (e) => {
   e.preventDefault();
