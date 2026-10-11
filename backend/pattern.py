@@ -46,6 +46,10 @@ class PatternModel:
     def active(self) -> bool:
         return self.state in ("loading", "ready")
 
+    @property
+    def ready(self) -> bool:
+        return self.state == "ready"
+
     async def load(self) -> None:
         self.state = "loading"
         try:

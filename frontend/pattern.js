@@ -6,6 +6,7 @@
 
 const KEEP = 240;      // readings kept, 20 minutes at one every 5 s: more than the replay history
 const STALE_S = 12;    // a reading this much older than the screen is no longer about it
+const GIVE_UP_S = 20;  // a reading is due 10 s after a switch; nothing by now: the model is loading or off
 
 export class PatternLabel {
   constructor(el) {
@@ -31,6 +32,8 @@ export class PatternLabel {
         if (this.readings[i].t <= t) { cur = this.readings[i]; break; }
       }
     }
+    const last = this.readings[this.readings.length - 1];
+    if (last.name == null && t !== null && t - last.t > GIVE_UP_S) return null;
     if (!cur || cur.name == null || t - cur.t > STALE_S) return 'Reading';
     if (cur.name === 'unsure') return 'Unsure';
     if (cur.name === 'none') return cur.label || 'No match';
