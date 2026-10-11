@@ -395,8 +395,29 @@ const describeUi = {
   open() { this.tray.hidden = true; this.panel.hidden = false; this.rate.classList.add('gemini-open'); this.text.focus(); },   // the panel takes the tray's place; the status line above goes quiet
   close() { this.panel.hidden = true; this.tray.hidden = false; this.rate.classList.remove('gemini-open'); this.say(''); this.panel.classList.remove('busy'); },
   busy(on) { this.panel.classList.toggle('busy', on); setAttr(this.go, 'aria-disabled', on); },
-  say(text) { this.note.textContent = text; this.note.hidden = !text; },
+  // the note under the box: the sparkle, the simulated heart's name in Gemini's gradient, then the words
+  say(text, name = '') {
+    const n = this.note;
+    n.textContent = '';
+    n.hidden = !text;
+    if (!text) return;
+    const mark = document.createElement('span');
+    mark.className = 'note-mark';
+    mark.innerHTML = SPARKLE;
+    n.appendChild(mark);
+    if (name) {
+      const b = document.createElement('b');
+      b.className = 'note-name';
+      b.textContent = `Simulated ${name}`;
+      n.appendChild(b);
+    }
+    const t = document.createElement('span');
+    t.className = 'note-text';
+    t.textContent = text;
+    n.appendChild(t);
+  },
 };
+const SPARKLE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0C12 6.6 17.4 12 24 12C17.4 12 12 17.4 12 24C12 17.4 6.6 12 0 12C6.6 12 12 6.6 12 0Z"/></svg>';
 $('gemini-back').addEventListener('click', () => { describeUi.panel.hidden = true; describeUi.tray.hidden = false; describeUi.rate.classList.remove('gemini-open'); });   // the rhythm playing stays
 describeUi.el.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -410,7 +431,7 @@ describeUi.el.addEventListener('submit', async (e) => {
     const data = await res.json().catch(() => ({}));
     if (data.ok) {
       lastChoice = { type: 'rhythm', name: 'custom', recipe: data.recipe };
-      describeUi.say(`Simulated ${data.name.toLowerCase()}. ${data.summary}`);
+      describeUi.say(data.summary, data.name.toLowerCase());
     } else describeUi.say(data.reply || 'Gemini did not answer, try again');
   } catch { describeUi.say('Gemini heart needs an internet connection'); }
   describeUi.busy(false);
