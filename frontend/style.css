@@ -58,7 +58,7 @@ body {
 /* the timeline: one tray holding the transport cells and, as its last cell, the strip of the last
    30 s with a playhead; drag the strip to scrub */
 .top .toggle.timeline { flex: 1 1 auto; min-width: 0; display: flex; }   /* the one tray that grows */
-.timeline canvas { flex: 1 1 auto; min-width: 0; height: 56px; display: block; cursor: ew-resize; touch-action: none; background: var(--header); }
+#timeline-strip { flex: 1 1 auto; min-width: 0; height: 56px; display: block; cursor: ew-resize; touch-action: none; background: var(--header); }
 .timeline button { display: flex; align-items: center; justify-content: center; padding: 12px 15px; }
 .timeline svg { width: 12px; height: 12px; display: block; fill: currentColor; }
 /* the status line (strap id, whose recording, which simulated rhythm) lives in the heart rate box, above the tray */
@@ -250,8 +250,13 @@ body.lost .bpm { opacity: 0.35; }
   .gemini-stars svg { animation: none; opacity: 0.5; transform: none; }
 }
 .rhythm-tray button { position: relative; padding: 0 6px; text-align: center; white-space: normal; line-height: 1.15; font-size: clamp(13px, 0.95vw, 19px); letter-spacing: 0.06em; }   /* bigger (Thomas, 2026-10-10 evening); the badges and tips went the same evening */
-.instrument canvas { flex: 1 1 auto; min-height: 0; width: 100%; display: block; margin-top: 10px; }
+.instrument > canvas { flex: 1 1 auto; min-height: 0; width: 100%; display: block; margin-top: 10px; }
 .nowline { position: absolute; width: 0; border-left: 2px dashed var(--accent); pointer-events: none; z-index: 2; }
+/* liquid metal under the cells (metal.js): the mount's canvas is the tray's first child, behind everything else */
+.metal > canvas:not(#timeline-strip) { position: absolute; inset: 0; margin: 0; width: 100% !important; height: 100% !important; z-index: 0; pointer-events: none; }
+.metal > *:not(canvas), .metal > #timeline-strip { position: relative; z-index: 1; }
+.metal > #timeline-strip { contain: none; }
+.dock.metal .dock-item { background: transparent; }   /* the items' frames show the metal */
 
 @media (max-width: 760px) {
   :root { --gutter: 16px; }

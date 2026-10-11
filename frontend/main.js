@@ -7,6 +7,7 @@ import { Glitch } from './glitch.js';
 import { Timeline } from './timeline.js';
 import { Dock } from './dock.js';
 import { Strap, FakeStrap, supported as strapSupported } from './strap.js';
+import { initMetal } from './metal.js';
 import { SessionOverlay } from './session.js';
 
 const $ = (id) => document.getElementById(id);
@@ -70,6 +71,7 @@ let cid = null;   // this viewer's id from the server's hello; Gemini heart send
 // The visitor's own Polar H10, through Web Bluetooth, sent down this socket as the live source.
 // ?fake=1 plays the recording as if it were a strap, for checks on a machine without a radio.
 const strap = new (params.has('fake') ? FakeStrap : Strap)(sendWs, () => syncSourceCells());
+initMetal();   // the liquid metal between the cells
 const strapPanel = { el: $('strap-panel'), note: $('strap-note'), tray: $('strap-tray'), connect: $('strap-connect'), disconnect: $('strap-disconnect') };
 
 // The session report opens in an overlay over the live view (an iframe of the summary page in
