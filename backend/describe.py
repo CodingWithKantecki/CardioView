@@ -21,7 +21,7 @@ from .sources.rhythm import LIMITS, Recipe
 log = logging.getLogger("cardioview.describe")
 MAX_TEXT_CHARS = 300
 MAX_NAME_CHARS = 28   # the status line says 'Simulated <name>' in one line
-MAX_SUMMARY_CHARS = 140
+MAX_SUMMARY_CHARS = 100   # three short lines under the text box at most; the prompt asks for 80
 
 # Plain words for every failure, shown under the text box.
 WORDS = {
@@ -63,7 +63,7 @@ Settings (every number is clamped to its range):
 
 Pick values a cardiology textbook would show for the description. Examples: cocaine, meth or a big energy drink: bpm 120 to 150, jitter 0.05, pvc_every 6 to 8, st_mv -0.1, t_mv 0.2. Opioids such as oxycodone, Percocet or heroin: bpm 40 to 55, jitter 0.02, everything else normal. A marathon runner at rest: bpm 42 to 50. A panic attack: bpm 110 to 130, jitter 0.04. Hyperkalemia: t_mv 0.9, qrs_width 2, p_wave 0.04. Atrial fibrillation: irregular true, jitter 0.35, p_wave 0, bpm 90 to 140. Ventricular tachycardia: bpm 150 to 190, qrs_width 3, p_wave 0, t_mv -0.5. A heart attack: st_mv 0.4, t_mv 0.6, bpm 95 to 110. A newborn: bpm 130 to 150, all shapes normal. A fever: the rate up about 10 for each degree. A beta blocker: bpm 50 to 60, pr_s 0.22. Deep sleep: bpm 50 to 58, jitter 0.06.
 
-name: two or three short words in sentence case naming what is simulated, at most 28 characters, for example "Cocaine intoxication", "Opioid overdose", "Runner at rest", "Atrial fibrillation". summary: one plain sentence under 120 characters saying what the trace shows and why, for example "Fast and a little jittery, with an early beat every few seconds, as stimulants do." No medical advice, no second person, no em dashes, no diagnosis of any real person.
+name: two or three short words in sentence case naming what is simulated, at most 28 characters, for example "Cocaine intoxication", "Opioid overdose", "Runner at rest", "Atrial fibrillation". summary: one plain sentence of at most 80 characters saying what the trace shows and why, for example "Fast and a little jittery, with an early beat now and then, as stimulants do." No medical advice, no second person, no em dashes, no diagnosis of any real person.
 
 If the description is not about a person, a situation or a heart rhythm, or asks for anything else, answer ok false with a short reason in plain words such as "Describe a patient, a situation or a heart rhythm."; otherwise ok true with reason empty. Answer with JSON only."""
 
@@ -77,8 +77,14 @@ class Described:
 
 
 def _clean(text: Any, limit: int) -> str:
-    s = str(text or "").replace("—", ", ").replace("–", ", ").strip()
-    return " ".join(s.split())[:limit]
+    """One line of plain words within `limit` characters, cut at a word when it has to be."""
+    s = " ".join(str(text or "").replace("\u2014", ", ").replace("\u2013", ", ").split())
+    if len(s) <= limit:
+        return s
+    cut = s[:limit]
+    if " " in cut[limit // 2:]:
+        cut = cut[:cut.rfind(" ")]
+    return cut.rstrip(" ,;:")
 
 
 def clamp(data: Any) -> Recipe | None:
