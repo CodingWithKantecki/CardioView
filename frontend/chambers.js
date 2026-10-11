@@ -239,17 +239,19 @@ export class Chambers {
     }
 
     // the chamber names inside each lane's top-left corner, in the same bold Helvetica as the
-    // labels on the heart (no two-letter acronyms), on a knock-out so the shapes pass under them
+    // labels on the heart (no two-letter acronyms); a thin dark outline keeps them readable over
+    // the shapes, with no box (Thomas, 2026-10-10 evening: see-through)
     ctx.save();
     ctx.font = `700 ${14 * dpr}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
     ctx.textBaseline = 'top';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 3 * dpr;
+    ctx.strokeStyle = alpha(T.paper, 0.75);
+    ctx.fillStyle = alpha(T.ink, 0.9);
     for (let r = 0; r < rows; r++) {
       const label = NAMES[ORDER[r]];
-      const tw = ctx.measureText(label).width;
       const lx = 12 * dpr, ly = rowH * r + pad + 1 * dpr;
-      ctx.fillStyle = alpha(T.paper, 0.85);
-      ctx.fillRect(lx - 5 * dpr, ly - 3 * dpr, tw + 10 * dpr, 21 * dpr);
-      ctx.fillStyle = alpha(T.ink, 0.85);
+      ctx.strokeText(label, lx, ly);
       ctx.fillText(label, lx, ly);
     }
     ctx.restore();

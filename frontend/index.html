@@ -43,15 +43,6 @@
     <div class="label side-left" data-chamber="rv" hidden><b>Right ventricle</b><canvas class="spark" data-spark="rv"></canvas></div>
     <div class="label side-right" data-chamber="lv" hidden><b>Left ventricle</b><canvas class="spark" data-spark="lv"></canvas></div>
     <div class="alert" id="alert" hidden><b id="alert-title"></b><span id="alert-hint"></span></div>
-    <div class="chat" id="chat">
-      <span class="toggle chat-toggle"><button type="button" id="chat-open" aria-expanded="false" aria-controls="chat-box">Ask</button></span>
-      <section class="chat-box" id="chat-box" hidden aria-label="Ask about the data">
-        <header><span class="kicker">Ask about the data</span><button type="button" id="chat-close" aria-label="Close the chat">Close</button></header>
-        <div class="chat-log" id="chat-log" aria-live="polite"></div>
-        <form class="chat-form" id="chat-form"><input id="chat-input" type="text" maxlength="500" placeholder="Why is the rate changing?" autocomplete="off" aria-label="Your question"><button type="submit">Send</button></form>
-        <p class="chat-note">Answers come from an AI and can be wrong</p>
-      </section>
-    </div>
     <div class="session" id="session" hidden aria-live="polite"><p class="session-prompt" id="session-prompt"></p><p class="session-sub" id="session-sub"></p></div>
     <nav class="dock" id="dock" aria-label="Heart view controls">
       <span class="dock-item"><button type="button" data-action="rotate" data-label="Rotate" aria-pressed="false" aria-label="Rotate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></svg></button></span>
@@ -71,23 +62,23 @@
       </div>
       <div class="rhythm-block" id="rhythms" hidden>
         <div class="toggle rhythm-tray" id="rhythm-tray">
-        <button type="button" data-rhythm="sinus" aria-pressed="false" aria-describedby="tip-sinus">Normal<span class="info" aria-hidden="true">?</span><span class="tip" id="tip-sinus" aria-hidden="true"><b>Normal sinus rhythm</b><canvas class="tip-ecg" data-rhythm="sinus" aria-hidden="true"></canvas>The sinus node, the heart's natural pacemaker, sets a steady 60 to 100 beats a minute. Each beat: a P wave (atria squeeze), a QRS spike (ventricles squeeze), a T wave (they relax).</span></button>
-        <button type="button" data-rhythm="mi" aria-pressed="false" aria-describedby="tip-mi">Heart attack<span class="info" aria-hidden="true">?</span><span class="tip" id="tip-mi" aria-hidden="true"><b>Heart attack (myocardial infarction)</b><canvas class="tip-ecg" data-rhythm="mi" aria-hidden="true"></canvas>A blocked artery starves part of the heart muscle. On the ECG, the line after each spike lifts up (ST elevation), though not every heart attack shows this. It is an emergency: call 911.</span></button>
-          <button type="button" data-rhythm="gemini" aria-pressed="false" aria-describedby="tip-gemini">Gemini heart<span class="info" aria-hidden="true">?</span><span class="tip" id="tip-gemini" aria-hidden="true"><b>Gemini heart</b>Describe a patient, a situation or a rhythm in plain words. Gemini turns it into the simulator's settings: rate, regularity, P wave, QRS width, ST and T changes, extra beats. A textbook-style simulation, never anyone's diagnosis.</span></button>
+        <button type="button" data-rhythm="sinus" aria-pressed="false">Normal</button>
+        <button type="button" data-rhythm="mi" aria-pressed="false">Heart attack</button>
+          <button type="button" class="gemini-cell" data-rhythm="gemini" aria-pressed="false"><img class="gemini-mark" src="assets/gemini-mark.svg" alt=""><span class="gemini-text">Gemini heart</span></button>
         </div>
         <section class="gemini" id="gemini" hidden aria-label="Gemini heart">
           <div class="gemini-head">
-            <span class="gemini-mark" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0C12 6.6 17.4 12 24 12C17.4 12 12 17.4 12 24C12 17.4 6.6 12 0 12C6.6 12 12 6.6 12 0Z"/></svg></span>
+            <img class="gemini-mark" src="assets/gemini-mark.svg" alt="">
             <span class="gemini-title">Gemini heart</span>
-            <span class="gemini-powered">Powered by Gemini</span>
+            <span class="gemini-powered">Powered by <img class="gemini-wordmark" src="assets/gemini-wordmark.svg" alt="Gemini"></span>
             <button type="button" class="gemini-back" id="gemini-back">Back</button>
           </div>
           <form class="describe" id="describe">
-            <input id="describe-text" type="text" maxlength="300" autocomplete="off" placeholder="A 40 year old on cocaine, a runner asleep, atrial fibrillation" aria-label="Describe a patient, a situation or a heart rhythm">
-            <button type="submit" id="describe-go"><span class="gemini-mark small" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0C12 6.6 17.4 12 24 12C17.4 12 12 17.4 12 24C12 17.4 6.6 12 0 12C6.6 12 12 6.6 12 0Z"/></svg></span>Simulate</button>
+            <input id="describe-text" type="text" maxlength="300" autocomplete="off" placeholder="A 40 year old on cocaine" aria-label="Describe a patient, a situation or a heart rhythm">
+            <button type="submit" id="describe-go"><span class="gemini-mark small" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11.04 19.32Q12 21.51 12 24q0-2.49.93-4.68.96-2.19 2.58-3.81t3.81-2.55Q21.51 12 24 12q-2.49 0-4.68-.93a12.3 12.3 0 0 1-3.81-2.58 12.3 12.3 0 0 1-2.58-3.81Q12 2.49 12 0q0 2.49-.96 4.68-.93 2.19-2.55 3.81a12.3 12.3 0 0 1-3.81 2.58Q2.49 12 0 12q2.49 0 4.68.96 2.19.93 3.81 2.55t2.55 3.81"/></svg></span>Simulate</button>
           </form>
           <p class="describe-note" id="describe-note" hidden></p>
-          <span class="gemini-stars" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0C12 6.6 17.4 12 24 12C17.4 12 12 17.4 12 24C12 17.4 6.6 12 0 12C6.6 12 12 6.6 12 0Z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0C12 6.6 17.4 12 24 12C17.4 12 12 17.4 12 24C12 17.4 6.6 12 0 12C6.6 12 12 6.6 12 0Z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0C12 6.6 17.4 12 24 12C17.4 12 12 17.4 12 24C12 17.4 6.6 12 0 12C6.6 12 12 6.6 12 0Z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0C12 6.6 17.4 12 24 12C17.4 12 12 17.4 12 24C12 17.4 6.6 12 0 12C6.6 12 12 6.6 12 0Z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0C12 6.6 17.4 12 24 12C17.4 12 12 17.4 12 24C12 17.4 6.6 12 0 12C6.6 12 12 6.6 12 0Z"/></svg></span>
+          <span class="gemini-stars" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11.04 19.32Q12 21.51 12 24q0-2.49.93-4.68.96-2.19 2.58-3.81t3.81-2.55Q21.51 12 24 12q-2.49 0-4.68-.93a12.3 12.3 0 0 1-3.81-2.58 12.3 12.3 0 0 1-2.58-3.81Q12 2.49 12 0q0 2.49-.96 4.68-.93 2.19-2.55 3.81a12.3 12.3 0 0 1-3.81 2.58Q2.49 12 0 12q2.49 0 4.68.96 2.19.93 3.81 2.55t2.55 3.81"/></svg><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11.04 19.32Q12 21.51 12 24q0-2.49.93-4.68.96-2.19 2.58-3.81t3.81-2.55Q21.51 12 24 12q-2.49 0-4.68-.93a12.3 12.3 0 0 1-3.81-2.58 12.3 12.3 0 0 1-2.58-3.81Q12 2.49 12 0q0 2.49-.96 4.68-.93 2.19-2.55 3.81a12.3 12.3 0 0 1-3.81 2.58Q2.49 12 0 12q2.49 0 4.68.96 2.19.93 3.81 2.55t2.55 3.81"/></svg><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11.04 19.32Q12 21.51 12 24q0-2.49.93-4.68.96-2.19 2.58-3.81t3.81-2.55Q21.51 12 24 12q-2.49 0-4.68-.93a12.3 12.3 0 0 1-3.81-2.58 12.3 12.3 0 0 1-2.58-3.81Q12 2.49 12 0q0 2.49-.96 4.68-.93 2.19-2.55 3.81a12.3 12.3 0 0 1-3.81 2.58Q2.49 12 0 12q2.49 0 4.68.96 2.19.93 3.81 2.55t2.55 3.81"/></svg><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11.04 19.32Q12 21.51 12 24q0-2.49.93-4.68.96-2.19 2.58-3.81t3.81-2.55Q21.51 12 24 12q-2.49 0-4.68-.93a12.3 12.3 0 0 1-3.81-2.58 12.3 12.3 0 0 1-2.58-3.81Q12 2.49 12 0q0 2.49-.96 4.68-.93 2.19-2.55 3.81a12.3 12.3 0 0 1-3.81 2.58Q2.49 12 0 12q2.49 0 4.68.96 2.19.93 3.81 2.55t2.55 3.81"/></svg><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11.04 19.32Q12 21.51 12 24q0-2.49.93-4.68.96-2.19 2.58-3.81t3.81-2.55Q21.51 12 24 12q-2.49 0-4.68-.93a12.3 12.3 0 0 1-3.81-2.58 12.3 12.3 0 0 1-2.58-3.81Q12 2.49 12 0q0 2.49-.96 4.68-.93 2.19-2.55 3.81a12.3 12.3 0 0 1-3.81 2.58Q2.49 12 0 12q2.49 0 4.68.96 2.19.93 3.81 2.55t2.55 3.81"/></svg></span>
         </section>
       </div>
       <div class="exercise-panel" id="strap-panel" hidden>

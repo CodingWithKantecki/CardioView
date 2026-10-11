@@ -35,15 +35,16 @@ The install takes about two minutes. Below, `python` means `.venv/bin/python` (m
 Then open http://localhost:8000 on the same machine, or http://<this machine's IP>:8000 from the big screen or a phone on the same Wi-Fi.
 
 ```
-python -m backend                               # the demo plays the first recording in data/
-python -m backend --source sim                  # or a simulated ECG
+python -m backend                               # the demo plays a simulated normal rhythm
+python -m backend --source data/h10_ecg_thomas.csv   # or a recording
+python -m backend --source sim                  # or NeuroKit's simulated ECG
 ```
 
-Options: `--bpm 72` sets the simulated rate, `--invert` flips a strap worn upside down, `--host` and `--port` change where it listens (default 0.0.0.0:8000). Whatever you start with, the Strap / Demo / Exercise toggle at the top right of the viewer switches between the live strap and demo data without a restart; `--demo data/<file>.csv` or `--demo sim` picks the demo source (default: the first recording in `data/`). In Demo, the Simulated rhythm tray beside the heart rate plays synthesized rhythms (normal, bradycardia, atrial fibrillation, extra beats, ventricular tachycardia, heart attack) for showing the screen without a strap; they are simulations and are never offered beside strap data. Hover the blue ! in a cell to read what that rhythm is. Press T to switch between the dark theme and the cream one. The 0 key resets the view, like the dock's Reset view.
+Options: `--bpm 72` sets the simulated rate, `--invert` flips a strap worn upside down, `--host` and `--port` change where it listens (default 0.0.0.0:8000). Whatever you start with, the Strap / Demo / Exercise toggle at the top right of the viewer switches between the live strap and demo data without a restart; `--source data/<file>.csv` or `--source sim` picks the demo source (default: the simulated normal rhythm). In Demo, the tray beside the heart rate plays synthesized rhythms (Normal, Heart attack, and Gemini heart for anything you can describe) for showing the screen without a strap; they are simulations and are never offered beside strap data.
 
 ### Chat (optional, the only part that needs internet)
 
-The Ask button at the top right of the stage opens a small chat that answers questions about what is on screen (heart rate, ECG, chamber timing, signal, source) through Google's Gemini API. To turn it on, create a file named `.env` in the repo root (next to this README, on any OS) with one line:
+Gemini heart (and `POST /api/chat`, a question-answering route the page no longer shows) run through Google's Gemini API. To turn them on, create a file named `.env` in the repo root (next to this README, on any OS) with one line:
 
 ```
 GEMINI_API_KEY=your-key-here
@@ -160,6 +161,8 @@ Limits: the head has only seen Gaussian-sum beats from one simulator. Real rhyth
 - Three.js 0.186.0, MIT license, vendored in `frontend/vendor/three/`.
 - IBM Plex fonts 5.3.0 via Fontsource, SIL Open Font License 1.1, vendored in `frontend/vendor/fonts/`.
 - JetBrains Mono 5.2.6 via Fontsource (weights 400, 600, 700), SIL Open Font License 1.1, vendored in `frontend/vendor/fonts/` with its license file.
+- Paper Shaders 0.0.81 (`@paper-design/shaders`, Apache-2.0), the Gemini heart cell's liquid-metal frame, vendored in `frontend/vendor/paper-shaders/` with its license.
+- The Gemini spark and wordmark in `frontend/assets/gemini-mark.svg` and `gemini-wordmark.svg` come from LobeHub's icon set (MIT). Gemini is a trademark of Google LLC; the marks say that Gemini heart and the chat run on the Gemini API.
 - NeuroKit2 for ECG cleaning, peak detection and delineation, MIT license.
 - bleak (MIT license) and bleakheart (Mozilla Public License 2.0) for the Polar H10 link.
 - Voice: the session prompts were generated with Kokoro 82M (https://huggingface.co/hexgrad/Kokoro-82M), Apache 2.0.

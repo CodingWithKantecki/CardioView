@@ -138,8 +138,6 @@ export class Trace {
     ctx.lineWidth = 2 * dpr;
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
-    ctx.shadowColor = alpha(T.trace, 0.3);
-    ctx.shadowBlur = 5 * dpr;
     ctx.beginPath();
     let pen = false;
     let prevT = null;

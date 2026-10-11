@@ -10,7 +10,7 @@ const sid = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop(
 const params = new URLSearchParams(location.search);
 const screenMode = params.has('screen');
 const printMode = params.has('print');
-const FONT = '600 12px "JetBrains Mono", monospace';   // chart readouts, in capitals like the 130 HZ corner on the live ECG
+const FONT = `600 ${new URLSearchParams(location.search).has('print') ? 14 : 12}px "JetBrains Mono", monospace`;   // chart readouts, in capitals like the 130 HZ corner on the live ECG; bigger on paper
 const WAVE = '700 15px "Helvetica Neue", Helvetica, Arial, sans-serif';   // P, QRS, T, the voice of the chamber names
 const STEP_NAME = { ready: 'GET READY', rest: 'REST', breathe: 'BREATHE', squats: 'SQUATS', recover: 'RECOVER' };   // an export has no steps to mark
 const IDLE_MS = 180000;   // the big screen goes back to live after 3 minutes
@@ -317,7 +317,10 @@ function render(s) {
   $('sheet').hidden = false;
   draw(s);
   if (!screenMode && !printMode && !s.demo) $('delete').hidden = false;
-  if (printMode) setTimeout(() => window.print(), 900);   // the Export menu's PDF: Save as PDF in the dialog
+  if (printMode) {   // the Export menu's PDF: Save as PDF in the dialog; the booth's page drops this frame once the dialog closes
+    window.addEventListener('afterprint', () => { if (embedded) window.parent.postMessage({ type: 'cardioview-report', action: 'printed' }, location.origin); }, { once: true });
+    setTimeout(() => window.print(), 900);
+  }
 }
 
 function draw(s) {

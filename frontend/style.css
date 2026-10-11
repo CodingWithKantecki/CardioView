@@ -7,25 +7,26 @@
 @font-face { font-family: "JetBrains Mono"; font-weight: 700; font-style: normal; font-display: swap; src: url(vendor/fonts/jetbrains-mono-latin-700-normal.woff2) format("woff2"); }
 
 :root {
-  /* medical dark: clinical monitor surfaces and signal colors, Statura's Swiss structure */
-  --bg-0: #0A1115; --bg-1: #0F1A1F; --bg-2: #142329;
-  --fg-0: #E8F1F2; --fg-1: #B9C9CC; --fg-2: #7F969B;
-  --teal: #2BD4BD; --teal-deep: #06211E;
+  /* ink and signal (Thomas, 2026-10-10 evening): the interface is neutral, color lives only in data (the
+     trace, the chambers, the alert, Gemini's panel); the active state is white like a key on an instrument */
+  --bg-0: #0A0A0C; --bg-1: #121214; --bg-2: #1A1A1D;
+  --fg-0: #F2F2EF; --fg-1: #C9C9C4; --fg-2: #8C8C88;
+  --teal: #2BD4BD; --teal-deep: #06211E;   /* kept for the record; the accent is the ink now */
   --green: #37E07E; --cyan: #4FC3F7; --coral: #FF6B6B; --red: #FF5252;
 
   --paper: var(--bg-0);             /* the stage */
   --card: var(--bg-1);              /* the instrument column */
-  --header: #0E1A1F;
+  --header: #0E0E10;
   --ink: var(--fg-0);
   --ink-2: var(--fg-1);
   --muted: var(--fg-2);
-  --line: rgba(232, 241, 242, 0.14);
-  --line-2: rgba(232, 241, 242, 0.28);
-  --line-strong: rgba(232, 241, 242, 0.45);
-  --tray: rgba(232, 241, 242, 0.08);
-  --rule-solid: #4A5A61;   /* the rule color with nothing showing through, for frames over the stage */
-  --accent: var(--teal);
-  --on-accent: var(--teal-deep);
+  --line: rgba(242, 242, 239, 0.14);
+  --line-2: rgba(242, 242, 239, 0.28);
+  --line-strong: rgba(242, 242, 239, 0.45);
+  --tray: rgba(242, 242, 239, 0.08);
+  --rule-solid: #4A4A4E;   /* the rule color with nothing showing through, for frames over the stage */
+  --accent: var(--fg-0);
+  --on-accent: var(--bg-0);
   --alert: var(--red);
 
   --sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
@@ -36,8 +37,8 @@
   --numeral: clamp(56px, 9.5vh, 112px);   /* the heart-rate numeral; the column beside it is sized for three digits */
 
   /* canvas and scene colors (six-digit hex only; the scripts derive their alphas) */
-  --c-stage: #0A1115; --c-paper: #0F1A1F; --c-ink: #E8F1F2; --c-trace: #37E07E; --c-grid: #8FB8B8; --c-rule: #E8F1F2;
-  --c-dim: #7F969B; --c-alert: #FF5252; --c-now: #2BD4BD;
+  --c-stage: #0A0A0C; --c-paper: #121214; --c-ink: #F2F2EF; --c-trace: #37E07E; --c-grid: #9A9A96; --c-rule: #F2F2EF;
+  --c-dim: #8C8C88; --c-alert: #FF5252; --c-now: #F2F2EF;
   /* one color per chamber, plainly different (Thomas, 2026-10-10: blues and corals were too alike): blue, green, red, yellow */
   --c-ra: #4D8BFF; --c-rv: #7FE24B; --c-la: #FF4F4F; --c-lv: #FFC93C;
 }
@@ -51,24 +52,27 @@ body {
 }
 
 /* header: Statura's navy bar */
-.top { flex: 0 0 76px; display: flex; align-items: center; justify-content: space-between; gap: clamp(16px, 2vw, 32px); padding: 0 var(--gutter); background: var(--header); color: var(--fg-0); border-bottom: var(--rule-w) solid var(--line-2); }
+.top { flex: 0 0 92px; display: flex; align-items: center; justify-content: space-between; gap: clamp(16px, 2vw, 32px); padding: 0 var(--gutter); background: var(--header); color: var(--fg-0); border-bottom: var(--rule-w) solid var(--line-2); }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; letter-spacing: -0.015em; cursor: pointer; user-select: none; }   /* click: full screen on or off */
 .brand-mark { height: 36px; width: auto; display: block; }   /* the heart mark from the logo (docs/logo.png), cut out with a transparent background */
 /* the timeline: one tray holding the transport cells and, as its last cell, the strip of the last
    30 s with a playhead; drag the strip to scrub */
 .top .toggle.timeline { flex: 1 1 auto; min-width: 0; display: flex; }   /* the one tray that grows */
-.timeline canvas { flex: 1 1 auto; min-width: 0; height: 44px; display: block; cursor: ew-resize; touch-action: none; background: var(--header); }
-.timeline button { display: flex; align-items: center; justify-content: center; padding: 9px 13px; }
+#timeline-strip { flex: 1 1 auto; min-width: 0; height: 56px; display: block; cursor: ew-resize; touch-action: none; background: var(--header); }
+.timeline button { display: flex; align-items: center; justify-content: center; padding: 12px 15px; }
 .timeline svg { width: 12px; height: 12px; display: block; fill: currentColor; }
 /* the status line (strap id, whose recording, which simulated rhythm) lives in the heart rate box, above the tray */
-.status-line { grid-column: 2; grid-row: 1; align-self: baseline; text-align: center; font-family: var(--mono); font-size: clamp(15px, 2.1vh, 20px); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.status-line { grid-column: 2; grid-row: 1; align-self: baseline; text-align: center; font-family: var(--mono); font-size: clamp(14px, 1.9vh, 18px); line-height: 1.2; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }   /* a long name wraps to a second line instead of trailing off (Thomas, 2026-10-10 evening) */
 .status-line.id { font-weight: 600; text-transform: none; }   /* the strap id is data, shown as the strap names itself */
 .status-line:empty { display: none; }
+.instrument.rate.gemini-open .status-line { display: none; }   /* the Gemini panel speaks for itself (Thomas, 2026-10-10 evening) */
+.instrument.rate.gemini-open .rhythm-block { grid-row: 1 / 3; justify-content: center; }   /* and sits centered in the whole right side */
 
 /* segmented controls: equal cells separated by rules, the accent fills the active one */
 .toggle { display: inline-flex; flex-wrap: wrap; gap: var(--cell-w); padding: var(--cell-w); background: var(--line-2); }
 .toggle button { background: var(--card); }
-.top .toggle { flex: 0 0 auto; flex-wrap: nowrap; }   /* the header's trays never wrap or shrink */
+.top .toggle { flex: 0 0 auto; flex-wrap: nowrap; height: 62px; }   /* the header's trays never wrap or shrink, and share one height */
+.top .toggle button { padding: 14px 20px; }   /* the header is 92 px tall (Thomas, 2026-10-10 evening: a little bigger), its cells fill it */
 .top .toggle button { background: var(--header); }
 .toggle button {
   border: 0; margin: 0; padding: 10px 18px; cursor: pointer;
@@ -79,7 +83,10 @@ body {
 .top .toggle button:hover { color: var(--fg-0); }
 .toggle button[aria-pressed="true"], .top .toggle button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
 .toggle button[aria-disabled="true"] { color: var(--muted); cursor: default; }   /* Exercise without the strap streaming */
-.toggle button:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(43, 212, 189, 0.4); }
+.toggle button:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(242, 242, 239, 0.35); }
+/* every cell lifts a touch under the pointer, like the dock's cells do (Thomas, 2026-10-10 evening: just slightly) */
+.toggle button, .gemini-back, .describe button, .export-menu button { transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.toggle button:hover, .gemini-back:hover, .describe button:hover, .export-menu button:hover { transform: scale(1.04); position: relative; z-index: 2; }
 
 /* screen: a ruled grid, stage on paper, instruments on a lifted white column */
 .screen { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 3fr 2fr; }
@@ -126,7 +133,7 @@ body.lost .bpm { opacity: 0.35; }
 .dock button { width: 48px; height: 48px; border: 0; margin: 0; padding: 0; background: var(--card); color: var(--ink-2); cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .dock button:hover { color: var(--ink); }
 .dock button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
-.dock button:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(43, 212, 189, 0.4); }
+.dock button:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(242, 242, 239, 0.35); }
 .dock button svg { width: 46%; height: 46%; display: block; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: square; stroke-linejoin: miter; }
 .dock button::after { content: attr(data-label); position: absolute; left: 50%; bottom: calc(100% + 12px); transform: translateX(-50%); padding: 6px 10px; background: var(--card); border: 2px solid var(--line-2); font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; line-height: 1; color: var(--ink); white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.12s; }
 .dock-item:hover button::after, .dock button:focus-visible::after { opacity: 1; }
@@ -140,49 +147,10 @@ body.lost .bpm { opacity: 0.35; }
 .opacity-pop input::-moz-range-track { height: 2px; background: var(--line-2); }
 .opacity-pop input::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; margin-top: -6px; background: var(--accent); border: 0; }
 .opacity-pop input::-moz-range-thumb { width: 14px; height: 14px; background: var(--accent); border: 0; border-radius: 0; }
-.opacity-pop input:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(43, 212, 189, 0.4); }
+.opacity-pop input:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(242, 242, 239, 0.35); }
 
 .dock button[disabled] { opacity: 0.45; cursor: default; }   /* Rotate under reduced motion */
 
-/* chat: one Ask pill at the top right of the stage, a flat box dropping down from it on the column
-   surface. That corner is the one part of the stage the heart and its labels never reach at 1920 by
-   1080 (the LA label starts about 395 px below the header, the box ends at 358). No radius, no
-   shadow, no glow; the only color is the accent on the open pill and the send button. */
-.chat { position: absolute; right: var(--gutter); top: 12px; z-index: 6; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
-/* motion: transform and opacity only. The pill grows a touch on hover and settles back slower than it
-   grew; the box scales out of the pill's corner and folds back into it a little quicker (chat.js keeps
-   the box in the DOM with .closing until chat-out ends); each new line rises a few pixels. All of it is
-   off under prefers-reduced-motion. */
-.chat-toggle { transform-origin: 100% 50%; transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
-.chat-toggle:hover { transform: scale(1.05); transition-duration: 0.32s; }
-.chat-toggle:active { transform: scale(0.97); transition-duration: 0.12s; }
-.chat-box {
-  width: min(280px, calc(100vw - 2 * var(--gutter))); height: min(30vh, 300px);
-  display: flex; flex-direction: column; background: var(--card); border: 2px solid var(--line-2);
-  transform-origin: 100% 0; animation: chat-in 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-.chat-box.closing { animation: chat-out 0.24s cubic-bezier(0.4, 0, 0.6, 1) both; pointer-events: none; }
-@keyframes chat-in { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: none; } }
-@keyframes chat-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(0.92); } }
-.chat-box header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-bottom: 2px solid var(--line); }
-.chat-box header button { background: none; border: 0; margin: 0; padding: 2px 0; cursor: pointer; font-family: var(--mono); font-size: 11.5px; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted); }
-.chat-box header button:hover { color: var(--ink); }
-.chat-log { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
-.msg { margin: 0; font-size: 14px; line-height: 1.4; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
-@keyframes msg-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-.msg { animation: msg-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both; }
-.msg.user { color: var(--ink-2); align-self: flex-end; text-align: right; max-width: 85%; }
-.msg.pending, .msg.error { color: var(--muted); }
-.msg.pending::after { content: "..."; }
-.chat-form { display: flex; align-items: stretch; gap: 10px; padding: 8px 14px 10px; border-top: 2px solid var(--line); }
-.chat-form input { flex: 1 1 auto; min-width: 0; background: none; border: 0; border-bottom: 2px solid var(--line-2); padding: 6px 0; font-family: var(--sans); font-size: 14px; color: var(--ink); }
-.chat-form input::placeholder { color: var(--muted); }
-.chat-form input:focus { outline: 0; border-bottom-color: var(--accent); }
-.chat-form button { background: var(--accent); color: var(--on-accent); border: 0; margin: 0; padding: 6px 14px; cursor: pointer; font-family: var(--mono); font-size: 11.5px; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; }
-.chat-form button:disabled, .chat-form input:disabled { opacity: 0.6; cursor: default; }
-.chat-form button:focus-visible, .chat-box header button:focus-visible, .chat-toggle button:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(43, 212, 189, 0.4); }
-.chat-note { margin: 0; padding: 0 14px 10px; font-size: 11px; color: var(--muted); }
-.chat-toggle button[aria-expanded="true"] { background: var(--accent); color: var(--on-accent); }
 
 /* instrument column: white card with navy rules, three instruments sharing the height */
 .column { position: relative; min-height: 0; background: var(--card); padding: 0; display: grid; grid-template-rows: auto minmax(0, 1.15fr) minmax(0, 1fr); }
@@ -226,30 +194,50 @@ body.lost .pattern { visibility: hidden; }
    text box framed by that gradient (it sweeps slowly, and races while Gemini thinks), the Simulate
    cell in the same gradient, and a few sparkles twinkling behind. Everything still under reduced motion. */
 :root { --gemini-a: #4285F4; --gemini-b: #9B72CB; --gemini-c: #D96570; --gemini: linear-gradient(90deg, var(--gemini-a), var(--gemini-b), var(--gemini-c)); }
-.gemini { position: relative; display: flex; flex-direction: column; gap: 6px; min-height: 0; overflow: hidden; animation: gemini-in 0.45s cubic-bezier(0.2, 0.8, 0.2, 1); }
-.gemini-head { position: relative; z-index: 1; display: flex; align-items: center; gap: 10px; min-height: 24px; }
-.gemini-mark { display: inline-flex; width: 22px; height: 22px; flex: 0 0 auto; }
-.gemini-mark svg { width: 100%; height: 100%; fill: url(#gemini-fill); }
-.gemini-mark svg path { fill: var(--gemini-b); }
-.gemini-head .gemini-mark svg path { fill: var(--gemini-a); }
-.gemini-mark.small { width: 14px; height: 14px; margin-right: 8px; }
+.gemini { position: relative; display: flex; flex-direction: column; justify-content: center; gap: clamp(8px, 1.3vh, 14px); min-height: 0; overflow: hidden; animation: gemini-in 0.45s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.gemini-head { position: relative; z-index: 1; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 10px; align-items: center; }
+.gemini-head > .gemini-mark { grid-row: 1 / 3; width: clamp(22px, 3vh, 32px); height: clamp(22px, 3vh, 32px); }
+.gemini-head .gemini-title { grid-column: 2; grid-row: 1; }
+.gemini-head .gemini-powered { grid-column: 2; grid-row: 2; }
+.gemini-head .gemini-back { grid-column: 3; grid-row: 1 / 3; }
+/* the Gemini mark is Google's four-color spark (frontend/assets/gemini-mark.svg, from LobeHub's icon set, MIT; the
+   mark and the wordmark are Google's) as an image; the Simulate cell and the sparkles behind use a plain spark */
+.gemini-mark { display: inline-block; width: 22px; height: 22px; flex: 0 0 auto; }
+.gemini-mark svg { display: block; width: 100%; height: 100%; }
+.gemini-mark.small { width: clamp(13px, 1.7vh, 16px); height: clamp(13px, 1.7vh, 16px); margin-right: 8px; }
 .gemini-mark.small svg path { fill: #FFFFFF; }
-.gemini-title { font-family: var(--mono); font-size: clamp(14px, 1.9vh, 18px); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; background: var(--gemini); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.gemini-powered { margin-left: auto; font-family: var(--mono); font-size: clamp(10px, 1.3vh, 12px); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
-.gemini-back { padding: 6px 12px; border: 2px solid var(--line-2); margin: 0; background: var(--card); color: var(--ink-2); cursor: pointer; font-family: var(--mono); font-size: clamp(10px, 1.3vh, 12px); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+.gemini-wordmark { height: 0.95em; width: auto; vertical-align: -0.14em; margin-left: 0.35em; }
+.gemini-title { flex: 0 0 auto; white-space: nowrap; font-family: var(--mono); font-size: clamp(16px, 2.3vh, 24px); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; background: var(--gemini); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.gemini-powered { margin-top: 2px; white-space: nowrap; font-family: var(--mono); font-size: clamp(10px, 1.4vh, 13px); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.gemini-back { padding: clamp(6px, 1vh, 10px) clamp(12px, 1.2vw, 18px); border: 2px solid var(--line-2); margin: 0; background: var(--card); color: var(--ink-2); cursor: pointer; font-family: var(--mono); font-size: clamp(11px, 1.5vh, 14px); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
 .gemini-back:hover { border-color: var(--line-strong); color: var(--ink); }
 .describe { position: relative; z-index: 1; display: flex; gap: var(--cell-w); flex: 0 0 auto; margin: 0; padding: var(--cell-w); background: linear-gradient(120deg, var(--gemini-a), var(--gemini-b), var(--gemini-c), var(--gemini-b), var(--gemini-a)); background-size: 300% 100%; animation: gemini-sweep 7s linear infinite; }
 .gemini.busy .describe { animation-duration: 1.1s; }
 .gemini.busy .gemini-head .gemini-mark { animation: gemini-think 1.1s ease-in-out infinite; }
 .describe input {
-  flex: 1 1 auto; min-width: 0; padding: clamp(7px, 1vh, 11px) 12px; border: 0; margin: 0; background: var(--card); color: var(--ink);
-  font-family: var(--mono); font-size: clamp(12px, 1.6vh, 14px); font-weight: 600; letter-spacing: 0.04em;
+  flex: 1 1 auto; min-width: 0; padding: clamp(10px, 1.7vh, 16px) 14px; border: 0; margin: 0; background: var(--card); color: var(--ink);
+  font-family: var(--mono); font-size: clamp(12px, 0.8vw, 16px); font-weight: 600; letter-spacing: 0.03em;
 }
-.describe input::placeholder { color: var(--muted); }
+.describe input::placeholder { color: var(--muted); font-size: 0.9em; }
 .describe input:focus-visible { outline: 0; box-shadow: inset 0 0 0 2px var(--gemini-b); }
-.describe button { display: inline-flex; align-items: center; padding: 0 18px; border: 0; margin: 0; cursor: pointer; background: var(--gemini); color: #FFFFFF; font-family: var(--mono); font-size: clamp(12px, 1.6vh, 14px); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
+.describe button { display: inline-flex; align-items: center; flex: 0 0 auto; padding: 0 clamp(12px, 0.8vw, 16px); border: 0; margin: 0; cursor: pointer; background: var(--gemini); color: #FFFFFF; font-family: var(--mono); font-size: clamp(11px, 0.7vw, 14px); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
 .describe button[aria-disabled="true"] { opacity: 0.7; cursor: progress; }
-.describe-note { position: relative; z-index: 1; margin: 0; flex: 0 1 auto; min-height: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-family: var(--sans); font-size: clamp(12px, 1.6vh, 14px); line-height: 1.3; color: var(--ink-2); animation: gemini-in 0.35s ease-out; }
+.describe-note { position: relative; z-index: 1; margin: 0; flex: 0 1 auto; min-height: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; padding-left: 12px; border-left: 3px solid var(--gemini-b); border-image: linear-gradient(180deg, var(--gemini-a), var(--gemini-c)) 1; font-family: var(--sans); font-size: clamp(12px, 0.75vw, 15px); line-height: 1.35; color: var(--ink-2); animation: gemini-in 0.35s ease-out; }
+.note-mark { display: inline-block; width: 0.9em; height: 0.9em; margin-right: 8px; vertical-align: -1px; }
+.note-mark img { display: block; width: 100%; height: 100%; }
+.gemini.busy .note-mark { animation: gemini-think 1.1s ease-in-out infinite; }
+.note-name { margin-right: 8px; font-family: var(--mono); font-size: 0.9em; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; background: var(--gemini); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.note-text { color: var(--ink-2); }
+/* the Gemini heart cell in the tray: the sparkle, the name in the gradient, a gradient frame that
+   sweeps (faster on hover); pressed, it fills with the gradient (Thomas, 2026-10-10 evening: cooler) */
+.rhythm-tray button.gemini-cell { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.gemini-cell .gemini-text { max-width: 8ch; }   /* "Gemini" over "heart" beside the sparkle when the cell is narrow */
+.rhythm-tray button.gemini-cell::before { content: ""; position: absolute; inset: 0; padding: 2px; pointer-events: none; background: linear-gradient(120deg, var(--gemini-a), var(--gemini-b), var(--gemini-c), var(--gemini-b), var(--gemini-a)); background-size: 300% 100%; animation: gemini-sweep 7s linear infinite; -webkit-mask: linear-gradient(#FFF 0 0) content-box, linear-gradient(#FFF 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+.rhythm-tray button.gemini-cell:hover::before { animation-duration: 2s; }
+.gemini-cell .gemini-mark { width: clamp(15px, 1.1vw, 22px); height: clamp(15px, 1.1vw, 22px); }
+.gemini-cell .gemini-text { background: var(--gemini); -webkit-background-clip: text; background-clip: text; color: transparent; }
+/* pressed, the face goes white like any other cell, the mark and the gradient name stay as they are (a gradient fill looked bad, Thomas, 2026-10-10 evening) */
+.rhythm-tray button.gemini-cell[aria-pressed="true"] { background: var(--accent); }
 /* five sparkles behind the panel, each on its own beat */
 .gemini-stars { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
 .gemini-stars svg { position: absolute; width: 10px; height: 10px; opacity: 0; animation: gemini-twinkle 2.8s ease-in-out infinite; }
@@ -267,32 +255,20 @@ body.lost .pattern { visibility: hidden; }
 @keyframes gemini-think { 50% { transform: rotate(90deg) scale(1.3); } }
 @keyframes gemini-twinkle { 0%, 100% { opacity: 0; transform: scale(0.5) rotate(0deg); } 50% { opacity: 0.9; transform: scale(1) rotate(45deg); } }
 @media (prefers-reduced-motion: reduce) {
-  .gemini, .describe, .describe-note, .gemini.busy .gemini-head .gemini-mark { animation: none; }
+  .gemini, .describe, .describe-note, .gemini.busy .gemini-head .gemini-mark, .gemini.busy .note-mark, .rhythm-tray button.gemini-cell::before { animation: none; }
   .gemini-stars svg { animation: none; opacity: 0.5; transform: none; }
 }
-.rhythm-tray button { position: relative; padding: 0 4px; text-align: center; white-space: normal; line-height: 1.2; font-size: clamp(11px, 0.7vw, 14px); letter-spacing: 0.04em; }
-/* a rhythm cell's "!" badge: hover it for what that rhythm is, in a box under the cell. Hover only: Chrome
-   marks a clicked cell :focus-visible once the R, W, C or T key is pressed, which would pin its box open.
-   Sized by the viewport height, as the cells are, so it keeps above a one-line name down to about 720 px. */
-.rhythm-tray .info {
-  --badge: clamp(12px, 1.5vh, 18px);
-  position: absolute; top: calc(var(--badge) / 8); right: calc(var(--badge) / 8); width: var(--badge); height: var(--badge);
-  display: grid; place-items: center; background: var(--rule-solid); color: var(--ink);
-  font-family: var(--mono); font-size: clamp(10px, 1.1vh, 12px); font-weight: 700; letter-spacing: 0; line-height: 1; cursor: help;
-}
-.rhythm-tray .info:hover { background: var(--accent); color: var(--on-accent); }
-.rhythm-tray button[aria-pressed="true"] .info { background: var(--on-accent); color: var(--accent); }
-.rhythm-tray button[aria-pressed="true"] .info:hover { background: var(--card); color: var(--ink); }
-.rhythm-tray .tip {
-  display: none; position: absolute; top: calc(100% + var(--cell-w)); right: 0; z-index: 10; width: clamp(220px, 15vw, 300px);
-  padding: 10px 12px 12px; background: var(--card); border: 2px solid var(--accent); pointer-events: none;
-  font-family: var(--sans); font-size: 14px; font-weight: 400; line-height: 1.4; letter-spacing: 0; text-align: left; text-transform: none; color: var(--ink-2);
-}
-.rhythm-tray .tip b { display: block; margin-bottom: 6px; font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); }
-.rhythm-tray .info:hover + .tip { display: block; }
-.tip-ecg { display: block; width: 100%; height: 60px; margin: 2px 0 10px; background: var(--paper); }   /* 4 s of that rhythm, drawn by tips.js */
-.instrument canvas { flex: 1 1 auto; min-height: 0; width: 100%; display: block; margin-top: 10px; }
+.rhythm-tray button { position: relative; padding: 0 6px; text-align: center; white-space: normal; line-height: 1.15; font-size: clamp(13px, 0.95vw, 19px); letter-spacing: 0.06em; }   /* bigger (Thomas, 2026-10-10 evening); the badges and tips went the same evening */
+.instrument > canvas { flex: 1 1 auto; min-height: 0; width: 100%; display: block; margin-top: 10px; }
 .nowline { position: absolute; width: 0; border-left: 2px dashed var(--accent); pointer-events: none; z-index: 2; }
+/* the Gemini heart cell's liquid-metal frame (metal.js): the mount's canvas is the cell's first child,
+   a dark face sits 3 px inside it, the mark and the name above both; pressed, the gradient fills it */
+.metal > canvas { position: absolute; inset: 0; margin: 0; width: 100% !important; height: 100% !important; z-index: 0; pointer-events: none; }
+.metal > *:not(canvas) { position: relative; z-index: 1; }
+.rhythm-tray button.gemini-cell.metal { background: transparent; }
+.rhythm-tray button.gemini-cell.metal::before { display: none; }
+.rhythm-tray button.gemini-cell.metal::after { content: ""; position: absolute; inset: 3px; z-index: 0; background: var(--card); }
+.rhythm-tray button.gemini-cell.metal[aria-pressed="true"]::after { background: var(--accent); }   /* the metal rim stays around the white face */
 
 @media (max-width: 760px) {
   :root { --gutter: 16px; }
@@ -303,14 +279,11 @@ body.lost .pattern { visibility: hidden; }
   .column { display: flex; flex-direction: column; padding-bottom: 24px; }
   .instrument.ecg, .instrument.chambers { height: 260px; flex: 0 0 auto; }
   :root { --numeral: 72px; }
-  .chat { position: fixed; top: auto; left: var(--gutter); right: var(--gutter); bottom: 16px; flex-direction: column-reverse; }
-  .chat-box { width: 100%; height: min(50vh, 420px); transform-origin: 100% 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
   .label { transition: none; }
-  .chat-box, .chat-box.closing, .msg { animation: none; }
-  .chat-toggle { transition: none; }
-  .chat-toggle:hover, .chat-toggle:active { transform: none; }
+  .toggle button, .gemini-back, .describe button, .export-menu button { transition: none; }
+  .toggle button:hover, .gemini-back:hover, .describe button:hover, .export-menu button:hover { transform: none; }
   body.lost #heart-view { opacity: 1; filter: grayscale(1) sepia(1) saturate(6) hue-rotate(-64deg) contrast(1.35) brightness(0.66); }
   body.lost .glitch { display: none; }
 }
@@ -319,6 +292,8 @@ body.lost .pattern { visibility: hidden; }
 /* the session report in an overlay over the live view, so nothing reloads when it opens or closes */
 .report { position: fixed; inset: 0; z-index: 20; background: var(--paper); }
 .report iframe { width: 100%; height: 100%; border: 0; display: block; }
+/* the frame the PDF prints from: laid out at A4 landscape, never seen */
+.print-frame { position: fixed; left: 0; top: 0; width: 1123px; height: 794px; border: 0; opacity: 0; pointer-events: none; z-index: -1; }
 
 /* Export asks for the shape: a column of cells under the Export cell */
 .export-item { position: relative; display: flex; }

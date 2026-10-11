@@ -6,9 +6,8 @@ import { Heart } from './heart.js';
 import { Glitch } from './glitch.js';
 import { Timeline } from './timeline.js';
 import { Dock } from './dock.js';
-import { drawRhythmTips } from './tips.js';
 import { Strap, FakeStrap, supported as strapSupported } from './strap.js';
-import { initChat } from './chat.js';
+import { initMetal } from './metal.js';
 import { SessionOverlay } from './session.js';
 import { PatternLabel } from './pattern.js';
 
@@ -47,7 +46,6 @@ for (const el of document.querySelectorAll('.label')) {
 const heart = new Heart($('heart-view'), { labels, leaders: $('leaders'), missing: $('heart-missing') });
 if (new URLSearchParams(location.search).has('debug')) { window.heart = heart; window.clock = clock; window.trace = trace; }   // for headless checks
 heart.load();
-drawRhythmTips();
 const glitch = new Glitch($('glitch'), heart.renderer.domElement);
 const session = new SessionOverlay(
   { box: $('session'), prompt: $('session-prompt'), sub: $('session-sub'), ring: $('session-ring') },
@@ -70,31 +68,51 @@ function choose(msg) { lastChoice = msg; return sendWs(msg); }
 function strapStatus() {
   return { type: 'status', state: strap.state === 'streaming' ? 'streaming' : 'connecting', device: strap.state === 'off' ? '' : strap.name };
 }
-let cid = null;   // this viewer's id from the server's hello; the chat sends it with a question
+let cid = null;   // this viewer's id from the server's hello; Gemini heart sends it with a description
 
 // The visitor's own Polar H10, through Web Bluetooth, sent down this socket as the live source.
 // ?fake=1 plays the recording as if it were a strap, for checks on a machine without a radio.
 const strap = new (params.has('fake') ? FakeStrap : Strap)(sendWs, () => syncSourceCells());
+initMetal();   // the liquid metal between the cells
 const strapPanel = { el: $('strap-panel'), note: $('strap-note'), tray: $('strap-tray'), connect: $('strap-connect'), disconnect: $('strap-disconnect') };
 
 // The session report opens in an overlay over the live view (an iframe of the summary page in
 // embed mode), so the app never reloads: Back or three idle minutes in the report close it.
 const report = {
-  el: $('report'), frame: $('report-frame'),
+  el: $('report'), frame: $('report-frame'), printer: null,
   open(id, print = false) {
-    this.frame.src = `/s/${encodeURIComponent(id)}?screen=1&embed=1${print ? '&print=1' : ''}`;
+    this.frame.src = `/s/${encodeURIComponent(id)}?screen=1&embed=1`;
     this.el.hidden = false;
     this.frame.focus();
+    if (print) this.print(id);
+  },
+  // the PDF prints from a second, unseen frame laid out as the paper document (summary.html with
+  // print=1 calls window.print itself), so the overlay keeps the screen report and its Back
+  // (Thomas, 2026-10-10 evening: the paper layout on screen was tiny, sprawling and had no way back)
+  print(id) {
+    this.unprint();
+    const f = document.createElement('iframe');
+    f.className = 'print-frame';
+    f.setAttribute('aria-hidden', 'true');
+    f.src = `/s/${encodeURIComponent(id)}?print=1&embed=1`;
+    document.body.appendChild(f);
+    this.printer = f;
+  },
+  unprint() {
+    if (this.printer) { this.printer.remove(); this.printer = null; }
   },
   close() {
     if (this.el.hidden) return;
     this.el.hidden = true;
     this.frame.src = 'about:blank';
+    this.unprint();
   },
 };
 session.onDone = (id) => report.open(id);
 window.addEventListener('message', (e) => {
-  if (e.origin === location.origin && e.data?.type === 'cardioview-report' && e.data.action === 'back') { report.close(); sendWs({ type: 'session', action: 'dismiss' }); }
+  if (e.origin !== location.origin || e.data?.type !== 'cardioview-report') return;
+  if (e.data.action === 'back') { report.close(); sendWs({ type: 'session', action: 'dismiss' }); }
+  if (e.data.action === 'printed') report.unprint();   // the print dialog closed, saved or not
 });
 
 // Exercise needs the real strap, streaming, with a signal
@@ -398,13 +416,34 @@ for (const b of document.querySelectorAll('.rhythm-tray button')) {
 // simulator's recipe and switches this viewer's demo to it; the recipe is kept as the last choice,
 // so a reconnect brings the same heart back without asking again.
 const describeUi = {
-  el: $('describe'), panel: $('gemini'), tray: $('rhythm-tray'), text: $('describe-text'), go: $('describe-go'), note: $('describe-note'),
-  open() { this.tray.hidden = true; this.panel.hidden = false; this.text.focus(); },   // the panel takes the tray's place
-  close() { this.panel.hidden = true; this.tray.hidden = false; this.say(''); this.panel.classList.remove('busy'); },
+  el: $('describe'), panel: $('gemini'), tray: $('rhythm-tray'), rate: document.querySelector('.instrument.rate'), text: $('describe-text'), go: $('describe-go'), note: $('describe-note'),
+  open() { this.tray.hidden = true; this.panel.hidden = false; this.rate.classList.add('gemini-open'); this.text.focus(); },   // the panel takes the tray's place; the status line above goes quiet
+  close() { this.panel.hidden = true; this.tray.hidden = false; this.rate.classList.remove('gemini-open'); this.say(''); this.panel.classList.remove('busy'); },
   busy(on) { this.panel.classList.toggle('busy', on); setAttr(this.go, 'aria-disabled', on); },
-  say(text) { this.note.textContent = text; this.note.hidden = !text; },
+  // the note under the box: the sparkle, the simulated heart's name in Gemini's gradient, then the words
+  say(text, name = '') {
+    const n = this.note;
+    n.textContent = '';
+    n.hidden = !text;
+    if (!text) return;
+    const mark = document.createElement('span');
+    mark.className = 'note-mark';
+    mark.innerHTML = SPARKLE;
+    n.appendChild(mark);
+    if (name) {
+      const b = document.createElement('b');
+      b.className = 'note-name';
+      b.textContent = `Simulated ${name}`;
+      n.appendChild(b);
+    }
+    const t = document.createElement('span');
+    t.className = 'note-text';
+    t.textContent = text;
+    n.appendChild(t);
+  },
 };
-$('gemini-back').addEventListener('click', () => { describeUi.panel.hidden = true; describeUi.tray.hidden = false; });   // the rhythm playing stays
+const SPARKLE = '<img src="assets/gemini-mark.svg" alt="">';   // the Gemini mark (frontend/assets/gemini-mark.svg)
+$('gemini-back').addEventListener('click', () => { describeUi.panel.hidden = true; describeUi.tray.hidden = false; describeUi.rate.classList.remove('gemini-open'); });   // the rhythm playing stays
 describeUi.el.addEventListener('submit', async (e) => {
   e.preventDefault();
   if (session.busy()) { session.flash('Stop the session first'); return; }
@@ -417,13 +456,12 @@ describeUi.el.addEventListener('submit', async (e) => {
     const data = await res.json().catch(() => ({}));
     if (data.ok) {
       lastChoice = { type: 'rhythm', name: 'custom', recipe: data.recipe };
-      describeUi.say(`Simulated ${data.name.toLowerCase()}. ${data.summary}`);
+      describeUi.say(data.summary, data.name.toLowerCase());
     } else describeUi.say(data.reply || 'Gemini did not answer, try again');
   } catch { describeUi.say('Gemini heart needs an internet connection'); }
   describeUi.busy(false);
 });
 
-initChat();
 
 const opacity = $('opacity');
 opacity.addEventListener('input', () => heart.setOpacity(Number(opacity.value) / 100));

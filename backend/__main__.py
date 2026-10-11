@@ -23,10 +23,10 @@ DATA = Path(__file__).resolve().parent.parent / "data"
 
 
 def demo_factory(spec: str | None, bpm: int, invert: bool):
-    """The demo source: a CSV path, "sim", or by default the first recording in data/."""
+    """The demo source: a CSV path, "sim", or by default the simulated normal rhythm (Thomas,
+    2026-10-10 evening: the public demo must not play his recording)."""
     if spec is None:
-        fixtures = sorted(p for p in DATA.glob("h10_ecg_*.csv") if not p.stem.endswith("_raw"))
-        spec = str(fixtures[0]) if fixtures else "sim"
+        return lambda: RhythmSource("sinus", invert=invert, preroll_s=PREROLL_S)
     if spec == "sim":
         return lambda: SimSource(bpm=bpm, invert=invert, preroll_s=PREROLL_S)
     return lambda: ReplaySource(spec, invert=invert, preroll_s=PREROLL_S)
@@ -41,7 +41,7 @@ def parse_keep_until(value: str | None) -> datetime | None:
 
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(prog="python -m backend", description="CardioView server")
-    ap.add_argument("--source", default=None, help="the demo source every viewer starts on: sim or a CSV path with time_s,ecg_uv (default: the first recording in data/, else sim)")
+    ap.add_argument("--source", default=None, help="the demo source every viewer starts on: sim, or a CSV path with time_s,ecg_uv such as data/h10_ecg_thomas.csv (default: the simulated normal rhythm)")
     ap.add_argument("--bpm", type=int, default=72, help="simulated heart rate")
     ap.add_argument("--invert", action="store_true", help="flip every strap signal (a strap worn upside down)")
     ap.add_argument("--host", default="0.0.0.0")
@@ -60,7 +60,7 @@ def main(argv: list[str] | None = None) -> None:
     app = create_app(factories, "demo", keep_until=parse_keep_until(args.keep_until), public_host=args.public_host,
                      port=args.port, cloud=cloud, base_url=os.environ.get("CARDIOVIEW_BASE_URL") or None, invert=args.invert,
                      pattern=None if args.no_pattern else PatternModel())
-    print(f"CardioView: demo {args.source or 'first recording'}; each viewer connects their own strap. Open http://localhost:{args.port}", flush=True)
+    print(f"CardioView: demo {args.source or 'normal rhythm'}; each viewer connects their own strap. Open http://localhost:{args.port}", flush=True)
     if cloud is not None:
         print(f"Saved sessions publish to {cloud.public_url}", flush=True)
     uvicorn.run(app, host=args.host, port=args.port, loop="asyncio", ws="auto", log_level="warning")
