@@ -102,26 +102,27 @@ body.screen #delete { display: none; }
    across the top of the first page, then the strips at the true medical scale, 25 mm/s and
    10 mm/mV, 10 s a row, as many pages as the ECG needs */
 @page { size: A4 landscape; margin: 8mm 10mm; }
-body.print, body.print.screen { height: auto; overflow: visible; display: block; font-size: 12px; }
+body.print, body.print.screen { height: auto; overflow: visible; display: block; font-size: 13px; }
 body.print .top { position: static; flex: none; padding: 0 0 8px; border-bottom-width: 2px; }
-body.print .brand { font-size: 17px; } body.print .brand-mark { height: 9mm; }
-body.print .meta { font-size: 10px; }
+body.print .brand { font-size: 21px; } body.print .brand-mark { height: 11mm; }
+body.print .meta { font-size: 12px; }
 body.print .sheet { display: block; }
-body.print .band { display: grid; grid-template-columns: 2fr 1.35fr 1.3fr 38mm; height: 50mm; border-bottom: 2px solid var(--line-2); }
+body.print .band { display: grid; grid-template-columns: 2fr 1.35fr 1.3fr 42mm; height: 64mm; border-bottom: 2px solid var(--line-2); }
 body.print .box { display: flex; padding: 6px 10px 6px 0; border: 0; border-left: 2px solid var(--line-2); }
 body.print .box:first-child { border-left: 0; } body.print .box + .box { padding-left: 10px; }
-body.print h2 { font-size: 10px; margin-bottom: 4px; }
+body.print h2 { font-size: 13px; margin-bottom: 6px; }
 body.print .chart { flex: 1 1 0; min-height: 0; height: 0; }
-body.print .small { font-size: 9.5px; }
-body.print .stats { gap: 6px 10px; } body.print .stats b { font-size: 20px; } body.print .stats span { font-size: 8px; }
+body.print .small { font-size: 11.5px; }
+body.print .stats { gap: 8px 12px; } body.print .stats b { font-size: 30px; } body.print .stats span { font-size: 10px; }
 body.print .take { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 6px 0 6px 10px; }
-body.print .take img { width: 30mm; height: 30mm; border: 0; } body.print .take p { margin: 0; font-size: 9.5px; }
+body.print .take img { width: 38mm; height: 38mm; border: 0; } body.print .take p { margin: 0; font-size: 11.5px; }
 body.print .strips-box { padding: 6px 0 0; border: 0; }
-body.print .strips-box h2 { font-size: 10px; }
+body.print .strips-box h2 { font-size: 13px; }
 body.print .paper { overflow: visible; background: none; }
-body.print .strip { width: 250mm; height: 26mm; break-inside: avoid; }
-body.print .foot { padding: 6px 0 0; font-size: 9.5px; }
-body.print .back, body.print #delete { display: none !important; }
+body.print .strip { width: 250mm; height: 30mm; break-inside: avoid; }
+body.print .foot { padding: 8px 0 0; font-size: 11px; }
+body.print #delete { display: none !important; }
 @media print {
   body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .back, #delete { display: none !important; }
 }

@@ -77,21 +77,40 @@ const strapPanel = { el: $('strap-panel'), note: $('strap-note'), tray: $('strap
 // The session report opens in an overlay over the live view (an iframe of the summary page in
 // embed mode), so the app never reloads: Back or three idle minutes in the report close it.
 const report = {
-  el: $('report'), frame: $('report-frame'),
+  el: $('report'), frame: $('report-frame'), printer: null,
   open(id, print = false) {
-    this.frame.src = `/s/${encodeURIComponent(id)}?screen=1&embed=1${print ? '&print=1' : ''}`;
+    this.frame.src = `/s/${encodeURIComponent(id)}?screen=1&embed=1`;
     this.el.hidden = false;
     this.frame.focus();
+    if (print) this.print(id);
+  },
+  // the PDF prints from a second, unseen frame laid out as the paper document (summary.html with
+  // print=1 calls window.print itself), so the overlay keeps the screen report and its Back
+  // (Thomas, 2026-10-10 evening: the paper layout on screen was tiny, sprawling and had no way back)
+  print(id) {
+    this.unprint();
+    const f = document.createElement('iframe');
+    f.className = 'print-frame';
+    f.setAttribute('aria-hidden', 'true');
+    f.src = `/s/${encodeURIComponent(id)}?print=1&embed=1`;
+    document.body.appendChild(f);
+    this.printer = f;
+  },
+  unprint() {
+    if (this.printer) { this.printer.remove(); this.printer = null; }
   },
   close() {
     if (this.el.hidden) return;
     this.el.hidden = true;
     this.frame.src = 'about:blank';
+    this.unprint();
   },
 };
 session.onDone = (id) => report.open(id);
 window.addEventListener('message', (e) => {
-  if (e.origin === location.origin && e.data?.type === 'cardioview-report' && e.data.action === 'back') { report.close(); sendWs({ type: 'session', action: 'dismiss' }); }
+  if (e.origin !== location.origin || e.data?.type !== 'cardioview-report') return;
+  if (e.data.action === 'back') { report.close(); sendWs({ type: 'session', action: 'dismiss' }); }
+  if (e.data.action === 'printed') report.unprint();   // the print dialog closed, saved or not
 });
 
 // Exercise needs the real strap, streaming, with a signal
