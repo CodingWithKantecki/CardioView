@@ -229,9 +229,8 @@ body.lost .bpm { opacity: 0.35; }
 .rhythm-tray button.gemini-cell:hover::before { animation-duration: 2s; }
 .gemini-cell .gemini-mark { width: clamp(15px, 1.1vw, 22px); height: clamp(15px, 1.1vw, 22px); }
 .gemini-cell .gemini-text { background: var(--gemini); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.rhythm-tray button.gemini-cell[aria-pressed="true"] { background: var(--gemini); }
-.rhythm-tray button.gemini-cell[aria-pressed="true"]::before { display: none; }
-.rhythm-tray button.gemini-cell[aria-pressed="true"] .gemini-text { background: none; color: #FFFFFF; }
+/* pressed, the face goes white like any other cell, the mark and the gradient name stay as they are (a gradient fill looked bad, Thomas, 2026-10-10 evening) */
+.rhythm-tray button.gemini-cell[aria-pressed="true"] { background: var(--accent); }
 /* five sparkles behind the panel, each on its own beat */
 .gemini-stars { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
 .gemini-stars svg { position: absolute; width: 10px; height: 10px; opacity: 0; animation: gemini-twinkle 2.8s ease-in-out infinite; }
@@ -262,7 +261,7 @@ body.lost .bpm { opacity: 0.35; }
 .rhythm-tray button.gemini-cell.metal { background: transparent; }
 .rhythm-tray button.gemini-cell.metal::before { display: none; }
 .rhythm-tray button.gemini-cell.metal::after { content: ""; position: absolute; inset: 3px; z-index: 0; background: var(--card); }
-.rhythm-tray button.gemini-cell.metal[aria-pressed="true"]::after { inset: 0; background: var(--gemini); }
+.rhythm-tray button.gemini-cell.metal[aria-pressed="true"]::after { background: var(--accent); }   /* the metal rim stays around the white face */
 
 @media (max-width: 760px) {
   :root { --gutter: 16px; }
